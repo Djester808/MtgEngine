@@ -45,6 +45,15 @@ public sealed partial class EffectInterpreter
                         return Yes(answered) ? Inside(run, key, may.Do) : run;
                     if (may.StoreChoiceAs is null && run.Context.Chosen.TryGetValue("may:" + run.Path, out var inline))
                         return Yes(inline) ? Inside(run, "may:" + run.Path, may.Do) : run;
+                    if (OptionalSearchProhibited(run, may.Do))
+                    {
+                        var declined = may.StoreChoiceAs ?? "may:" + run.Path;
+                        return run with
+                        {
+                            Context = run.Context with { Chosen = run.Context.Chosen.SetItem(declined, "no") },
+                            Marks = (run.Marks ?? ImmutableDictionary<string, string>.Empty).SetItem(AnsweredPrefix + declined, "no"),
+                        };
+                    }
                     return Ask(run, who, "may", "You may do this.", YesNo, 1, 1, may.StoreChoiceAs ?? "may:" + run.Path);
                 }
 
@@ -103,7 +112,11 @@ public sealed partial class EffectInterpreter
                     var index = 0;
                     foreach (var player in over)
                     {
-                        run = run with { Context = run.Context with { TriggeringPlayer = player } };
+                        // Forgotten between players, exactly as ForEach forgets between objects:
+                        // a keyed Choose answered by the first player was still remembered for the
+                        // second, so the second was never asked and the first player's choice was
+                        // acted on once per player.
+                        run = Forgetting(run with { Context = run.Context with { TriggeringPlayer = player } }, index, each.Do);
                         run = Child(run, index++, each.Do);
                         if (run.Halted)
                             break;
@@ -112,12 +125,24 @@ public sealed partial class EffectInterpreter
                     return Unmark(run) with { Context = run.Context with { TriggeringPlayer = outer.TriggeringPlayer } };
                 }
 
+            // CR 101.4, as for ForEach above: the count is worked out ONCE and remembered. It was
+            // re-evaluated on every walk, so a question raised in the third iteration came back to
+            // a loop whose Times now read a smaller number - the walk took a shorter path, the
+            // answer's index was never reached, and that iteration and every one after it were
+            // silently dropped.
             case Repeat repeat:
                 {
-                    var times = Math.Max(0, Number(run, repeat.Times));
+                    var times = Marked(run) is [var remembered, ..]
+                        ? remembered
+                        : Math.Max(0, Number(run, repeat.Times));
+                    run = Mark(run, [times]);
                     for (var i = 0; i < times && !run.Halted; i++)
+                    {
+                        run = Forgetting(run, i, repeat.Do);
                         run = Child(run, i, repeat.Do);
-                    return run;
+                    }
+
+                    return Unmark(run);
                 }
 
             // CR 700.2: the modes were chosen as the spell was cast; resolution just runs them.

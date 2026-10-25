@@ -13,6 +13,7 @@ namespace MtgEngine.Rules.Casting;
 [RuleRef("601.2c")]
 public sealed partial class CastingSystem
 {
+
     /// <summary>
     /// CR 601.2c: what each cost of this command still needs chosen — the objects that could
     /// legally pay it and how many it takes, in the order the costs are written. The legal objects
@@ -55,8 +56,9 @@ public sealed partial class CastingSystem
     {
         var card = Castable(state, cast.Card, cast.Player);
         var chars = characteristics.Of(state, card.Id);
-        var plan = CastPlan.For(state, card, cast, query, instructed: true);
-        return Asked(state, new CostContext(card, chars, cast.Player, cast.X, zones, query, Choices: cast.CostChoices), plan.NonMana);
+        var plan = CastPlan.For(state, card, cast, query, characteristics, instructed: true);
+        return Asked(state, new CostContext(card, chars, cast.Player, cast.X, zones, query,
+            Chosen: new ChosenObjects(cast.CostObjects ?? []), Choices: cast.CostChoices), plan.NonMana);
     }
 
     /// <summary>The ability's own costs, CR 602.2a; an index that names no activated ability asks nothing.</summary>
@@ -68,7 +70,8 @@ public sealed partial class CastingSystem
         return activate.AbilityIndex >= 0
             && activate.AbilityIndex < chars.Abilities.Count
             && chars.Abilities[activate.AbilityIndex] is ActivatedAbility ability
-            ? Asked(state, new CostContext(source, chars, activate.Player, activate.X, zones, query, Choices: activate.CostChoices), ability.Costs)
+            ? Asked(state, new CostContext(source, chars, activate.Player, activate.X, zones, query,
+                Chosen: new ChosenObjects(activate.CostObjects ?? []), Choices: activate.CostChoices), ability.Costs)
             : ImmutableList<CostChoice>.Empty;
     }
 

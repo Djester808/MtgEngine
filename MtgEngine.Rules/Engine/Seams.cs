@@ -18,6 +18,14 @@ public interface ISubsystem
 /// <summary>What a subsystem hands back: the new state and the events that made it.</summary>
 public sealed record Outcome(GameState State, ImmutableList<GameEvent> Events)
 {
+    /// <summary>
+    /// CR 608.2b: this spell did not resolve, because every target it named was illegal as it
+    /// tried to. It still leaves the stack, but WHERE it goes differs - CR 702.26a returns a
+    /// buyback spell to its owner's hand only "as it resolves", so one that fizzled belongs in
+    /// the graveyard. Not part of the log: it is a fact about this call, not an event.
+    /// </summary>
+    public bool Fizzled { get; init; }
+
     public static Outcome Unchanged(GameState state) => new(state, []);
 
     public Outcome Then(Func<GameState, Outcome> next)
@@ -56,7 +64,7 @@ public interface IZoneSystem : ISubsystem
     /// creature enters" trigger see the 2/2 with no name rather than the card's own face.
     /// </summary>
     [RuleRef("701.40a")]
-    Outcome Move(GameState state, ObjectId what, ZoneKey to, Placement where, bool tapped, PlayerId? controller, int? faceIndex, bool faceDown) =>
+    Outcome Move(GameState state, ObjectId what, ZoneKey to, Placement where, bool tapped, PlayerId? controller, int? faceIndex, bool faceDown, IEnumerable<string>? usedReplacements = null) =>
         faceDown
             ? throw new NotImplementedException("Moving an object onto the battlefield face down is not built in this zone system.")
             : Move(state, what, to, where, tapped, controller, faceIndex);
@@ -89,14 +97,37 @@ public interface IZoneSystem : ISubsystem
         return outcome;
     }
 
+    /// <summary>Move a batch within an existing replacement's inherited history.</summary>
+    Outcome MoveAll(GameState state, IReadOnlyList<MoveRequest> moves, IEnumerable<string>? usedReplacements) =>
+        usedReplacements?.Any() == true
+            ? throw new NotImplementedException("This zone system cannot preserve inherited movement replacement history.")
+            : MoveAll(state, moves);
+
+    /// <summary>Resume proposals already read from the original batch snapshot.</summary>
+    Outcome ResumeMoveBatch(GameState state, ImmutableList<ObjectMoved> moves) =>
+        throw new NotImplementedException("This zone system cannot resume a move batch.");
+
+    Outcome ResumeMoveBatch(GameState state, ImmutableList<ObjectMoved> moves, string? snapshot,
+        ImmutableDictionary<int, ImmutableHashSet<string>>? inherited = null) =>
+        ResumeMoveBatch(state, moves);
+
+    /// <summary>One member of a coordinated batch, evaluated against its saved pre-move board.</summary>
+    Outcome MoveInBatch(GameState state, MoveRequest move, string snapshot, IEnumerable<string>? usedReplacements = null)
+    {
+        if (usedReplacements?.Any() == true)
+            throw new NotImplementedException("This zone system cannot preserve inherited movement replacement history.");
+        var evaluated = MoveAll(Zones.ZoneMoveSnapshot.Evaluate(snapshot, state), [move]);
+        return new Outcome(GameReducer.Apply(state, evaluated.Events), evaluated.Events);
+    }
+
     /// <summary>CR 707.12: a copy of an object created in the zone the object is in, owned by <paramref name="owner"/>; the copy is the last <c>ObjectCreated</c> in the outcome. CR 704.5e removes it from any zone but the stack or the battlefield.</summary>
     [RuleRef("707.12")]
     Outcome CopyInPlace(GameState state, ObjectId original, PlayerId owner) =>
         throw new NotImplementedException("CopyInPlace is not built in this zone system: wave 10.");
 
-    Outcome Draw(GameState state, PlayerId player, int count);
+    Outcome Draw(GameState state, PlayerId player, int count, IEnumerable<string>? usedReplacements = null);
 
-    Outcome Shuffle(GameState state, PlayerId player);
+    Outcome Shuffle(GameState state, PlayerId player, IEnumerable<string>? usedReplacements = null);
 
     Outcome CreateToken(GameState state, TokenSpec token, PlayerId controller, bool tapped, bool attacking);
 
@@ -180,8 +211,13 @@ public interface ICastingSystem : ISubsystem
     /// stopped to ask (CR 101.4) leaves its object on the stack, and the choice system calls this
     /// when the answer finished the walk.
     /// </summary>
+    /// <param name="resolved">
+    /// CR 608.2b: false when the spell did not resolve because every target it named was illegal.
+    /// It still leaves the stack, but a buyback spell returns to its owner's hand only "as it
+    /// resolves" (CR 702.26a), so a fizzled one goes to the graveyard instead.
+    /// </param>
     [RuleRef("608.2m")]
-    Outcome FinishResolving(GameState state, ObjectId stackObject) =>
+    Outcome FinishResolving(GameState state, ObjectId stackObject, bool resolved = true) =>
         throw new NotImplementedException("FinishResolving is not built in this casting system.");
 
     /// <summary>Whether the command would be legal now, with the rule when it would not.</summary>
@@ -266,6 +302,11 @@ public interface ITriggerSystem : ISubsystem
 {
     /// <summary>Find abilities that triggered on these events and put them on the stack in APNAP order, CR 603.3.</summary>
     Outcome Collect(GameState state, IReadOnlyList<GameEvent> since);
+
+    ImmutableList<Triggers.PendingTrigger> Detect(GameState state, IReadOnlyList<GameEvent> since) => [];
+
+    Outcome Collect(GameState state, IReadOnlyList<GameEvent> since, ImmutableList<Triggers.PendingTrigger> pending) =>
+        Collect(state, since);
 }
 
 /// <summary>The layer system, CR 613. Characteristics are computed, never stored; controller included.</summary>
@@ -300,7 +341,8 @@ public sealed record Characteristics(
     string? ManaCost,
     ImmutableList<Ability> Abilities,
     PlayerId Controller,
-    bool EveryCreatureType = false)
+    bool EveryCreatureType = false,
+    ImmutableList<AbilityOrigin?>? AbilityOrigins = null)
 {
     public bool Has(KeywordKind keyword) => Abilities.OfType<KeywordAbility>().Any(k => k.Keyword == keyword);
 }
@@ -375,6 +417,8 @@ public sealed record EffectContext(
 public interface IQuery : ISubsystem
 {
     bool Matches(GameState state, ObjectFilter filter, ObjectId candidate, EffectContext context);
+    bool MatchesObserved(GameState state, ObjectFilter filter, GameObject card, Characteristics appearance, EffectContext context) =>
+        throw new NotSupportedException("This query cannot match observed characteristics.");
 
     bool Holds(GameState state, Condition condition, EffectContext context);
 
@@ -396,7 +440,6 @@ public interface IQuery : ISubsystem
         throw new NotImplementedException("PlayerMatches is not built in this query: wave 10, agent E0e.");
 }
 
-/// <summary>Pending questions and their answers, resumed by kind, never by continuation.</summary>
 /// <summary>
 /// An answered question handed back to whoever asked it: the kind it asked under, who answered,
 /// the options they chose (the object or player behind each one travels with it) and the
@@ -407,7 +450,9 @@ public sealed record Resumption(
     string Kind,
     PlayerId Player,
     ImmutableList<ChoiceOption> Chosen,
-    ChoiceContext Context);
+    ChoiceContext Context)
+{
+}
 
 /// <summary>
 /// The seam a choice resumes through when the question came from a card rather than from a rule

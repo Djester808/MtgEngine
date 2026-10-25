@@ -360,7 +360,7 @@ public sealed class CombatTests
 
         // CR 510.1b and 903.10a.
         Assert.Equal(17, t.Life(t.B));
-        Assert.Equal(3, t.State.Player(t.B).CommanderDamage[general]);
+        Assert.Equal(3, t.State.Player(t.B).CommanderDamage[CommanderKeys.Commander(t.State, general)]);
         Assert.Contains(events.OfType<DamageDealt>(), e => e.FromCommander && e.Combat && e.ToPlayer == t.B);
     }
 

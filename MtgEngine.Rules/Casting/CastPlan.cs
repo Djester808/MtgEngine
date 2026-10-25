@@ -25,7 +25,16 @@ internal sealed partial record CastPlan(
     ImmutableList<ManaSymbol> Mana,
     ImmutableList<string> OptionalCostsPaid,
     ImmutableList<Cost> NonMana,
-    PlayerId? GiftPromisedTo = null)
+    PlayerId? GiftPromisedTo = null,
+
+    /// <summary>
+    /// CR 116.2a: the permission that let this card be cast from where it was, when a permission
+    /// is what did. Null when the card was cast from hand, on an adventure, under an announced
+    /// alternative cost, or on the instructed road (CR 608.2g) - all of which reach the zone
+    /// without one. Recording a permission that merely EXISTS for the zone would spend a
+    /// once-per-turn one on a cast it did not allow.
+    /// </summary>
+    int? Permission = null, StaticPlayPermission? StaticPermission = null)
 {
     /// <summary>
     /// How a spell that paid life for its mana value (CR 118.9, a permission's
@@ -61,7 +70,7 @@ internal sealed partial record CastPlan(
     /// says so. False for every cast a player commands.
     /// </param>
     [RuleRef("601.3b")]
-    public static CastPlan For(GameState state, GameObject card, CastSpell command, IQuery query, bool instructed = false)
+    public static CastPlan For(GameState state, GameObject card, CastSpell command, IQuery query, ICharacteristics characteristics, bool instructed = false)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(card);
@@ -89,11 +98,20 @@ internal sealed partial record CastPlan(
         // CR 601.2b: an additional cost printed on the spell is announced with it and paid along
         // with the mana cost, whether or not the caster wants to — it is not optional.
         extra.AddRange(printed.AdditionalCosts ?? []);
-        var mana = Alternative(state, card, printed, command, query, paid, extra, instructed) ?? ManaSymbols.Parse(printed.ManaCost);
+        var mana = Alternative(state, card, printed, command, query, characteristics, paid, extra, instructed) ?? ManaSymbols.Parse(printed.ManaCost);
         mana = Additional(printed, command, paid, extra, mana);
         mana = Offered(state, card, command, query, paid, extra, mana);
+        // CR 903.8 and 601.2f: tax is additional even to alternative/free costs, before reductions.
+        if (CommanderRoad(card, command.Player) && state.CommandZoneCasts(card, command.Player) is > 0 and var casts)
+            mana = mana.Add(new ManaSymbol { Generic = checked(2 * casts) });
         mana = Shaped(state, printed, query, command.Player, mana);
-        return new CastPlan(chosen, printed, zone, mana, paid.ToImmutable(), extra.ToImmutable(), Gift(printed, command));
+        // The same four conditions the zone check above refuses on (CR 601.3): a permission is
+        // the road only when none of the other roads is.
+        var allowing = command.AlternativeCost is null && zone != CardZone.Hand && !OnAdventure(card) && !instructed && UsesZonePermission(state, card, command.Player, query, characteristics)
+            ? Allowing(state, card, command.Player, query, characteristics)
+            : null;
+
+        return new CastPlan(chosen, printed, zone, mana, paid.ToImmutable(), extra.ToImmutable(), Gift(printed, command), allowing?.Id, allowing?.Static);
     }
 
     /// <summary>
@@ -133,71 +151,9 @@ internal sealed partial record CastPlan(
     /// </para>
     /// </summary>
     [RuleRef("601.3a")]
-    internal static MayPlayFromZone? Permission(GameState state, GameObject card, PlayerId player, IQuery query)
-    {
-        ArgumentNullException.ThrowIfNull(state);
-        ArgumentNullException.ThrowIfNull(card);
-        ArgumentNullException.ThrowIfNull(query);
-        var context = CostPayment.Context(null, player, null);
-        foreach (var active in state.ActiveEffects)
-        {
-            if (active.Effect is not MayPlayFromZone permission)
-                continue;
-            if (permission.From != card.Zone.Zone)
-                continue;
-            if (permission.TopOfLibraryOnly && !IsTopOfLibrary(state, card))
-                continue;
-            if (permission.OncePerTurn && SpentThisTurn(state, permission, player))
-                continue;
-
-            // The cards the resolution named, or the filter a static permission carries; an effect
-            // that names neither is a permission for everything in that zone, which is what the
-            // record says when both are empty.
-            var names = active.AppliesTo.Contains(card.Id)
-                || (active.AppliesTo.IsEmpty && (permission.What is not { } what || query.Matches(state, what, card.Id, context)));
-            var whose = active.AppliesToPlayers.Contains(player)
-                || (active.AppliesToPlayers.IsEmpty && query.Players(state, permission.Who, context).Contains(player));
-            if (names && whose)
-                return permission;
-        }
-
-        return null;
-    }
-
-    /// <summary>
-    /// CR 116.2a's limit written on a permission: "once during each of your turns, you may cast …".
-    /// The count is of the casts <em>this permission allowed</em> — never of casts of that card, and
-    /// never once per turn cycle — so a spent permission stops applying for the rest of the turn and
-    /// every reader of <see cref="Permission"/> (the cast road and the land road alike) sees the
-    /// same answer without a second spelling of the limit.
-    /// <para>
-    /// The turn's record (<c>TurnHistory.SpellsCast</c>) says who cast each spell and the zone it
-    /// was cast from, and that pair is the closest thing to the permission's identity the state
-    /// keeps: a cast this player made this turn out of the permission's zone is counted as the one
-    /// it allowed. It is spent only when the cast was actually made, because the record is written
-    /// by the <c>SpellCast</c> event and a refused announcement emits none. Two permissions over
-    /// the same zone therefore share one count, and a land played under one is not counted at all
-    /// (a land play is not a cast and the state records no zone for it) — both want a permission id
-    /// on the record, which is a <c>State/**</c> ask in <c>seam-requests/E3r.md</c>.
-    /// </para>
-    /// </summary>
-    [RuleRef("116.2a")]
-    private static bool SpentThisTurn(GameState state, MayPlayFromZone permission, PlayerId player) =>
-        state.History.SpellsCast.Any(record => record.By == player && record.From == permission.From);
-
-    /// <summary>
-    /// CR 601.3a's "from the top of your library": the card is in a library and is the first card
-    /// of it, libraries being kept top-first in <see cref="GameState.Zones"/> (CR 401.2 forbids
-    /// reordering one, so the order the state keeps is the order the permission reads).
-    /// </summary>
-    [RuleRef("601.3a")]
-    private static bool IsTopOfLibrary(GameState state, GameObject card)
-    {
-        if (card.Zone.Zone != CardZone.Library)
-            return false;
-        var library = state.In(card.Zone);
-        return library.Count > 0 && library[0] == card.Id;
-    }
+    /// <summary>The permission that allows this, with the id the turn's records key it by.</summary>
+    internal static ZonePlayPermissions.Permission? Allowing(GameState state, GameObject card, PlayerId player, IQuery query, ICharacteristics characteristics) =>
+        ZonePlayPermissions.Find(state, card, player, query, characteristics);
 
     /// <summary>CR 715.3d: the card exiled on an adventure is the one card its owner may cast from exile.</summary>
     [RuleRef("715.3d")]
@@ -218,10 +174,10 @@ internal sealed partial record CastPlan(
     /// </para>
     /// </summary>
     [RuleRef("118.9")]
-    private static ImmutableList<ManaSymbol>? Alternative(GameState state, GameObject card, Face printed, CastSpell command, IQuery query, ImmutableList<string>.Builder paid, ImmutableList<Cost>.Builder extra, bool instructed)
+    private static ImmutableList<ManaSymbol>? Alternative(GameState state, GameObject card, Face printed, CastSpell command, IQuery query, ICharacteristics characteristics, ImmutableList<string>.Builder paid, ImmutableList<Cost>.Builder extra, bool instructed)
     {
         var zone = card.Zone.Zone;
-        var permission = Permission(state, card, command.Player, query);
+        var permission = Allowing(state, card, command.Player, query, characteristics)?.Effect;
 
         // CR 118.9 with 601.2b: the printed alternative costs of the chosen face are offered as the
         // spell is announced, and the caster takes at most one (CR 118.9c). It is read before any of
@@ -238,7 +194,7 @@ internal sealed partial record CastPlan(
         // the thing that lets a card out of a zone it may not be cast from. An announced
         // alternative cost is checked against the zone its own keyword names instead, below
         // (CR 702.34a: flashback is paid from a graveyard and from nowhere else).
-        if (command.AlternativeCost is null && zone != CardZone.Hand && !OnAdventure(card) && permission is null && !instructed)
+        if (command.AlternativeCost is null && zone != CardZone.Hand && !OnAdventure(card) && permission is null && !instructed && !CommanderRoad(card, command.Player))
             throw new RefusedException("A card in that zone cannot be cast without permission.", "601.3");
 
         // CR 118.8: "…by sacrificing a land in addition to paying its other costs" is a cost the
@@ -387,12 +343,18 @@ internal sealed partial record CastPlan(
     [RuleRef("702.40a")]
     private static int Affinity(GameState state, KeywordAbility keyword, IQuery query, PlayerId player)
     {
-        var filter = keyword.Of ?? throw new RefusedException("An affinity with nothing to count cannot be applied.", "702.40a");
+        var printed = keyword.Of ?? throw new RefusedException("An affinity with nothing to count cannot be applied.", "702.40a");
+
+        // "its controller controls" is the rule's half, so it is asked of the layer system
+        // through the filter (CR 613.1b) rather than off the object's stored initial
+        // controller, which a ControlBy effect leaves behind: a permanent gained from an
+        // opponent was not counted, and one lost to them still was.
+        var filter = printed with { ControlledBy = new You() };
         var context = CostPayment.Context(null, player, null);
         var count = 0;
         foreach (var obj in state.Objects.Values)
         {
-            if (obj.Zone.Zone != CardZone.Battlefield || obj.InitialController != player)
+            if (obj.Zone.Zone != CardZone.Battlefield)
                 continue;
             if (query.Matches(state, filter, obj.Id, context))
                 count++;

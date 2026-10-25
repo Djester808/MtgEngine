@@ -22,12 +22,14 @@ public sealed class UsersController : ControllerBase
     public UsersController(IProfileService profiles) => _profiles = profiles;
 
     /// <summary>Lists community members, most active first.</summary>
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     [HttpGet]
     public async Task<ActionResult<PlayerSummaryDto[]>> GetPlayers(
         [FromQuery] int limit = 100, CancellationToken ct = default) =>
         Ok(await _profiles.GetPlayersAsync(limit, ct));
 
     /// <summary>Public profile: who they are, their stats, decks and recent comments.</summary>
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     [HttpGet("{username}")]
     public async Task<ActionResult<UserProfileDto>> GetProfile(
         string username, CancellationToken ct = default) =>

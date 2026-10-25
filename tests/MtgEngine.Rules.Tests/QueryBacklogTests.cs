@@ -379,7 +379,7 @@ public sealed class QueryBacklogTests
         var game = new Game(Subsystems.Wave2(), new QueryBacklogDefinitions());
         var deck = Enumerable.Repeat(QueryBacklogDefinitions.SoilId, 12).ToImmutableList();
         var state = game.Create(new GameSetup(
-            [new PlayerStart("One", deck, []), new PlayerStart("Two", deck, [])],
+            [new PlayerStart("One", [.. deck], []), new PlayerStart("Two", [.. deck], [])],
             Seed: 11,
             StartingLife: 20,
             Format: "test")).State;

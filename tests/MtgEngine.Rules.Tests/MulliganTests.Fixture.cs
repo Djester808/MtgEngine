@@ -35,7 +35,7 @@ internal sealed class MulliganTable
 
         _game = new Game(subsystems, new MulliganDefinitions());
         var created = _game.Create(new GameSetup(
-            [.. Enumerable.Range(0, players).Select(i => new PlayerStart($"Seat {i}", Deck(), []))],
+            [.. Enumerable.Range(0, players).Select(i => new PlayerStart($"Seat {i}", [.. Deck()], []))],
             Seed: seed,
             StartingLife: 20,
             Format: format,
@@ -75,6 +75,13 @@ internal sealed class MulliganTable
     internal ImmutableList<GameEvent> Keep() => Answer(ChoiceKinds.Keep);
 
     internal ImmutableList<GameEvent> Mulligan() => Answer(ChoiceKinds.Mulligan);
+
+    internal void Concede(PlayerId player)
+    {
+        var applied = Assert.IsType<Applied>(_game.Apply(State, new Concede(player)));
+        State = applied.State;
+        Log.AddRange(applied.Events);
+    }
 
     /// <summary>Ten cards, so a mulligan has something to shuffle back into and redraw from.</summary>
     private static ImmutableList<string> Deck() =>

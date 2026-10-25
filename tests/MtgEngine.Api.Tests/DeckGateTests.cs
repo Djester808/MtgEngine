@@ -12,6 +12,7 @@ namespace MtgEngine.Api.Tests;
 /// because the failure they prevent is silent — a card that is only half translated does not
 /// crash, it plays a game slightly wrong and nobody at the table can tell which half was real.
 /// </remarks>
+[Trait("Scope", "Deck")]
 public sealed class DeckGateTests
 {
     /// <summary>A pool with made-up cards in it, so no test depends on the corpus being present.</summary>

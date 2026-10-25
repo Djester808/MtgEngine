@@ -29,6 +29,11 @@ internal sealed class CastingBacklogQuery : IQuery
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(filter);
+        ArgumentNullException.ThrowIfNull(context);
+        // CR 613.1b: the "you control" half. Without it a filter naming a controller matched
+        // everything, and a cost could be paid with an opponent's permanent.
+        if (filter.ControlledBy is not null && state.Objects[candidate].InitialController != context.Controller)
+            return false;
         var types = state.Objects[candidate].Face.Types.Types;
         return filter.Types is not { } wanted || (types & wanted) == wanted;
     }

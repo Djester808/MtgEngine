@@ -1,7 +1,9 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using MtgEngine.Api.Data;
 using MtgEngine.Domain.Models;
 
 namespace MtgEngine.Api.Services;
@@ -10,12 +12,15 @@ public sealed class TokenService
 {
     private readonly SymmetricSecurityKey _key;
 
-    public TokenService(IConfiguration config)
+    private readonly MtgEngineDbContext? _db;
+
+    public TokenService(IConfiguration config, MtgEngineDbContext? db = null)
     {
+        _db = db;
         _key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(SecretConfig.JwtSecret(config)));
     }
 
-    public string Generate(User user)
+    public string Generate(User user, Guid? sessionFamily = null)
     {
         var handler = new JwtSecurityTokenHandler();
         var descriptor = new SecurityTokenDescriptor
@@ -23,8 +28,10 @@ public sealed class TokenService
             Subject = new ClaimsIdentity([
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Name, user.Username),
+                new Claim("ver", user.TokenVersion.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                new Claim("session", sessionFamily?.ToString() ?? "legacy"),
             ]),
-            Expires = DateTime.UtcNow.AddDays(30),
+            Expires = sessionFamily.HasValue ? DateTime.UtcNow.AddMinutes(15) : DateTime.UtcNow.AddDays(30),
             SigningCredentials = new SigningCredentials(_key, SecurityAlgorithms.HmacSha256),
         };
         return handler.WriteToken(handler.CreateToken(descriptor));
@@ -69,7 +76,18 @@ public sealed class TokenService
         try
         {
             var principal = new JwtSecurityTokenHandler().ValidateToken(token, parameters, out _);
-            return Guid.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out userId);
+            if (!Guid.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out userId))
+                return false;
+            if (_db is null)
+                return true;
+            var id = userId;
+            var version = principal.FindFirstValue("ver") ?? "0";
+            var user = _db.Users.AsNoTracking().FirstOrDefault(u => u.Id == id);
+            if (user is null || version != user.TokenVersion.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                return false;
+            var family = principal.FindFirstValue("session");
+            return family is null or "legacy" || (Guid.TryParse(family, out var session) && _db.AccountSessions.Any(s =>
+                s.UserId == id && s.FamilyId == session && s.RevokedAt == null && s.ExpiresAt > DateTime.UtcNow));
         }
         catch (Exception ex) when (ex is SecurityTokenException or ArgumentException)
         {

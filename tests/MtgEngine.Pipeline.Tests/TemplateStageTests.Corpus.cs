@@ -76,7 +76,7 @@ public sealed class TemplateStageTestsCorpus(ITestOutputHelper output)
             if (card.IsFreeSlice)
             {
                 corpusFreeSlice++;
-                if (card.Faces.All(f => Templates.ParseTypeLine(f.TypeLine) is not null))
+                if (card.Faces.All(f => PrintedCardMapping.ParseTypeLine(f.TypeLine) is not null))
                     corpusFreeSliceRealCards++;
             }
 
@@ -107,7 +107,7 @@ public sealed class TemplateStageTestsCorpus(ITestOutputHelper output)
     {
         foreach (var face in card.Faces)
         {
-            if (Templates.ParseTypeLine(face.TypeLine) is null)
+            if (PrintedCardMapping.ParseTypeLine(face.TypeLine) is null)
             {
                 Count(typeLines, face.TypeLine);
                 return;

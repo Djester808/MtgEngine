@@ -1,0 +1,43 @@
+[
+  {
+    "Suite": "rules-audit",
+    "Total": 1339,
+    "Passed": 1339,
+    "Failed": 0,
+    "NotExecuted": 0,
+    "ResultFile": "rules-audit_net10.0_20261021174657.trx",
+    "Failures": []
+  },
+  {
+    "Suite": "MtgEngine.Cards.Tests",
+    "Total": 321,
+    "Passed": 321,
+    "Failed": 0,
+    "NotExecuted": 0,
+    "ResultFile": "MtgEngine.Cards.Tests_net10.0_20261021174727.trx",
+    "Failures": []
+  },
+  {
+    "Suite": "MtgEngine.Pipeline.Tests",
+    "Total": 322,
+    "Passed": 322,
+    "Failed": 0,
+    "NotExecuted": 0,
+    "ResultFile": "MtgEngine.Pipeline.Tests_net10.0_20261021174735.trx",
+    "Failures": []
+  },
+  {
+    "Suite": "MtgEngine.Api.Tests",
+    "Total": 699,
+    "Passed": 698,
+    "Failed": 1,
+    "NotExecuted": 0,
+    "ResultFile": "MtgEngine.Api.Tests_net10.0_20261021174744.trx",
+    "Failures": [
+      {
+        "Name": "MtgEngine.Api.Tests.AccountManagementTests.RegistrationRequiresTermsAcceptance",
+        "Message": "Assert.Throws() Failure: No exception was thrown\r\nExpected: typeof(MtgEngine.Api.Services.InvalidRequestException)"
+      }
+    ]
+  }
+]

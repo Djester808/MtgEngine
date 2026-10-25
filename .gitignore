@@ -73,3 +73,13 @@ trigger-audit-output.txt
 .agent/
 .agent-tmp/
 ready/
+
+# Local QA captures and test output; retain the harness source and research notes.
+*.trx
+/tools/TableQa/**/*.png
+/tools/TableQa/layout-acceptance-*/
+/tools/TableQa/library-payment-live-failure.html
+/prototypes/table/preview/
+/research/board-implementation/*.png
+/library-payment-qa-preview.json
+/library-payment-qa-snapshot.json

@@ -1,0 +1,15 @@
+Class <Module>
+Class Mtgo.Shared.Parser.Attributes.Properties.Resources
+Class Mtgo.Shared.Parser.Attributes.Helpers.MagicPropertyHelper
+Class WotC.MtGO.Client.Model.MagicServerColorsExtensions
+Class Mtgo.Shared.Parser.Attributes.Helpers.MagicPropertyHelper+<>c
+Class Mtgo.Shared.Parser.Attributes.Helpers.MagicPropertyHelper+<>c__DisplayClass34_0
+Class Mtgo.Shared.Parser.Attributes.Helpers.MagicPropertyHelper+<>c__DisplayClass35_0
+Class Mtgo.Shared.Parser.Attributes.Helpers.MagicPropertyHelper+<>c__DisplayClass50_0
+Class Mtgo.Shared.Parser.Attributes.Helpers.MagicPropertyHelper+<>c__DisplayClass51_0
+Class Mtgo.Shared.Parser.Attributes.Helpers.MagicPropertyHelper+<>c__DisplayClass52_0
+Class Mtgo.Shared.Parser.Attributes.Helpers.MagicPropertyHelper+<>c__DisplayClass53_0
+Class Mtgo.Shared.Parser.Attributes.Helpers.MagicPropertyHelper+<>c__DisplayClass54_0
+Class Mtgo.Shared.Parser.Attributes.Helpers.MagicPropertyHelper+<>c__DisplayClass55_0
+Class Mtgo.Shared.Parser.Attributes.Helpers.MagicPropertyHelper+<>c__DisplayClass76_0
+Class Mtgo.Shared.Parser.Attributes.Helpers.MagicPropertyHelper+<GetRangedMagicProperties>d__79

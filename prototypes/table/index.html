@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#111113" />
+    <title>Compleat · Multiplayer table</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="battlefield.css" />
+  </head>
+  <body>
+    <a class="skip" href="#table">Skip to table</a>
+    <header class="app-header">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">✦</span>
+        <div>
+          <h1>COMPLEAT</h1>
+          <p>MULTIPLAYER TABLE</p>
+        </div>
+      </div>
+      <div class="setup">
+        <label
+          >Players<select id="player-count">
+            <option value="2">2 players</option>
+            <option value="3">3 players</option>
+            <option value="4" selected>4 players</option>
+          </select></label
+        >
+        <label>Perspective<select id="perspective"></select></label>
+        <button id="density" class="quiet" aria-pressed="false">
+          Busy board
+        </button>
+        <button id="help" class="quiet">
+          Board guide <span aria-hidden="true">↗</span>
+        </button>
+        <button id="reset" class="quiet">Reset</button
+        ><button
+          data-arrange="open"
+          class="quiet settings-button"
+          aria-label="Board settings"
+          title="Board settings"
+        >
+          ⚙
+        </button>
+      </div>
+    </header>
+    <main>
+      <div class="session-bar">
+        <span class="session-title"
+          ><span class="live-dot"></span> Sample table
+          <span class="tag">PROTOTYPE</span></span
+        ><span id="topology"></span
+        ><button id="history" class="text-button">
+          Activity <span aria-hidden="true">↗</span>
+        </button>
+      </div>
+
+      <section class="turn-bar" aria-label="Turn and priority">
+        <div>
+          <span class="eyebrow">TURN <span id="turn-number">1</span></span
+          ><strong id="active-name"></strong>
+        </div>
+        <ol id="turn-order" aria-label="Player turn order"></ol>
+        <span id="priority-status" aria-live="polite"></span
+        ><button
+          id="pass-priority"
+          class="primary"
+          data-action="pass"
+          title="Decline to act. All players passing resolves the top spell or advances the step."
+          hidden
+        >
+          Pass priority →
+        </button>
+        <div class="phase">
+          <span class="eyebrow">EXPLORATION MODE</span
+          ><button
+            id="step-details"
+            class="text-button"
+            title="View all phases and steps"
+          >
+            <strong id="current-step"></strong> ▾
+          </button>
+        </div>
+        <button id="next-turn" class="quiet">
+          Skip to next turn <span aria-hidden="true">→</span>
+        </button>
+      </section>
+      <div class="mobile-focus">
+        <label>Opponent on board<select id="opponent-focus"></select></label>
+      </div>
+      <div class="table-with-stack">
+        <section
+          id="table"
+          class="table"
+          aria-label="Shared battlefield"
+        ></section>
+        <aside id="stack-panel" aria-label="Spell stack"></aside>
+      </div>
+      <section class="hand-panel" aria-labelledby="hand-heading">
+        <div
+          id="hand-resizer"
+          role="separator"
+          tabindex="0"
+          aria-label="Resize hand"
+          aria-orientation="horizontal"
+          aria-valuemin="80"
+          aria-valuemax="260"
+          aria-valuenow="90"
+        ></div>
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">PRIVATE ZONE</span>
+            <h2 id="hand-heading">Your hand</h2>
+          </div>
+          <div class="hand-actions">
+            <button
+              id="spell-samples"
+              class="quiet"
+              title="Add sample damage and destroy spells to this hand"
+            >
+              Spell samples +</button
+            ><span id="hand-count"></span
+            ><button id="draw" class="quiet">Draw a card</button
+            ><button id="inspect-hand" class="quiet">Browse hand</button
+            ><button
+              id="toggle-hand"
+              class="quiet"
+              aria-expanded="true"
+              aria-controls="hand"
+            >
+              Hide hand
+            </button>
+          </div>
+        </div>
+        <div id="hand" class="hand"></div>
+      </section>
+      <footer>
+        <span
+          ><span class="legend-dot"></span> Shared battlefield · cards grouped
+          by controller</span
+        ><span>Sample actions only. Full game rules are not connected.</span>
+      </footer>
+    </main>
+    <div
+      id="announcement"
+      class="announcement"
+      role="status"
+      aria-live="polite"
+    ></div>
+    <aside id="hover-preview" aria-hidden="true" hidden></aside>
+    <dialog id="inspector" aria-labelledby="dialog-title">
+      <div class="dialog-head">
+        <div>
+          <span id="dialog-kicker" class="eyebrow"></span>
+          <h2 id="dialog-title"></h2>
+        </div>
+        <button id="close-dialog" class="close" aria-label="Close inspector">
+          ×
+        </button>
+      </div>
+      <div id="dialog-content"></div>
+    </dialog>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

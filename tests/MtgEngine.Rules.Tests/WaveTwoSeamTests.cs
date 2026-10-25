@@ -111,7 +111,7 @@ public sealed class WaveTwoSeamTests
         var filler = Board.Creature(1, 1, "seam-filler");
         var game = new Game(Subsystems.Wave2(), new Definitions(drawer, filler));
         var created = game.Create(new GameSetup(
-            [new PlayerStart("One", Deck(filler), [drawer.OracleId]), new PlayerStart("Two", Deck(filler), [])],
+            [new PlayerStart("One", [.. Deck(filler)], [drawer.OracleId]), new PlayerStart("Two", [.. Deck(filler)], [])],
             Seed: 3,
             Format: "test"));
         var state = created.State;
@@ -160,7 +160,7 @@ public sealed class WaveTwoSeamTests
         // Cycling as the vocabulary spells it: an ability that works from the hand, whose cost is this card.
         var cycler = Board.Creature(1, 1, "seam-cycler", abilities: [new ActivatedAbility([new DiscardSelfCost()], new Draw(new Fixed(1)), Where: Zone.Hand)]);
         var game = new Game(Subsystems.Wave2(), new Definitions(cycler));
-        var state = game.Create(new GameSetup([new PlayerStart("One", Deck(cycler), []), new PlayerStart("Two", Deck(cycler), [])], Seed: 5, Format: "test")).State;
+        var state = game.Create(new GameSetup([new PlayerStart("One", [.. Deck(cycler)], []), new PlayerStart("Two", [.. Deck(cycler)], [])], Seed: 5, Format: "test")).State;
         var card = state.In(ZoneKey.Of(Zone.Hand, P0))[0];
         var handBefore = state.In(ZoneKey.Of(Zone.Hand, P0)).Count;
 

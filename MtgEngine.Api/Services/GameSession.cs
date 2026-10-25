@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using MtgEngine.Rules.Commands;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
+using MtgEngine.Rules.Library;
 using MtgEngine.Rules.State;
 using MtgEngine.Rules.Views;
 
@@ -60,6 +61,7 @@ public sealed class GameSession : IDisposable
 
     public bool Finished => State.Outcome is not null;
 
+
     /// <summary>Which seat this account holds, or null if it is not at this table.</summary>
     public PlayerId? SeatOf(string? userId)
     {
@@ -84,11 +86,16 @@ public sealed class GameSession : IDisposable
     /// </remarks>
     public (GameView? View, LegalActions? Legal) ProjectFor(PlayerId player)
     {
+        var snapshot = State;
         GameView? view = null;
         LegalActions? legal = null;
         try
         {
-            view = _engine.Engine.Views.Project(State, player);
+            view = _engine.Engine.Views.Project(snapshot, player);
+            view = view with
+            {
+                ManualLibraryActionsAllowed = AllowHonourSystem && ManualLibraryPolicy.IsAvailable(snapshot, player),
+            };
         }
         catch (NotImplementedException)
         {
@@ -97,7 +104,7 @@ public sealed class GameSession : IDisposable
 
         try
         {
-            legal = _engine.Engine.Legal.For(State, player);
+            legal = _engine.Engine.Legal.For(snapshot, player);
         }
         catch (NotImplementedException)
         {
@@ -120,6 +127,8 @@ public sealed class GameSession : IDisposable
         await _lock.WaitAsync(ct).ConfigureAwait(false);
         try
         {
+            if (command is ManualLibraryCommand && !AllowHonourSystem)
+                return new Refused("This table does not allow manual library actions.");
             var result = _engine.Apply(State, command);
             if (result is not Applied applied)
                 return result;

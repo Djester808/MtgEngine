@@ -50,11 +50,4 @@ public sealed class ArchitectureTests
         Assert.True(offenders.Count == 0, "Card names in engine source:\n" + string.Join("\n", offenders));
     }
 
-    [Fact]
-    public void Every_subsystem_seam_has_a_stub_so_a_missing_builder_names_itself()
-    {
-        var subsystems = Subsystems.AllStubs();
-        var ex = Assert.Throws<NotImplementedException>(() => subsystems.Zones.Draw(null!, default, 1));
-        Assert.Contains("E1", ex.Message, StringComparison.Ordinal);
-    }
 }

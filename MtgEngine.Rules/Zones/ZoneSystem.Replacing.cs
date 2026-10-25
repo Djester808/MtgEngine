@@ -24,6 +24,7 @@ public sealed partial class ZoneSystem
     /// </summary>
     [RuleRef("614.1")]
     public IReplacementSystem? Replacements { get; set; }
+    public ICharacteristics? Characteristics { get; init; }
 
     /// <summary>
     /// Offer one event to the replacement and prevention effects in force, CR 616.1, and hand back
@@ -32,8 +33,12 @@ public sealed partial class ZoneSystem
     /// which effect applies first (CR 101.4, 616.1).
     /// </summary>
     [RuleRef("616.1")]
-    private ImmutableList<GameEvent> Offer(GameState state, GameEvent proposed, PlayerId affected) =>
-        Replacements is null ? [proposed] : Replacements.Replace(state, proposed, affected).Events;
+    private ImmutableList<GameEvent> Offer(GameState state, GameEvent proposed, PlayerId affected, IEnumerable<string>? usedReplacements = null)
+    {
+        if (proposed is ObjectMoved move)
+            proposed = move with { LibraryDeparture = Library.LibraryDepartureObservation.Capture(state, move, Characteristics) };
+        return Replacements is null ? [proposed] : Replacements.Replace(state, proposed, affected, usedReplacements).Events;
+    }
 
     /// <summary>
     /// Who chooses when more than one replacement applies to a zone change, CR 616.1: the affected

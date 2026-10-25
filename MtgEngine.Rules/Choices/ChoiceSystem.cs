@@ -28,6 +28,8 @@ public sealed partial class ChoiceSystem(IZoneSystem zones, ITurnSystem turn, IR
 
         var pending = state.Pending
             ?? throw new RefusedException("Nothing is waiting on an answer.", "101.4");
+        if (pending.Context.RemainingPayment is not null || pending.Context.EffectPaymentContinuation is not null)
+            throw new RefusedException("This saved game has an unsupported legacy payment. Start a new game.", "601.2h");
         var chosen = Validate(pending, command);
 
         // CR 101.4 again: the answer is a fact of the game, so it is an event before it is a
@@ -88,6 +90,7 @@ public sealed partial class ChoiceSystem(IZoneSystem zones, ITurnSystem turn, IR
     {
         ChoiceKinds.Discard => "514.1",
         ChoiceKinds.LegendRule => "704.5j",
+        ChoiceKinds.CommanderReturn => "903.9a",
         ChoiceKinds.Mulligan or ChoiceKinds.MulliganBottom => "103.5",
         ChoiceKinds.TriggerOrder => "603.3b",
         ChoiceKinds.ReplacementOrder => "616.1",

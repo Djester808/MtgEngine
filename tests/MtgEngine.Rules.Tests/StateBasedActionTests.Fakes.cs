@@ -58,12 +58,18 @@ internal sealed class Board
         ObjectId? attachedTo = null,
         StackEntry? stack = null,
         int? attachedToPlayer = null,
+
+        // CR 108.4: who controls it, when that is not its owner — a creature taken with Bribery,
+        // or an ability on the stack of a permanent somebody else controls. The zone is still the
+        // OWNER's (CR 400.3), which is the pairing CR 800.4a's last two steps turn on.
+        int? controller = null,
         params (string Kind, int Count)[] counters)
     {
         var seat = new PlayerId(owner);
+        var held = controller is { } holder ? new PlayerId(holder) : seat;
         var id = new ObjectId(State.NextObjectId);
         var created = new ObjectCreated(
-            new GameObject(id, definition, 0, seat, seat, Key(zone, seat), State.NextTimestamp)
+            new GameObject(id, definition, 0, seat, held, Key(zone, seat), State.NextTimestamp)
             {
                 Damage = damage,
                 IsToken = token,
@@ -93,8 +99,16 @@ internal sealed class Board
 
     public Board DrewFromEmptyLibrary(int player) => Fold(new DrawFromEmptyLibraryAttempted(new PlayerId(player)));
 
-    public Board CommanderDamage(int player, ObjectId commander, int amount) =>
-        Fold(new DamageDealt(commander, null, new PlayerId(player), amount, Combat: true, FromCommander: true));
+    /// <summary>
+    /// Deals commander damage from a real commander on the board. The commander has to exist,
+    /// because the running total is keyed by WHICH commander (owner and card) rather than by the
+    /// object it is at this moment - CR 400.7 gives it a new object on every zone change.
+    /// </summary>
+    public Board CommanderDamage(int player, string commander, int amount, int owner = 0)
+    {
+        var id = Put(Definition(commander, CardType.Creature, 3, 3, Supertype.Legendary), owner: owner);
+        return Fold(new DamageDealt(id, null, new PlayerId(player), amount, Combat: true, FromCommander: true));
+    }
 
     public Board Lost(int player) => Fold(new PlayerLost(new PlayerId(player), "test"));
 
@@ -193,9 +207,9 @@ internal sealed class FakeZones : IZoneSystem
 
     public Outcome Create(GameSetup setup, IDefinitionStore store) => throw new NotSupportedException();
 
-    public Outcome Draw(GameState state, PlayerId player, int count) => throw new NotSupportedException();
+    public Outcome Draw(GameState state, PlayerId player, int count, IEnumerable<string>? usedReplacements = null) => throw new NotSupportedException();
 
-    public Outcome Shuffle(GameState state, PlayerId player) => throw new NotSupportedException();
+    public Outcome Shuffle(GameState state, PlayerId player, IEnumerable<string>? usedReplacements = null) => throw new NotSupportedException();
 
     public Outcome CreateToken(GameState state, TokenSpec token, PlayerId controller, bool tapped, bool attacking) => throw new NotSupportedException();
 }

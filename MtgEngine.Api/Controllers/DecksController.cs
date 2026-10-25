@@ -15,14 +15,16 @@ namespace MtgEngine.Api.Controllers;
 public sealed class DecksController : ControllerBase
 {
     private readonly ICollectionService _service;
+    private readonly CollectionMutationUndoService? _undo;
 
     private string UserId =>
         User.FindFirstValue(ClaimTypes.NameIdentifier)
         ?? throw new InvalidOperationException("User ID claim missing from token");
 
-    public DecksController(ICollectionService service)
+    public DecksController(ICollectionService service, CollectionMutationUndoService? undo = null)
     {
         _service = service;
+        _undo = undo;
     }
 
     [HttpGet]
@@ -109,12 +111,14 @@ public sealed class DecksController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.OracleId))
             return Problem(detail: "OracleId is required", statusCode: StatusCodes.Status400BadRequest);
 
-        if (request.Quantity < 0 || request.QuantityFoil < 0 || request.Quantity + request.QuantityFoil < 1)
+        if (request.Quantity < 0 || request.QuantityFoil < 0 || request.Quantity + request.QuantityFoil + (request.QuantityEtched ?? 0) < 1)
             return Problem(detail: "Total quantity must be at least 1", statusCode: StatusCodes.Status400BadRequest);
 
         try
         {
-            var (card, created) = await _service.AddCardToCollectionAsync(deckId, UserId, request);
+            var result = _undo is null ? await _service.AddCardToCollectionAsync(deckId, UserId, request)
+                : CollectionUndoHeaders.Apply(Response, await _undo.RunAsync(UserId, [deckId], [request.OracleId], () => _service.AddCardToCollectionAsync(deckId, UserId, request), true, HttpContext.RequestAborted), [deckId], "add");
+            var (card, created) = result;
             // 201 only for a genuinely new row; incrementing an existing one is a 200.
             return created ? StatusCode(StatusCodes.Status201Created, card) : Ok(card);
         }
@@ -130,7 +134,7 @@ public sealed class DecksController : ControllerBase
         Guid cardId,
         [FromBody] UpdateCollectionCardRequest request)
     {
-        if (request.Quantity < 0 || request.QuantityFoil < 0 || request.Quantity + request.QuantityFoil < 1)
+        if (request.Quantity < 0 || request.QuantityFoil < 0 || request.Quantity + request.QuantityFoil + (request.QuantityEtched ?? 0) < 1)
             return Problem(detail: "Total quantity must be at least 1", statusCode: StatusCodes.Status400BadRequest);
 
         try

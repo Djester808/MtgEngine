@@ -12,6 +12,7 @@ public sealed class Collection
     public string? CoverUri { get; set; }
     public string? Format { get; set; }
     public string? CommanderOracleId { get; set; }
+    public string? SecondaryCommanderOracleId { get; set; }
     public bool IsDeck { get; set; }
     public string? Notes { get; set; }
     public List<string> Tags { get; set; } = [];
@@ -36,7 +37,8 @@ public sealed class Collection
 }
 
 /// <summary>
-/// Represents a card instance owned in a collection (with quantity tracking)
+/// A collection or deck entry for an Oracle card and optional selected printing.
+/// Quantities describe multiple copies; this row is not one in-game card instance.
 /// </summary>
 public sealed class CollectionCard
 {
@@ -55,11 +57,18 @@ public sealed class CollectionCard
 
     /// <summary>How many foil copies we own</summary>
     public int QuantityFoil { get; set; }
+    public int QuantityEtched { get; set; }
+    public string FinishMetadataJson { get; set; } = "{}";
 
     /// <summary>Custom notes about this copy</summary>
     public string? Notes { get; set; }
 
     /// <summary>Which deck zone this card belongs to: "main", "side", or "maybe"</summary>
+    public string Language { get; set; } = "en";
+    public string? Condition { get; set; }
+    public decimal? PurchasePrice { get; set; }
+    public string? PurchaseCurrency { get; set; }
+    public string TagsJson { get; set; } = "[]";
     public string Board { get; set; } = "main";
 
     /// <summary>When this card was added to the collection</summary>
@@ -74,6 +83,7 @@ public sealed class CollectionCard
 
     /// <summary>Foil price at add time; see <see cref="PriceUsdAtAdd"/>.</summary>
     public decimal? PriceUsdFoilAtAdd { get; set; }
+    public decimal? PriceUsdEtchedAtAdd { get; set; }
 
     public CollectionCard() { }
 

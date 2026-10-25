@@ -17,6 +17,8 @@ public interface IGameLogStore
 
     Task CreateAsync(PersistedGame game, CancellationToken ct = default);
 
+    Task<bool> TryCreateAsync(PersistedGame game, CancellationToken ct = default);
+
     /// <summary>Replaces the stored log with the whole log as it stands, per applied command.</summary>
     Task SaveLogAsync(Guid id, string logJson, int eventCount, bool finished, CancellationToken ct = default);
 }
@@ -24,6 +26,17 @@ public interface IGameLogStore
 /// <summary>The database. One row per game, the log appended to per command.</summary>
 public sealed class GameLogStore(IServiceScopeFactory scopes) : IGameLogStore
 {
+    public async Task<bool> TryCreateAsync(PersistedGame game, CancellationToken ct = default)
+    {
+        using var scope = scopes.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<MtgEngineDbContext>();
+        var written = await db.Database.ExecuteSqlInterpolatedAsync($@"
+            INSERT INTO PersistedGames (Id, Format, AllowHonourSystem, SeatsJson, LogJson, EventCount, Finished, CreatedAt, UpdatedAt)
+            VALUES ({game.Id}, {game.Format}, {game.AllowHonourSystem}, {game.SeatsJson}, {game.LogJson}, {game.EventCount}, {game.Finished}, {game.CreatedAt}, {game.UpdatedAt})
+            ON CONFLICT(Id) DO NOTHING", ct).ConfigureAwait(false);
+        return written == 1;
+    }
+
     public async Task<PersistedGame?> LoadAsync(Guid id, CancellationToken ct = default)
     {
         using var scope = scopes.CreateScope();

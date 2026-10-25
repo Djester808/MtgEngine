@@ -23,9 +23,9 @@ internal sealed class IntegrationTable
 
     internal IntegrationTable(int startingLife = 2, ulong seed = 7)
     {
-        _game = new Game(Subsystems.Wave1(), new IntegrationDefinitions());
+        _game = new Game(LegacySubsystems.Create(), new IntegrationDefinitions());
         var created = _game.Create(new GameSetup(
-            [new PlayerStart("One", Deck(), []), new PlayerStart("Two", Deck(), [])],
+            [new PlayerStart("One", [.. Deck()], []), new PlayerStart("Two", [.. Deck()], [])],
             Seed: seed,
             StartingLife: startingLife,
             Format: "test"));
@@ -91,6 +91,19 @@ internal sealed class IntegrationTable
             Assert.Null(State.Pending);
             if (State.Turn.Number == turn && State.Turn.Step == step)
                 return;
+
+            // Declarations are turn-based actions before priority, not passes that skip a step.
+            if (State.Priority.Holder is null && State.Turn.Step == Step.DeclareAttackers)
+            {
+                Do(new DeclareAttackers(State.Turn.ActivePlayer, []));
+                continue;
+            }
+            if (State.Priority.Holder is null && State.Turn.Step == Step.DeclareBlockers && State.Combat is { } fight)
+            {
+                var defender = fight.DefendingPlayers.First(p => !fight.BlockersDeclaredBy.Contains(p));
+                Do(new DeclareBlockers(defender, []));
+                continue;
+            }
 
             var holder = State.Priority.Holder ?? throw new InvalidOperationException($"Nobody holds priority in turn {State.Turn.Number} {State.Turn.Step}.");
             Do(new PassPriority(holder));

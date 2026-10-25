@@ -20,6 +20,10 @@ namespace MtgEngine.Api.Services;
 /// </remarks>
 public interface ICardLookup
 {
+    Task<CardDefinition?> GetLocalByOracleIdAsync(string oracleId) => Task.FromResult<CardDefinition?>(null);
+    Task<CardDefinition?> GetLocalByScryfallIdAsync(string scryfallId) => Task.FromResult<CardDefinition?>(null);
+
+    Task<CardDefinition?> GetLocalByNameAsync(string name) => Task.FromResult<CardDefinition?>(null);
     Task<CardDefinition?> GetByOracleIdAsync(string oracleId);
     Task<CardDefinition?> GetByNameAsync(string name);
     Task<CardDefinition?> GetByScryfallIdAsync(string scryfallId);
@@ -40,16 +44,20 @@ public static class CardLookupExtensions
     /// GetCard but the pinned art from GetCollection. Falls back to the oracle default
     /// when the pinned id cannot be resolved rather than dropping the card details.
     /// </remarks>
-    public static async Task<CardDefinition?> ResolveForEntryAsync(
-        this ICardLookup lookup, CollectionCard card)
+    public static Task<CardDefinition?> ResolveForEntryAsync(this ICardLookup lookup, CollectionCard card) =>
+        lookup.ResolveSelectionAsync(card.OracleId, card.ScryfallId);
+
+    /// <summary>One selected-printing policy for collection entries and authorized game views.</summary>
+    public static async Task<CardDefinition?> ResolveSelectionAsync(
+        this ICardLookup lookup, string oracleId, string? printingId, bool localOnly = false)
     {
-        if (card.ScryfallId is not null)
+        if (!string.IsNullOrWhiteSpace(printingId))
         {
-            var pinned = await lookup.GetByScryfallIdAsync(card.ScryfallId);
-            if (pinned is not null)
+            var pinned = await (localOnly ? lookup.GetLocalByScryfallIdAsync(printingId) : lookup.GetByScryfallIdAsync(printingId)).ConfigureAwait(false);
+            if (pinned is not null && string.Equals(pinned.OracleId, oracleId, StringComparison.OrdinalIgnoreCase))
                 return pinned;
         }
-        return await lookup.GetByOracleIdAsync(card.OracleId);
+        return await (localOnly ? lookup.GetLocalByOracleIdAsync(oracleId) : lookup.GetByOracleIdAsync(oracleId)).ConfigureAwait(false);
     }
 }
 

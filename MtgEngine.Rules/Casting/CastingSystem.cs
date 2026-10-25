@@ -20,7 +20,7 @@ namespace MtgEngine.Rules.Casting;
 [RuleRef("601")]
 public sealed partial class CastingSystem(IZoneSystem zones, IQuery query, ICharacteristics characteristics, IInterpreter interpreter) : ICastingSystem
 {
-    /// <summary>CR 305.2: one land a turn. Effects that raise it are the layer system's to add.</summary>
+    /// <summary>CR 305.2: one land a turn, before any effect that raises it.</summary>
     private const int LandsPerTurn = 1;
 
     /// <summary>The subtype of CR 205.3h that makes an enchantment an Aura, CR 303.4.</summary>
@@ -42,7 +42,11 @@ public sealed partial class CastingSystem(IZoneSystem zones, IQuery query, IChar
         RequireSorcerySpeed(state, command.Player, "305.1");
 
         // CR 305.2a: compare lands played with lands playable; 305.2b refuses when they are equal.
-        if (state.Player(command.Player).LandsPlayedThisTurn >= LandsPerTurn)
+        // CR 305.2a with 305.2b: lands played against lands playable. The ceiling is one plus
+        // whatever the continuous effects add (CR 305.2), which nothing read before this - so
+        // Exploration and every card like it did nothing at all.
+        var ceiling = LandsPerTurn + characteristics.PlayerRestrictions(state, command.Player).ExtraLandDrops;
+        if (state.Player(command.Player).LandsPlayedThisTurn >= ceiling)
             throw new RefusedException("You have already played a land this turn.", "305.2");
 
         var battlefield = ZoneKey.Of(CardZone.Battlefield, command.Player);
@@ -53,7 +57,10 @@ public sealed partial class CastingSystem(IZoneSystem zones, IQuery query, IChar
         var moved = face == card.FaceIndex
             ? zones.Move(state, card.Id, battlefield, controller: command.Player)
             : zones.Move(state, card.Id, battlefield, Placement.Default, false, command.Player, face);
-        var played = new LandPlayed(NewIdOf(moved.Events, card.Id), command.Player);
+        // Which permission allowed this, and from where. CR 116.2a: a once-per-turn permission is
+        // spent by the play it allowed, and a land play emits no SpellCast to carry that.
+        var allowed = CastPlan.Allowing(state, card, command.Player, query, characteristics);
+        var played = new LandPlayed(NewIdOf(moved.Events, card.Id), command.Player, card.Zone.Zone, allowed?.Id, allowed?.Static);
         return new Outcome(played.Apply(moved.State), moved.Events.Add(played));
     }
 
@@ -142,7 +149,7 @@ public sealed partial class CastingSystem(IZoneSystem zones, IQuery query, IChar
                 // resolve; it is removed from the stack and put where CR 608.2m sends it.
                 if (illegal)
                 {
-                    var away = FinishResolving(state, top);
+                    var away = FinishResolving(state, top, resolved: false);
                     return new Outcome(GameReducer.Apply(away.State, [resolved]), away.Events.Add(resolved));
                 }
 
@@ -175,8 +182,8 @@ public sealed partial class CastingSystem(IZoneSystem zones, IQuery query, IChar
         if (ran.State.Pending is not null)
             return ran;
 
-        var left = FinishResolving(ran.State, top);
-        return new Outcome(left.State, ran.Events.AddRange(left.Events));
+        var left = FinishResolving(ran.State, top, resolved: !ran.Fizzled);
+        return ran.Then(_ => left);
     }
 
     /// <summary>
@@ -185,7 +192,7 @@ public sealed partial class CastingSystem(IZoneSystem zones, IQuery query, IChar
     /// walk finished at once, and by the choice system when an answer finished it later.
     /// </summary>
     [RuleRef("608.2m")]
-    public Outcome FinishResolving(GameState state, ObjectId stackObject)
+    public Outcome FinishResolving(GameState state, ObjectId stackObject, bool resolved = true)
     {
         ArgumentNullException.ThrowIfNull(state);
         if (!state.Objects.TryGetValue(stackObject, out var obj) || obj.Zone.Zone != CardZone.Stack)
@@ -197,12 +204,13 @@ public sealed partial class CastingSystem(IZoneSystem zones, IQuery query, IChar
             return new Outcome(gone.Apply(state), [gone]);
         }
 
-        var destination = Destination(obj);
+        var destination = Destination(obj, resolved);
         var away = zones.Move(state, stackObject, ZoneKey.Of(destination, obj.Owner));
 
         // CR 720.3d: an Omen goes into its owner's library and that library is shuffled.
-        var shuffled = destination == CardZone.Library ? zones.Shuffle(away.State, obj.Owner) : Outcome.Unchanged(away.State);
-        return new Outcome(shuffled.State, away.Events.AddRange(shuffled.Events));
+        return destination == CardZone.Library
+            ? Library.LibraryShuffleContinuation.Complete(away, [obj.Owner], zones)
+            : away;
     }
 
     /// <summary>
@@ -213,12 +221,19 @@ public sealed partial class CastingSystem(IZoneSystem zones, IQuery query, IChar
     /// (CR 715.3d), an Omen is shuffled into its owner's library (CR 720.3d).
     /// </summary>
     [RuleRef("608.2m")]
-    private static CardZone Destination(GameObject spell)
+    private static CardZone Destination(GameObject spell, bool resolved)
     {
         var paid = spell.Stack?.OptionalCostsPaid ?? [];
+
+        // CR 702.34a: flashback exiles the card "any time it would leave the stack", so it
+        // applies to a spell that did not resolve as well.
         if (paid.Contains(nameof(KeywordKind.Flashback)))
             return CardZone.Exile;
-        if (paid.Contains(nameof(KeywordKind.Buyback)))
+
+        // CR 702.26a: buyback returns the card to its owner's hand only "as it resolves". A
+        // spell countered by CR 608.2b - every target gone - goes to the graveyard like any
+        // other, and this used to hand it back so it could be cast again for free.
+        if (resolved && paid.Contains(nameof(KeywordKind.Buyback)))
             return CardZone.Hand;
         return FaceRules.ResolvesTo(spell.Definition, spell.FaceIndex).Zone;
     }
@@ -316,11 +331,19 @@ public sealed partial class CastingSystem(IZoneSystem zones, IQuery query, IChar
     private static bool IsPermanentSpell(CardType types) =>
         (types & (CardType.Artifact | CardType.Creature | CardType.Enchantment | CardType.Land | CardType.Planeswalker | CardType.Battle)) != 0;
 
+    /// <summary>
+    /// CR 307.1 and 305.1: the four halves of sorcery speed - your turn, a main phase, an empty
+    /// stack, and PRIORITY. The priority half was missing here, so a land could be played while
+    /// an opponent held priority in the active player's main phase; Cast and Activate both check
+    /// it, and Game.Apply has no gate of its own, so the land road was the way round it.
+    /// </summary>
     private static void RequireSorcerySpeed(GameState state, PlayerId player, string rule)
     {
         ArgumentNullException.ThrowIfNull(state);
         if (state.Turn.ActivePlayer != player)
             throw new RefusedException("Only during your own turn.", rule);
+        if (state.Priority.Holder != player)
+            throw new RefusedException("You do not have priority.", rule);
         if (state.Turn.Step is not (Step.PrecombatMain or Step.PostcombatMain))
             throw new RefusedException("Only during a main phase.", rule);
         if (!StackZone.IsEmpty(state))
@@ -383,7 +406,7 @@ public sealed partial class CastingSystem(IZoneSystem zones, IQuery query, IChar
         ArgumentNullException.ThrowIfNull(state);
         var obj = Object(state, id);
         return obj.Zone == ZoneKey.Of(CardZone.Hand, player)
-            || (obj.Owner == player && CastPlan.Permission(state, obj, player, query) is not null)
+            || (obj.Owner == player && CastPlan.Allowing(state, obj, player, query, characteristics) is not null)
             ? obj
             : throw new RefusedException("That card is not in your hand.", rule);
     }

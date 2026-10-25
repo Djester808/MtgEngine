@@ -42,17 +42,23 @@ public sealed partial class LayerSystem
         ObjectFilter filter,
         GameObject candidate,
         GameObject source,
-        PlayerId controller)
+        PlayerId controller) => ThroughQuery(() =>
+            Query.Matches(state, filter, candidate.Id, ContextOf(state, source.Id, controller)));
+
+    private bool ConditionThroughQuery(GameState state, Condition condition, GameObject source, PlayerId controller) =>
+        ThroughQuery(() => Query.Holds(state, condition, ContextOf(state, source.Id, controller)));
+
+    private static bool ThroughQuery(Func<bool> evaluate)
     {
         _matching++;
         try
         {
-            return Query.Matches(state, filter, candidate.Id, ContextOf(state, source.Id, controller));
+            return evaluate();
         }
         catch (NotImplementedException unbuilt)
         {
             throw new RefusedException(
-                $"A static ability's filter asked the query layer for something it has not built: {unbuilt.Message}",
+                $"A static ability's filter or condition asked the query layer for something it has not built: {unbuilt.Message}",
                 "611.3a");
         }
         finally

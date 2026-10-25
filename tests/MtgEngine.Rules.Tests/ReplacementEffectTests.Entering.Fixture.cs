@@ -31,7 +31,7 @@ internal sealed class ReplacementEffectTestsEnteringTable
     {
         _game = new Game(Subsystems.Wave2(), new ReplacementEffectTestsEnteringDefinitions());
         State = _game.Create(new GameSetup(
-            [new PlayerStart("One", Deck(), []), new PlayerStart("Two", Deck(), [])],
+            [new PlayerStart("One", [.. Deck()], []), new PlayerStart("Two", [.. Deck()], [])],
             Seed: 11,
             StartingLife: 20,
             Format: "test")).State;

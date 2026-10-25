@@ -14,7 +14,7 @@ namespace MtgEngine.Rules.Tests;
 /// say where it goes as it resolves, and CR 118.9, 601.2b and 702.40a decide what it cost. Each
 /// test names its rule, and every refusal is asserted by rule number rather than by wording.
 /// </summary>
-public sealed class FaceCastingTests
+public sealed partial class FaceCastingTests
 {
     private readonly RecordingInterpreter interpreter = new();
     private readonly CastingSystem casting;

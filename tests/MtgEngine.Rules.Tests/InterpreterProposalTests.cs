@@ -1,165 +1,113 @@
 using MtgEngine.Cards;
-using MtgEngine.Rules.Engine;
+using MtgEngine.Rules.Choices;
 using MtgEngine.Rules.Events;
-using MtgEngine.Rules.State;
 
 namespace MtgEngine.Rules.Tests;
 
 /// <summary>
-/// CR 616.1: every event a card's effect would make is offered to the replacement and prevention
-/// effects that would change it, before it happens. These tests hold the interpreter to that for
-/// the events it makes itself — life, counters, tapping and the named actions — with a fake
-/// replacement layer standing in for the real one, so what is under test is that the interpreter
-/// offers the event and uses what comes back, not how the replacement system decides.
+/// CR 616.1 raised from inside a resolution: the walk stops, and the answer puts it back.
+///
+/// Both halves were missing. The walk did not stop, so the instructions written after the
+/// proposal ran while the proposed event had not happened yet and the answer applied it to a board
+/// that had moved on. Stopping alone was worse: the replacement layer's own question names no
+/// source, no ability and no path (see <c>ReplacementSystem.Ask</c>), so nothing could find the
+/// stopped walk again and every instruction after the proposal was dropped for ever. The question
+/// is now asked by the walk, carries the walk's coordinates, and the node that proposed the event
+/// is the one the answer comes back to.
 /// </summary>
 public sealed class InterpreterProposalTests
 {
-    /// <summary>CR 614.1: "if you would gain life, you gain twice that much instead."</summary>
-    [Fact]
-    public void Life_gained_through_a_doubling_replacement_gains_double()
+    private static InterpreterTable Asking(Func<GameEvent, bool> about)
     {
         var table = new InterpreterTable();
-        table.Replacements.Instead = e => e is LifeChanged { Delta: > 0 } gain ? gain with { Delta = gain.Delta * 2 } : e;
+        table.Replacements.Asks = about;
+        return table;
+    }
 
-        var spell = table.OnStack(table.A, new GainLife(new Fixed(3)));
+    [Fact]
+    [RuleRef("616.1")]
+    public void A_replacement_question_stops_the_walk_before_the_event_happens()
+    {
+        var table = Asking(e => e is LifeChanged);
+        var spell = table.OnStack(table.A, new Sequence([new GainLife(new Fixed(3)), new Draw(new Fixed(1))]));
+
         table.Resolve(spell);
 
-        Assert.Equal(26, table.Life(table.A));
-        Assert.Contains(table.Replacements.Proposed, e => e is LifeChanged { Delta: 3 });
-    }
-
-    /// <summary>CR 614.1: "if one or more counters would be put on a creature, that many plus one are put on it instead."</summary>
-    [Fact]
-    public void Counters_put_through_a_one_more_replacement_put_one_more()
-    {
-        var table = new InterpreterTable();
-        table.Replacements.Instead = e => e is CountersChanged { Delta: > 0 } put ? put with { Delta = put.Delta + 1 } : e;
-        var creature = table.Permanent(table.A);
-
-        var spell = table.OnStack(table.A, new PutCounters(new Each(ObjectFilter.Creature), "+1/+1", new Fixed(1)));
-        table.Resolve(spell);
-
-        Assert.Equal(2, table.Object(creature).Counters["+1/+1"]);
-    }
-
-    /// <summary>CR 614.1: a permanent that can't become tapped is not tapped by an effect that says to tap it.</summary>
-    [Fact]
-    public void A_tap_the_replacement_system_drops_taps_nothing()
-    {
-        var table = new InterpreterTable();
-        table.Replacements.Instead = e => e is ObjectChanged { Tapped: true } ? null : e;
-        var creature = table.Permanent(table.A);
-
-        var spell = table.OnStack(table.A, new Tap(new Each(ObjectFilter.Creature)));
-        var events = table.Resolve(spell);
-
-        Assert.False(table.Object(creature).Tapped);
-        Assert.DoesNotContain(events, e => e is ObjectChanged);
-        Assert.Contains(table.Replacements.Proposed, e => e is ObjectChanged { Tapped: true });
-    }
-
-    /// <summary>CR 615.1: prevented life loss is not lost, and nothing happened for a trigger to watch.</summary>
-    [Fact]
-    public void Life_loss_the_replacement_system_drops_loses_nothing_and_emits_no_event()
-    {
-        var table = new InterpreterTable();
-        table.Replacements.Instead = e => e is LifeChanged { Delta: < 0 } ? null : e;
-
-        var spell = table.OnStack(table.A, new LoseLife(new Fixed(5)));
-        var events = table.Resolve(spell);
-
+        Assert.Equal(ChoiceKinds.ReplacementOrder, table.Pending.Kind);
         Assert.Equal(20, table.Life(table.A));
-        Assert.DoesNotContain(events, e => e is LifeChanged);
     }
 
     /// <summary>
-    /// CR 701.8b and 614.1: destroying is a named action and is offered before it happens, so an
-    /// effect that replaces it — regeneration, "exile it instead" — stops the zone change too.
+    /// The defect this file was written for. The draw is written after the life gain, and it is the
+    /// answer that lets the life gain happen; a road that finished the event without going back to
+    /// the walk left the draw undone with nothing to do it.
     /// </summary>
     [Fact]
-    public void A_named_action_the_replacement_system_drops_does_not_change_zones()
+    [RuleRef("101.4")]
+    public void The_instructions_after_the_proposal_still_run_once_the_question_is_answered()
     {
-        var table = new InterpreterTable();
-        table.Replacements.Instead = e => e is ObjectLeftBy { Verb: "destroyed" } ? null : e;
-        var creature = table.Permanent(table.A);
+        var table = Asking(e => e is LifeChanged);
+        var before = table.In(Zone.Hand, table.A).Count;
+        table.Card(table.A, Zone.Library);
+        var spell = table.OnStack(table.A, new Sequence([new GainLife(new Fixed(3)), new Draw(new Fixed(1))]));
 
-        var spell = table.OnStack(table.A, new Destroy(new Each(ObjectFilter.Creature)));
+        table.Resolve(spell);
+        table.Answer("first");
+
+        Assert.Equal(23, table.Life(table.A));
+        Assert.Equal(before + 1, table.In(Zone.Hand, table.A).Count);
+    }
+
+    /// <summary>The question has to say which walk it stopped, or nothing can put that walk back (CR 101.4).</summary>
+    [Fact]
+    [RuleRef("101.4")]
+    public void The_question_carries_the_walk_that_raised_it()
+    {
+        var table = Asking(e => e is LifeChanged);
+        var spell = table.OnStack(table.A, new Sequence([new GainLife(new Fixed(3)), new Draw(new Fixed(1))]));
+
         table.Resolve(spell);
 
-        Assert.True(table.State.Objects.ContainsKey(creature));
-        Assert.Equal(Zone.Battlefield, table.Object(creature).Zone.Zone);
-        Assert.Contains(table.Replacements.Proposed, e => e is ObjectLeftBy { Verb: "destroyed" });
+        Assert.NotNull(table.Pending.Context.EffectPath);
+        Assert.NotNull(table.Pending.Context.Event);
     }
 
     /// <summary>
-    /// CR 101.4: a loop that stopped to ask starts again at the iteration it stopped at, over the
-    /// objects it was iterating. The first creature is destroyed before the question is raised, so
-    /// re-resolving "each creature" on the answer would put a different creature at the index the
-    /// question named — the second would be skipped and the third asked about instead.
+    /// CR 616.1 with 608.2: the node that stopped runs again from its start, and a node that
+    /// proposes one event per player would offer the earlier players' events a second time. Each
+    /// player gains three life once, not twice.
     /// </summary>
     [Fact]
-    public void A_loop_that_asked_on_its_second_object_resumes_there_and_finishes_the_third()
+    [RuleRef("608.2")]
+    public void A_node_that_proposes_once_per_player_does_not_propose_twice()
     {
-        var table = new InterpreterTable();
-        var first = table.Permanent(table.A);
-        var second = table.Permanent(table.A);
-        var third = table.Permanent(table.A);
-        table.SetTapped(second, true);
+        // Only the second player's life change is contested, so the walk stops with the first
+        // player's already applied — exactly the state a resumed node must not redo.
+        var table = Asking(e => e is LifeChanged { Player.Value: 1 });
+        var spell = table.OnStack(table.A, new GainLife(new Fixed(3), new EachPlayer()));
 
-        // Each creature: a tapped one, its controller may gain 4 life; any other is destroyed.
-        var spell = table.OnStack(table.A, new ForEach(
-            new Each(ObjectFilter.Creature),
-            new If(
-                new IsTapped(new Triggering()),
-                new May(new GainLife(new Fixed(4))),
-                new Destroy(new Triggering()))));
         table.Resolve(spell);
+        Assert.Equal(23, table.Life(table.A));
+        Assert.Equal(20, table.Life(table.B));
 
-        Assert.Equal("may", table.Pending.Kind);
-        Assert.False(table.State.Objects.ContainsKey(first));
+        table.Answer("first");
 
-        table.Answer("yes");
-
-        Assert.Equal(24, table.Life(table.A));
-        Assert.True(table.State.Objects.ContainsKey(second));
-        Assert.False(table.State.Objects.ContainsKey(third));
+        Assert.Equal(23, table.Life(table.A));
+        Assert.Equal(23, table.Life(table.B));
     }
 
-    /// <summary>
-    /// CR 101.4 and 614.1a: a question raised by a replacement's own instruction has no stack
-    /// object, and is found again through the source and the ability index the question carried.
-    /// </summary>
+    /// <summary>The event the question was about happens exactly once, through the answer (CR 616.1).</summary>
     [Fact]
-    public void A_may_inside_a_replacements_instruction_resumes_and_finishes()
+    [RuleRef("616.1")]
+    public void The_event_the_question_was_about_happens_once()
     {
-        var table = new InterpreterTable();
-        var with = new May(new GainLife(new Fixed(4)));
-        var source = table.Put(
-            table.A,
-            ZoneKey.Shared(Zone.Battlefield),
-            InterpreterTable.Definition(CardType.Enchantment, new ReplacementAbility(new WouldGainLife(new You()), with)));
+        var table = Asking(e => e is LifeChanged);
+        var spell = table.OnStack(table.A, new GainLife(new Fixed(3)));
 
-        table.RunFrom(with, table.Context(source), abilityIndex: 0);
+        table.Resolve(spell);
+        var events = table.Answer("first");
 
-        Assert.Equal("may", table.Pending.Kind);
-        Assert.Equal(source, table.Pending.Context.Source);
-        Assert.Equal(0, table.Pending.Context.AbilityIndex);
-
-        table.Answer("yes");
-
-        Assert.Equal(24, table.Life(table.A));
-    }
-
-    /// <summary>CR 101.4: a question whose effect cannot be found again is refused, not thrown out of the engine.</summary>
-    [Fact]
-    public void A_question_whose_effect_cannot_be_found_again_is_refused()
-    {
-        var table = new InterpreterTable();
-        var source = table.Put(table.A, ZoneKey.Shared(Zone.Battlefield), InterpreterTable.Definition(CardType.Enchantment));
-
-        table.RunFrom(new May(new GainLife(new Fixed(4))), table.Context(source), abilityIndex: 7);
-
-        var refused = Assert.Throws<RefusedException>(() => table.Answer("yes"));
-        Assert.Equal("101.4", refused.Rule);
+        Assert.Single(events, e => e is LifeChanged);
+        Assert.Equal(23, table.Life(table.A));
     }
 }

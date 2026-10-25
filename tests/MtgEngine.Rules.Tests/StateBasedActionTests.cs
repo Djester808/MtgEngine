@@ -294,7 +294,7 @@ public sealed partial class StateBasedActionTests
     [RuleRef("903.10a")]
     public void Twenty_one_commander_damage_loses_the_game()
     {
-        var board = new Board(life: 40).CommanderDamage(1, new ObjectId(97), 21);
+        var board = new Board(life: 40).CommanderDamage(1, "sba general", 21);
 
         var outcome = sba.Check(board.State);
 
@@ -309,8 +309,8 @@ public sealed partial class StateBasedActionTests
     public void Commander_damage_from_two_commanders_does_not_add_up()
     {
         var board = new Board(life: 40)
-            .CommanderDamage(1, new ObjectId(97), 11)
-            .CommanderDamage(1, new ObjectId(98), 11);
+            .CommanderDamage(1, "sba general one", 11)
+            .CommanderDamage(1, "sba general two", 11);
 
         Assert.Empty(sba.Check(board.State).Events);
     }

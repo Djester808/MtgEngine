@@ -1,0 +1,555 @@
+{
+  "source": "card-database.sqlite snapshot; see database-schema.json for its hash",
+  "categories": [
+    {
+      "Category": 2,
+      "SubCategory": 0,
+      "Records": 6332
+    },
+    {
+      "Category": 4,
+      "SubCategory": 0,
+      "Records": 3747
+    },
+    {
+      "Category": 1,
+      "SubCategory": 0,
+      "Records": 3614
+    },
+    {
+      "Category": 3,
+      "SubCategory": 0,
+      "Records": 3517
+    },
+    {
+      "Category": 2,
+      "SubCategory": 10,
+      "Records": 2247
+    },
+    {
+      "Category": 1,
+      "SubCategory": 1,
+      "Records": 369
+    },
+    {
+      "Category": 7,
+      "SubCategory": 0,
+      "Records": 340
+    },
+    {
+      "Category": 8,
+      "SubCategory": 0,
+      "Records": 281
+    },
+    {
+      "Category": 2,
+      "SubCategory": 15,
+      "Records": 114
+    },
+    {
+      "Category": 1,
+      "SubCategory": 7,
+      "Records": 99
+    },
+    {
+      "Category": 2,
+      "SubCategory": 7,
+      "Records": 95
+    },
+    {
+      "Category": 5,
+      "SubCategory": 0,
+      "Records": 92
+    },
+    {
+      "Category": 4,
+      "SubCategory": 15,
+      "Records": 73
+    },
+    {
+      "Category": 3,
+      "SubCategory": 21,
+      "Records": 56
+    },
+    {
+      "Category": 1,
+      "SubCategory": 6,
+      "Records": 51
+    },
+    {
+      "Category": 2,
+      "SubCategory": 11,
+      "Records": 48
+    },
+    {
+      "Category": 2,
+      "SubCategory": 16,
+      "Records": 47
+    },
+    {
+      "Category": 1,
+      "SubCategory": 15,
+      "Records": 43
+    },
+    {
+      "Category": 1,
+      "SubCategory": 20,
+      "Records": 42
+    },
+    {
+      "Category": 3,
+      "SubCategory": 32,
+      "Records": 38
+    },
+    {
+      "Category": 2,
+      "SubCategory": 13,
+      "Records": 37
+    },
+    {
+      "Category": 1,
+      "SubCategory": 11,
+      "Records": 36
+    },
+    {
+      "Category": 2,
+      "SubCategory": 18,
+      "Records": 36
+    },
+    {
+      "Category": 4,
+      "SubCategory": 11,
+      "Records": 35
+    },
+    {
+      "Category": 4,
+      "SubCategory": 18,
+      "Records": 22
+    },
+    {
+      "Category": 1,
+      "SubCategory": 12,
+      "Records": 18
+    },
+    {
+      "Category": 2,
+      "SubCategory": 1,
+      "Records": 18
+    },
+    {
+      "Category": 4,
+      "SubCategory": 13,
+      "Records": 17
+    },
+    {
+      "Category": 2,
+      "SubCategory": 27,
+      "Records": 14
+    },
+    {
+      "Category": 5,
+      "SubCategory": 29,
+      "Records": 14
+    },
+    {
+      "Category": 3,
+      "SubCategory": 29,
+      "Records": 13
+    },
+    {
+      "Category": 2,
+      "SubCategory": 8,
+      "Records": 12
+    },
+    {
+      "Category": 1,
+      "SubCategory": 9,
+      "Records": 8
+    },
+    {
+      "Category": 1,
+      "SubCategory": 30,
+      "Records": 8
+    },
+    {
+      "Category": 1,
+      "SubCategory": 4,
+      "Records": 7
+    },
+    {
+      "Category": 7,
+      "SubCategory": 15,
+      "Records": 7
+    },
+    {
+      "Category": 1,
+      "SubCategory": 8,
+      "Records": 6
+    },
+    {
+      "Category": 1,
+      "SubCategory": 3,
+      "Records": 5
+    },
+    {
+      "Category": 2,
+      "SubCategory": 28,
+      "Records": 5
+    },
+    {
+      "Category": 3,
+      "SubCategory": 28,
+      "Records": 5
+    },
+    {
+      "Category": 9,
+      "SubCategory": 0,
+      "Records": 5
+    },
+    {
+      "Category": 1,
+      "SubCategory": 23,
+      "Records": 4
+    },
+    {
+      "Category": 1,
+      "SubCategory": 28,
+      "Records": 4
+    },
+    {
+      "Category": 3,
+      "SubCategory": 16,
+      "Records": 4
+    },
+    {
+      "Category": 3,
+      "SubCategory": 22,
+      "Records": 4
+    },
+    {
+      "Category": 5,
+      "SubCategory": 31,
+      "Records": 4
+    },
+    {
+      "Category": 1,
+      "SubCategory": 13,
+      "Records": 3
+    },
+    {
+      "Category": 1,
+      "SubCategory": 18,
+      "Records": 3
+    },
+    {
+      "Category": 2,
+      "SubCategory": 17,
+      "Records": 3
+    },
+    {
+      "Category": 2,
+      "SubCategory": 22,
+      "Records": 3
+    },
+    {
+      "Category": 4,
+      "SubCategory": 8,
+      "Records": 3
+    },
+    {
+      "Category": 2,
+      "SubCategory": 19,
+      "Records": 2
+    },
+    {
+      "Category": 3,
+      "SubCategory": 10,
+      "Records": 2
+    },
+    {
+      "Category": 4,
+      "SubCategory": 17,
+      "Records": 2
+    },
+    {
+      "Category": 7,
+      "SubCategory": 11,
+      "Records": 2
+    },
+    {
+      "Category": 1,
+      "SubCategory": 17,
+      "Records": 1
+    },
+    {
+      "Category": 2,
+      "SubCategory": 25,
+      "Records": 1
+    },
+    {
+      "Category": 2,
+      "SubCategory": 34,
+      "Records": 1
+    },
+    {
+      "Category": 3,
+      "SubCategory": 7,
+      "Records": 1
+    },
+    {
+      "Category": 3,
+      "SubCategory": 8,
+      "Records": 1
+    },
+    {
+      "Category": 3,
+      "SubCategory": 17,
+      "Records": 1
+    },
+    {
+      "Category": 4,
+      "SubCategory": 7,
+      "Records": 1
+    },
+    {
+      "Category": 7,
+      "SubCategory": 7,
+      "Records": 1
+    }
+  ],
+  "parsedStatus": [
+    {
+      "FullyParsed": 1,
+      "Records": 21624
+    }
+  ],
+  "sharedBaseFamilies": [
+    {
+      "BaseId": 166,
+      "Records": 511,
+      "DistinctNumerals": 6
+    },
+    {
+      "BaseId": 35,
+      "Records": 78,
+      "DistinctNumerals": 2
+    },
+    {
+      "BaseId": 5,
+      "Records": 64,
+      "DistinctNumerals": 1
+    },
+    {
+      "BaseId": 30,
+      "Records": 51,
+      "DistinctNumerals": 1
+    },
+    {
+      "BaseId": 353,
+      "Records": 46,
+      "DistinctNumerals": 3
+    },
+    {
+      "BaseId": 21,
+      "Records": 45,
+      "DistinctNumerals": 1
+    },
+    {
+      "BaseId": 34,
+      "Records": 44,
+      "DistinctNumerals": 1
+    },
+    {
+      "BaseId": 410,
+      "Records": 37,
+      "DistinctNumerals": 1
+    },
+    {
+      "BaseId": 376,
+      "Records": 36,
+      "DistinctNumerals": 1
+    },
+    {
+      "BaseId": 4,
+      "Records": 35,
+      "DistinctNumerals": 1
+    },
+    {
+      "BaseId": 307,
+      "Records": 33,
+      "DistinctNumerals": 1
+    },
+    {
+      "BaseId": 37,
+      "Records": 33,
+      "DistinctNumerals": 1
+    }
+  ],
+  "familyLabels": [],
+  "relationshipCoverage": [
+    {
+      "Total": 21624,
+      "WithBase": 1664,
+      "WithReferences": 3535,
+      "WithHidden": 1937,
+      "WithModalChildren": 532
+    }
+  ],
+  "parameterExamples": [
+    {
+      "Id": 177,
+      "BaseId": 42,
+      "BaseIdNumeral": 0,
+      "Category": 3,
+      "SubCategory": 0,
+      "TextId": 355,
+      "CostTypes": null,
+      "Tags": null
+    },
+    {
+      "Id": 184,
+      "BaseId": 21,
+      "BaseIdNumeral": 0,
+      "Category": 3,
+      "SubCategory": 0,
+      "TextId": 2721,
+      "CostTypes": null,
+      "Tags": null
+    },
+    {
+      "Id": 185,
+      "BaseId": 21,
+      "BaseIdNumeral": 0,
+      "Category": 3,
+      "SubCategory": 0,
+      "TextId": 944,
+      "CostTypes": null,
+      "Tags": "-1441209765"
+    },
+    {
+      "Id": 186,
+      "BaseId": 21,
+      "BaseIdNumeral": 0,
+      "Category": 3,
+      "SubCategory": 0,
+      "TextId": 2723,
+      "CostTypes": null,
+      "Tags": "-1441209765"
+    },
+    {
+      "Id": 187,
+      "BaseId": 21,
+      "BaseIdNumeral": 0,
+      "Category": 3,
+      "SubCategory": 0,
+      "TextId": 945,
+      "CostTypes": null,
+      "Tags": "-1441209765"
+    },
+    {
+      "Id": 188,
+      "BaseId": 21,
+      "BaseIdNumeral": 0,
+      "Category": 3,
+      "SubCategory": 0,
+      "TextId": 2722,
+      "CostTypes": null,
+      "Tags": "-1441209765"
+    },
+    {
+      "Id": 189,
+      "BaseId": 21,
+      "BaseIdNumeral": 0,
+      "Category": 3,
+      "SubCategory": 0,
+      "TextId": 2724,
+      "CostTypes": null,
+      "Tags": "-1441209765"
+    },
+    {
+      "Id": 190,
+      "BaseId": 10,
+      "BaseIdNumeral": 0,
+      "Category": 3,
+      "SubCategory": 0,
+      "TextId": 556158,
+      "CostTypes": null,
+      "Tags": null
+    },
+    {
+      "Id": 191,
+      "BaseId": 10,
+      "BaseIdNumeral": 0,
+      "Category": 3,
+      "SubCategory": 0,
+      "TextId": 227219,
+      "CostTypes": null,
+      "Tags": null
+    },
+    {
+      "Id": 192,
+      "BaseId": 10,
+      "BaseIdNumeral": 0,
+      "Category": 3,
+      "SubCategory": 0,
+      "TextId": 414640,
+      "CostTypes": null,
+      "Tags": null
+    }
+  ],
+  "modalExamples": [
+    {
+      "Id": 1013,
+      "BaseId": 0,
+      "ModalChildIds": "117144,23606",
+      "ModalParentIds": null,
+      "ReferencedAbilityIds": null,
+      "CostTypes": null,
+      "Tags": null
+    },
+    {
+      "Id": 1206,
+      "BaseId": 0,
+      "ModalChildIds": "29759,23606",
+      "ModalParentIds": null,
+      "ReferencedAbilityIds": null,
+      "CostTypes": null,
+      "Tags": null
+    },
+    {
+      "Id": 87382,
+      "BaseId": 0,
+      "ModalChildIds": "24392,24393,24394,24395",
+      "ModalParentIds": null,
+      "ReferencedAbilityIds": null,
+      "CostTypes": null,
+      "Tags": "-573831449,-1313840626,2121435115,-1493377720"
+    }
+  ],
+  "cardExamples": [
+    {
+      "GrpId": 6,
+      "TitleId": 0,
+      "OldSchoolManaText": "",
+      "AbilityIds": "",
+      "HiddenAbilityIds": "",
+      "LinkedFaceGrpIds": ""
+    },
+    {
+      "GrpId": 7,
+      "TitleId": 0,
+      "OldSchoolManaText": "",
+      "AbilityIds": "",
+      "HiddenAbilityIds": "",
+      "LinkedFaceGrpIds": ""
+    },
+    {
+      "GrpId": 8,
+      "TitleId": 0,
+      "OldSchoolManaText": "",
+      "AbilityIds": "",
+      "HiddenAbilityIds": "",
+      "LinkedFaceGrpIds": ""
+    }
+  ]
+}

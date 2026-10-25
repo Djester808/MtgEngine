@@ -1,0 +1,152 @@
+{
+  "kind": "local-readonly-sqlite-fallback",
+  "path": "research/arena/snapshots/card-database.sqlite",
+  "sha256": "1be0105411ad989ca60e233f1341eaaa9276e3a679c89f1ef6f07e07ede10d25",
+  "tables": [
+    {
+      "name": "Abilities",
+      "sql": "CREATE TABLE Abilities(Id INT UNIQUE PRIMARY KEY NOT NULL, BaseId INT NOT NULL, BaseIdNumeral INT, FakeBaseIdNumeral INT NOT NULL, TextId INT NOT NULL, OldSchoolManaText TEXT, Category INT NOT NULL, SubCategory INT NOT NULL, AbilityWord INT NOT NULL, NumericAid INT NOT NULL, RequiresConfirmation INT NOT NULL, PaymentType INT NOT NULL, LoyaltyCost TEXT, LevelRequirement TEXT, Power TEXT, Toughness TEXT, FullyParsed BOOLEAN NOT NULL, IsIntrinsicAbility BOOLEAN NOT NULL, MiscellaneousTerms TEXT, EmbeddedActiveAbilityIds TEXT, EmbeddedIntoAbilityIds TEXT, HiddenAbilityIds TEXT, HiddenByAbilityIds TEXT, ReferencedAbilityIds TEXT, ReferencedKeywordNumerals TEXT, ReferencedAbilityTypes TEXT, ModalChildIds TEXT, ModalParentIds TEXT, CostTypes TEXT, Tags TEXT, ReferencedAbilityManaText TEXT)"
+    },
+    {
+      "name": "AltPrintings",
+      "sql": "CREATE TABLE AltPrintings(AltGrpId INT PRIMARY KEY NOT NULL, IsAltArt BOOLEAN NOT NULL, SkinCode TEXT)"
+    },
+    {
+      "name": "AltToBasePrintings",
+      "sql": "CREATE TABLE AltToBasePrintings(BaseGrpId INT NOT NULL, AltGrpId INT NOT NULL,PRIMARY KEY(\"AltGrpId\",\"BaseGrpId\"))"
+    },
+    {
+      "name": "Cards",
+      "sql": "CREATE TABLE Cards(GrpId INT UNIQUE PRIMARY KEY NOT NULL, ArtId INT NOT NULL, ArtPath TEXT NOT NULL, TitleId INT NOT NULL, AltTitleId INT NOT NULL, InterchangeableTitleId INT NOT NULL, FlavorTextId INT NOT NULL, ReminderTextId INT NOT NULL, TypeTextId INT NOT NULL, SubtypeTextId INT NOT NULL, ArtistCredit TEXT, ArtSize INT NOT NULL, Rarity INT NOT NULL, ExpansionCode TEXT, DigitalReleaseSet TEXT, IsToken BOOLEAN NOT NULL, IsPrimaryCard BOOLEAN NOT NULL, IsDigitalOnly BOOLEAN NOT NULL, IsRebalanced BOOLEAN NOT NULL, RebalancedCardGrpId INT NOT NULL, DefunctRebalancedCardGrpId INT NOT NULL, AlternateDeckLimit INT NOT NULL, CollectorNumber TEXT NOT NULL, CollectorMax TEXT NOT NULL, CollectorSuffix TEXT NOT NULL, DraftContent BOOLEAN, UsesSideboard BOOLEAN NOT NULL, OldSchoolManaText TEXT NOT NULL, LinkedFaceType INT NOT NULL, RawFrameDetail TEXT NOT NULL, Watermark TEXT NOT NULL, TextChangeData TEXT NOT NULL, Power TEXT NOT NULL, Toughness TEXT NOT NULL, Colors TEXT NOT NULL, ColorIdentity TEXT NOT NULL, FrameColors TEXT NOT NULL, IndicatorColors TEXT NOT NULL, Types TEXT NOT NULL, Subtypes TEXT NOT NULL, Supertypes TEXT NOT NULL, AbilityIds TEXT NOT NULL, HiddenAbilityIds TEXT NOT NULL, LinkedFaceGrpIds TEXT NOT NULL, LinkedAbilityTemplateCardGrpIds TEXT NOT NULL, AbilityIdToLinkedTokenGrpId TEXT NOT NULL, AbilityIdToLinkedConjurations TEXT NOT NULL, KnownSupportedStyles TEXT NOT NULL, AdditionalFrameDetails TEXT NOT NULL, ExtraFrameDetails TEXT NOT NULL, Tags TEXT NOT NULL, PromoLabel TEXT NOT NULL, Order_LandLast INT, Order_ColorOrder INT, Order_CreaturesFirst INT, Order_ManaCostDifficulty INT, Order_CMCWithXLast INT, Order_Title TEXT, Order_MythicToCommon INT, Order_BasicLandsFirst INT)"
+    },
+    {
+      "name": "Enums",
+      "sql": "CREATE TABLE Enums(Type TEXT NOT NULL, Value INT NOT NULL, LocId INT NOT NULL, PRIMARY KEY (Type, Value))"
+    },
+    {
+      "name": "Localizations",
+      "sql": "CREATE TABLE Localizations(LocId INT NOT NULL, PRIMARY KEY (LocId))"
+    },
+    {
+      "name": "Localizations_deDE",
+      "sql": "CREATE TABLE Localizations_deDE(LocId INT NOT NULL, Formatted INT NOT NULL, Loc TEXT, PRIMARY KEY (LocId, Formatted))"
+    },
+    {
+      "name": "Localizations_enUS",
+      "sql": "CREATE TABLE Localizations_enUS(LocId INT NOT NULL, Formatted INT NOT NULL, Loc TEXT, PRIMARY KEY (LocId, Formatted))"
+    },
+    {
+      "name": "Localizations_esES",
+      "sql": "CREATE TABLE Localizations_esES(LocId INT NOT NULL, Formatted INT NOT NULL, Loc TEXT, PRIMARY KEY (LocId, Formatted))"
+    },
+    {
+      "name": "Localizations_frFR",
+      "sql": "CREATE TABLE Localizations_frFR(LocId INT NOT NULL, Formatted INT NOT NULL, Loc TEXT, PRIMARY KEY (LocId, Formatted))"
+    },
+    {
+      "name": "Localizations_itIT",
+      "sql": "CREATE TABLE Localizations_itIT(LocId INT NOT NULL, Formatted INT NOT NULL, Loc TEXT, PRIMARY KEY (LocId, Formatted))"
+    },
+    {
+      "name": "Localizations_jaJP",
+      "sql": "CREATE TABLE Localizations_jaJP(LocId INT NOT NULL, Formatted INT NOT NULL, Loc TEXT, PRIMARY KEY (LocId, Formatted))"
+    },
+    {
+      "name": "Localizations_koKR",
+      "sql": "CREATE TABLE Localizations_koKR(LocId INT NOT NULL, Formatted INT NOT NULL, Loc TEXT, PRIMARY KEY (LocId, Formatted))"
+    },
+    {
+      "name": "Localizations_phyrexian",
+      "sql": "CREATE TABLE Localizations_phyrexian(LocId INT NOT NULL, Formatted INT NOT NULL, Loc TEXT, PRIMARY KEY (LocId, Formatted))"
+    },
+    {
+      "name": "Localizations_ptBR",
+      "sql": "CREATE TABLE Localizations_ptBR(LocId INT NOT NULL, Formatted INT NOT NULL, Loc TEXT, PRIMARY KEY (LocId, Formatted))"
+    },
+    {
+      "name": "Prompts",
+      "sql": "CREATE TABLE Prompts(Id INT UNIQUE PRIMARY KEY NOT NULL, LocId INT NOT NULL)"
+    },
+    {
+      "name": "Versions",
+      "sql": "CREATE TABLE Versions(Type TEXT PRIMARY KEY UNIQUE NOT NULL, Version TEXT NOT NULL)"
+    }
+  ],
+  "counts": {
+    "Cards": 27136,
+    "Abilities": 21624,
+    "Prompts": 3520
+  },
+  "versions": [
+    {
+      "Type": "Data",
+      "Version": "2026.64.0.280"
+    },
+    {
+      "Type": "GRP",
+      "Version": "280.1327372"
+    }
+  ],
+  "abilitySample": [
+    {
+      "Id": 1,
+      "BaseId": 0,
+      "TextId": 100,
+      "Category": 3,
+      "SubCategory": 0,
+      "FullyParsed": 1,
+      "EmbeddedActiveAbilityIds": null,
+      "ReferencedAbilityIds": null,
+      "ModalChildIds": null,
+      "CostTypes": null
+    },
+    {
+      "Id": 2,
+      "BaseId": 0,
+      "TextId": 109,
+      "Category": 3,
+      "SubCategory": 0,
+      "FullyParsed": 1,
+      "EmbeddedActiveAbilityIds": null,
+      "ReferencedAbilityIds": null,
+      "ModalChildIds": null,
+      "CostTypes": null
+    },
+    {
+      "Id": 3,
+      "BaseId": 0,
+      "TextId": 22,
+      "Category": 3,
+      "SubCategory": 0,
+      "FullyParsed": 1,
+      "EmbeddedActiveAbilityIds": null,
+      "ReferencedAbilityIds": null,
+      "ModalChildIds": null,
+      "CostTypes": null
+    },
+    {
+      "Id": 4,
+      "BaseId": 0,
+      "TextId": 118,
+      "Category": 3,
+      "SubCategory": 0,
+      "FullyParsed": 1,
+      "EmbeddedActiveAbilityIds": null,
+      "ReferencedAbilityIds": null,
+      "ModalChildIds": null,
+      "CostTypes": null
+    },
+    {
+      "Id": 5,
+      "BaseId": 0,
+      "TextId": 79,
+      "Category": 3,
+      "SubCategory": 0,
+      "FullyParsed": 1,
+      "EmbeddedActiveAbilityIds": null,
+      "ReferencedAbilityIds": null,
+      "ModalChildIds": null,
+      "CostTypes": null
+    }
+  ]
+}

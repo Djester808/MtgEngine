@@ -38,11 +38,6 @@ public sealed partial class ReplacementSystem
             && gone.To.Zone.Zone == Zone.Exile
             && _query.Matches(state, w.What, Subject(state, gone), context),
 
-        WouldMill w => proposed is ObjectMoved milled
-            && milled.To.Zone.Zone == Zone.Graveyard
-            && WasIn(state, milled.From, Zone.Library)
-            && Names(state, w.Who, context, milled.To.Owner),
-
         WouldDiscard w => proposed is ObjectMoved pitched
             && pitched.To.Zone.Zone == Zone.Graveyard
             && WasIn(state, pitched.From, Zone.Hand)
@@ -69,10 +64,10 @@ public sealed partial class ReplacementSystem
 
         // CR 121.1: "except the first one they draw in each of their draw steps" is a narrowing of
         // which draws this replaces, not of what it does to them.
-        WouldDraw w => proposed is ObjectDrawn drawn
-            && Names(state, w.Who, context, drawn.Player)
-            && (w.FirstEachTurn is not true || state.Player(drawn.Player).ObjectsDrawnThisTurn == 0)
-            && (!w.ExceptFirstInDrawStep || !TheirDrawStepsFirstDraw(state, drawn.Player)),
+        WouldDraw w => DrawingPlayer(proposed) is { } drawing
+            && Names(state, w.Who, context, drawing)
+            && (w.FirstEachTurn is not true || state.Player(drawing).ObjectsDrawnThisTurn == 0)
+            && (!w.ExceptFirstInDrawStep || !TheirDrawStepsFirstDraw(state, drawing)),
 
         WouldGainLife w => proposed is LifeChanged gained
             && gained.Delta > 0

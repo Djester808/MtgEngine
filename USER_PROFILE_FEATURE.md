@@ -148,3 +148,27 @@ own and is captured inside the three surfaces that do.
 Profiles **read** collection data and never write it; nothing here changes the shapes in
 `CARD_COLLECTION_FEATURE.md`. Adding a stat that needs new collection surface means
 updating that document too.
+
+## Compleat account management port (2026-10-20)
+
+Existing users and PBKDF2 password hashes are preserved. Auth login/register still return token and username. New sessions use 15-minute access tokens and 30-day rotating HttpOnly, Secure, SameSite=Strict refresh cookies. Refresh replay revokes its device family. The API checks account version and session revocation on each authenticated request, including life-counter seat attribution. Older tokens remain compatible until sign-out-everywhere or a credential change invalidates them.
+
+Account routes under /api/account provide email verification/resend, password/email changes, device listing/revocation, sign-out-everywhere and password-confirmed deletion. Recovery is /api/auth/password/forgot and /password/reset. Six-digit codes expire after 10 minutes, allow five attempts and are rate-limited; unknown recovery addresses get the same response. Email SMTP configuration is Email:Smtp:Host/Port/User/Password/UseStartTls and Email:From. Development without SMTP logs messages; production requires delivery configuration.
+
+Deletion removes collections, decks, forum contributions and avatar bytes, and anonymizes the account. Shared game-history records can remain. Private money fields never enter public account/profile responses. The browser exposes Account & security from the profile and account menus, plus recovery from sign-in.
+
+## Username changes and profile deck privacy
+
+GET /api/account/username-available?username=... checks availability for the authenticated owner. PUT /api/account/username takes username and currentPassword. Names use the existing 3–32 ASCII letters/digits/underscore vocabulary, with reserved system names excluded and case-insensitive conflict checks. Changes have a 30-day cooldown. User IDs and owned data remain stable; forum post/comment author names update in the same transaction. All sessions are revoked and the refresh cookie is cleared. Old profile URLs stop resolving. New login tokens carry the new name.
+
+GET/PUT /api/account/deck-privacy reads/writes {hideProfileDecks:boolean}. When true, public profiles omit published/recent/top deck rails, commander and most-played-card rails, deck counts, format/color statistics and deck activity timestamps. The player directory omits the deck count too. Owner projections still include their data. Already-published forum posts remain public until separately unpublished; this setting controls profile discovery, not forum publication. Public profile/directory responses use no-store.
+
+Migration ProfileParity adds HideProfileDecks (false for existing rows, preserving previous visibility) and nullable UsernameChangedAt. Controls are on Account & security and reuse the shared account panel styles.
+
+### Authenticated table player search
+
+`GET /api/games/lobbies/players?search=...` returns only account ID and username for
+invitation selection. It requires an active authenticated account, excludes the caller
+and deleted accounts, matches username prefixes, and caps results at 20 in stable name/ID
+order. Trimmed prefixes shorter than two characters return no matches; more than 64 are
+rejected. No email, deck, collection or other private profile fields are included.

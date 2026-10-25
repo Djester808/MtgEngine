@@ -1,4 +1,6 @@
-# MtgEngine.Api
+# Compleat
+
+Formerly MTGEngine. This is the active Compleat engine; its browser client is in the sibling `mtg-client` repository. Project paths, namespaces and database settings retain their existing names for compatibility.
 
 ASP.NET Core (.NET 10) API behind the MTG deck builder. The Angular client lives in the
 sibling `mtg-client` repo.

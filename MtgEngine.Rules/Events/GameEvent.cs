@@ -38,6 +38,9 @@ public static class GameReducer
 [RuleRef("103")]
 public sealed record GameStarted(ImmutableList<PlayerStart> Players, ulong Seed, int StartingLife, string Format, int StartingPlayer = 0) : GameEvent
 {
+    /// <summary>The table's admitted automated coverage. Null identifies older logs without this snapshot.</summary>
+    public ImmutableHashSet<string>? EnforcedOracleIds { get; init; }
+
     internal static GameState Empty { get; } = new()
     {
         Players = [],
@@ -60,6 +63,9 @@ public sealed record GameStarted(ImmutableList<PlayerStart> Players, ulong Seed,
 [RuleRef("121.1")]
 public sealed record ObjectDrawn(PlayerId Player, ObjectId Object) : GameEvent
 {
+    /// <summary>Only replacement proposals carry this flag; committed draws follow their movement event.</summary>
+    public bool AwaitingCardMovement { get; init; }
+
     public override GameState Apply(GameState state)
     {
         var p = state.Player(Player);
@@ -83,18 +89,25 @@ public sealed record PlayerFlagCleared(PlayerId Player, string Flag) : GameEvent
     }
 }
 
-public sealed record PlayerStart(string Name, ImmutableList<string> DeckOracleIds, ImmutableList<string> CommandZoneOracleIds);
+public sealed record PlayerStart(string Name, ImmutableList<StartingCard> DeckCards, ImmutableList<StartingCard> CommandCards);
 
 /// <summary>An object came into existence in a zone, CR 400.7: a card put into a zone, a token created, a spell put on the stack.</summary>
 [RuleRef("400.7")]
 public sealed record ObjectCreated(GameObject Object, int Position) : GameEvent
 {
-    public override GameState Apply(GameState state)
+    public override GameState Apply(GameState state) => Place(state, Object, Position, created: true);
+
+    /// <summary>
+    /// Puts an object into its zone. <paramref name="created"/> says whether this is the object
+    /// coming into existence, which is the only case that writes creation history: ObjectMoved
+    /// places the new object through here too, and a move is not a creation.
+    /// </summary>
+    internal static GameState Place(GameState state, GameObject Object, int Position, bool created)
     {
         var zone = state.In(Object.Zone);
         var index = Position < 0 || Position > zone.Count ? zone.Count : Position;
         var history = state.History;
-        if (Object.IsToken)
+        if (created && Object.IsToken)
         {
             // CR 111.1: the turn remembers the token as it was created, under the player who created it.
             var mine = history.TokensCreated.TryGetValue(Object.InitialController, out var made) ? made : [];
@@ -128,6 +141,7 @@ public sealed record ObjectCeasedToExist(ObjectId Id) : GameEvent
         return state with
         {
             Objects = state.Objects.Remove(Id),
+            CommanderReturnCandidates = state.CommanderReturnCandidates.Remove(Id),
             Zones = state.Zones.SetItem(obj.Zone, state.In(obj.Zone).Remove(Id)),
         };
     }
@@ -145,6 +159,7 @@ public sealed record ObjectCeasedToExist(ObjectId Id) : GameEvent
 [RuleRef("400.7")]
 public sealed record ObjectMoved(ObjectId From, GameObject To, int Position, GameObject? Departed = null, ZoneKey? FromZone = null) : GameEvent
 {
+    public Library.LibraryDepartureObservation? LibraryDeparture { get; init; }
     /// <summary>
     /// The zone the object left, CR 603.6, or none when the site that made the move did not say.
     /// <see cref="FromZone"/> is what the mover recorded; a move that carries <see cref="Departed"/>
@@ -158,9 +173,18 @@ public sealed record ObjectMoved(ObjectId From, GameObject To, int Position, Gam
 
     public override GameState Apply(GameState state)
     {
-        var fromZone = state.Objects.TryGetValue(From, out var old) ? old.Zone.Zone : (Zone?)null;
+        // Where it came from: the state still holds it at this point, and failing that the mover
+        // said so. FromZone was read by LeftFrom but NOT here, so a mover that recorded the zone
+        // and carried no departed object - the very case the parameter exists for - would have
+        // written no LeftBattlefield and no Died, and morbid and revolt would have missed it.
+        var known = state.Objects.TryGetValue(From, out var old);
+        var fromZone = known && old is not null ? old.Zone.Zone : FromZone?.Zone;
         var withoutOld = new ObjectCeasedToExist(From).Apply(state);
-        var moved = new ObjectCreated(To, Position).Apply(withoutOld);
+
+        // created: false - this object is not coming into existence, it is arriving. Placing it
+        // as a creation recorded a moved token in TokensCreated ("you created a token this turn"
+        // answered true for a token that merely died) and added its battlefield entry twice.
+        var moved = ObjectCreated.Place(withoutOld, To, Position, created: false);
 
         // The turn's history, for "entered this turn", morbid and revolt (CR 603.10 looks back at these).
         var h = moved.History;
@@ -175,7 +199,10 @@ public sealed record ObjectMoved(ObjectId From, GameObject To, int Position, Gam
                 h = h with { Died = h.Died.Add(departed) };
         }
 
-        return moved with { History = h };
+        var candidates = moved.CommanderReturnCandidates.Remove(From);
+        if (To.IsCommander && To.Zone.Zone is Zone.Graveyard or Zone.Exile)
+            candidates = candidates.Add(To.Id);
+        return moved with { History = h, CommanderReturnCandidates = candidates };
     }
 }
 
@@ -208,10 +235,15 @@ public sealed record CountersChanged(ObjectId Id, string Kind, int Delta) : Game
     {
         if (!state.Objects.TryGetValue(Id, out var obj))
             return state;
+        return state with { Objects = state.Objects.SetItem(Id, ApplyTo(obj)) };
+    }
+
+    internal GameObject ApplyTo(GameObject obj)
+    {
         var current = obj.Counters.GetValueOrDefault(Kind);
         var next = Math.Max(0, current + Delta);
         var counters = next == 0 ? obj.Counters.Remove(Kind) : obj.Counters.SetItem(Kind, next);
-        return state with { Objects = state.Objects.SetItem(Id, obj with { Counters = counters }) };
+        return obj with { Counters = counters };
     }
 }
 
@@ -221,6 +253,21 @@ public sealed record CountersChanged(ObjectId Id, string Kind, int Delta) : Game
 public sealed record MonarchChanged(PlayerId Player) : GameEvent
 {
     public override GameState Apply(GameState state) => state with { Monarch = Player };
+}
+
+/// <summary>
+/// A player took the initiative, CR 726.2: a designation the game keeps rather than one an
+/// object carries, so it needs an event of its own or a replay could not restore it.
+/// <para>
+/// GameState.Initiative had no writer at all, while Query.Conditions read it - so every card
+/// asking "if you have the initiative" answered false for every player for the whole game, and
+/// the false branch ran silently. This is the monarch's twin, and had been left out.
+/// </para>
+/// </summary>
+[RuleRef("726.2")]
+public sealed record InitiativeChanged(PlayerId Player) : GameEvent
+{
+    public override GameState Apply(GameState state) => state with { Initiative = Player };
 }
 
 public sealed record LifeChanged(PlayerId Player, int Delta, string Reason) : GameEvent
@@ -262,6 +309,7 @@ public sealed record StepBegan(Step Step) : GameEvent
     public override GameState Apply(GameState state) => state with
     {
         Turn = state.Turn with { Step = Step },
+        Priority = PriorityState.None,
         Players = [.. state.Players.Select(p => p.StepBegins())],
     };
 }
@@ -287,6 +335,9 @@ public sealed record ChoiceRequested(PendingChoice Choice) : GameEvent
     public override GameState Apply(GameState state) => state with
     {
         Pending = Choice,
+        CommanderReturnCandidates = Choice.Kind == Choices.ChoiceKinds.CommanderReturn && Choice.Context.Source is { } commander
+            ? state.CommanderReturnCandidates.Remove(commander)
+            : state.CommanderReturnCandidates,
         NextChoiceId = Math.Max(state.NextChoiceId, Choice.Id.Value + 1),
     };
 }
@@ -302,7 +353,24 @@ public sealed record ChoiceAnswered(ChoiceId Id, PlayerId Player, ImmutableList<
 /// <summary>A zone's order changed. <paramref name="Shuffle"/> says it was a shuffle (CR 701.20) rather than cards put back in a chosen order, which "would shuffle" replacements tell apart.</summary>
 public sealed record ZoneReordered(ZoneKey Zone, ImmutableList<ObjectId> Order, bool Shuffle = false) : GameEvent
 {
-    public override GameState Apply(GameState state) => state with { Zones = state.Zones.SetItem(Zone, Order) };
+    public bool AwaitingRandomization { get; init; }
+
+    public override GameState Apply(GameState state)
+    {
+        if (AwaitingRandomization)
+            return state;
+        var reordered = state with { Zones = state.Zones.SetItem(Zone, Order) };
+        if (Shuffle || !state.In(Zone).SequenceEqual(Order))
+            reordered = Library.ManualLibraryInspection.EndAfterReorder(reordered, Zone);
+        if (Shuffle && Zone.Zone == Cards.Zone.Library)
+            reordered = reordered with
+            {
+                LibraryInspections = reordered.LibraryInspections.RemoveRange(reordered.LibraryInspections
+                    .Where(pair => pair.Value.Owner == Zone.Player).Select(pair => pair.Key)),
+            };
+        return Zone.Zone == Cards.Zone.Library && (Shuffle || !state.In(Zone).SequenceEqual(Order))
+            ? Library.LibraryRevealCoordinator.EndReorderedDisclosures(reordered, Zone) : reordered;
+    }
 }
 
 
@@ -354,7 +422,12 @@ public sealed record DamageDealt(ObjectId Source, ObjectId? ToObject, PlayerId? 
         if (ToPlayer is { } pid)
         {
             var p = state.Player(pid);
-            var commanderDamage = FromCommander ? p.CommanderDamage.SetItem(Source, p.CommanderDamage.GetValueOrDefault(Source) + Amount) : p.CommanderDamage;
+            // Keyed by the commander rather than the object it is right now: see CommanderIdentity.
+            var commanderDamage = p.CommanderDamage;
+            if (FromCommander && Identify(state, Source) is { } who)
+            {
+                commanderDamage = commanderDamage.SetItem(who, commanderDamage.GetValueOrDefault(who) + Amount);
+            }
             h = h with { DamageReceivedByPlayer = h.DamageReceivedByPlayer.SetItem(pid, h.DamageReceivedByPlayer.GetValueOrDefault(pid) + Amount) };
             var pair = (Source, pid);
             h = h with { DamageDealtToPlayer = h.DamageDealtToPlayer.SetItem(pair, h.DamageDealtToPlayer.GetValueOrDefault(pair) + Amount) };
@@ -362,6 +435,23 @@ public sealed record DamageDealt(ObjectId Source, ObjectId? ToObject, PlayerId? 
         }
 
         return state with { History = h };
+    }
+
+    /// <summary>
+    /// Who this source is, as a commander. The object is normally still there when its damage
+    /// is folded; when it is not - a commander that died dealing its damage - the last-known
+    /// object carries the same owner and card, which is the whole point of the key.
+    /// </summary>
+    private static CommanderIdentity? Identify(GameState state, ObjectId source)
+    {
+        if (state.Objects.TryGetValue(source, out var live))
+        {
+            return CommanderIdentity.Of(live);
+        }
+
+        var last = state.History.LeftBattlefield.FirstOrDefault(o => o.Id == source)
+            ?? state.History.Died.FirstOrDefault(o => o.Id == source);
+        return last is null ? null : CommanderIdentity.Of(last);
     }
 }
 
@@ -373,13 +463,26 @@ public sealed record ManaChanged(PlayerId Player, ManaPool Delta, string Reason,
     public override GameState Apply(GameState state)
     {
         var p = state.Player(Player);
-        var m = p.Mana;
-        var next = new ManaPool(m.White + Delta.White, m.Blue + Delta.Blue, m.Black + Delta.Black, m.Red + Delta.Red, m.Green + Delta.Green, m.Colorless + Delta.Colorless)
+        return state with { Players = state.Players.SetItem(Player.Value, p with { Mana = ApplyTo(p.Mana) }) };
+    }
+
+    internal ManaPool ApplyTo(ManaPool m) => ApplyTo(m, false)!;
+
+    internal ManaPool? TryApplyTo(ManaPool m) => ApplyTo(m, true);
+
+    private ManaPool? ApplyTo(ManaPool m, bool validate)
+    {
+        var restricted = ManaPool.FoldRestrictedCore(m.Restricted, Delta.Restricted, validate);
+        var provenance = ManaPool.FoldProvenanceCore(m.Provenance, Delta.Provenance, validate);
+        if (restricted is null || provenance is null)
+            return null;
+        var result = new ManaPool(m.White + Delta.White, m.Blue + Delta.Blue, m.Black + Delta.Black, m.Red + Delta.Red, m.Green + Delta.Green, m.Colorless + Delta.Colorless)
         {
-            Restricted = ManaPool.FoldRestricted(m.Restricted, Delta.Restricted),
-            Provenance = ManaPool.FoldProvenance(m.Provenance, Delta.Provenance),
+            Restricted = restricted,
+            Provenance = provenance,
         };
-        return state with { Players = state.Players.SetItem(Player.Value, p with { Mana = next }) };
+        return validate && (result.White < 0 || result.Blue < 0 || result.Black < 0 || result.Red < 0
+            || result.Green < 0 || result.Colorless < 0) ? null : result;
     }
 }
 
@@ -391,53 +494,19 @@ public sealed record ManaPoolEmptied(PlayerId Player) : GameEvent
 }
 
 /// <summary>A spell was cast, CR 601: the object is already on the stack by an <see cref="ObjectMoved"/>; this names the moment for triggers.</summary>
-[RuleRef("601.2i")]
-public sealed record SpellCast(ObjectId Spell, PlayerId Caster, Zone From) : GameEvent
-{
-    public override GameState Apply(GameState state) =>
-        state with { History = state.History with { SpellsCast = state.History.SpellsCast.Add(new SpellCastRecord(Spell, Caster, From)) } };
-}
-
-/// <summary><paramref name="StackObject"/> is null for a mana ability, which does not use the stack, CR 605.3a.</summary>
-[RuleRef("602.2")]
-public sealed record AbilityActivated(ObjectId? StackObject, ObjectId Source, int AbilityIndex, PlayerId Player) : GameEvent
-{
-    public override GameState Apply(GameState state) => state;
-}
-
-[RuleRef("305")]
-public sealed record LandPlayed(ObjectId Land, PlayerId Player) : GameEvent
-{
-    public override GameState Apply(GameState state)
-    {
-        var p = state.Player(Player);
-        return state with { Players = state.Players.SetItem(Player.Value, p with { LandsPlayedThisTurn = p.LandsPlayedThisTurn + 1 }) };
-    }
-}
-
-[RuleRef("608.2")]
-public sealed record StackObjectResolved(ObjectId StackObject) : GameEvent
-{
-    /// <summary>The object is still on the stack (FinishResolving does the leaving, CR 608.2m), so its entry names the source and ability this resolution counts for: "the first time this turn" and once-a-turn abilities read the tally.</summary>
-    public override GameState Apply(GameState state)
-    {
-        if (!state.Objects.TryGetValue(StackObject, out var obj) || obj.Stack is not { } entry)
-            return state;
-        var key = (entry.Source ?? obj.Id, entry.AbilityIndex ?? -1);
-        var tally = state.History.AbilitiesResolvedThisTurn;
-        return state with
-        {
-            History = state.History with { AbilitiesResolvedThisTurn = tally.SetItem(key, tally.GetValueOrDefault(key) + 1) },
-        };
-    }
-}
-
 [RuleRef("508")]
 public sealed record AttackersDeclared(PlayerId Player, ImmutableDictionary<ObjectId, CombatTarget> Attackers) : GameEvent
 {
+    public ImmutableList<PlayerId> DefendingPlayers { get; init; } = [];
+
     public override GameState Apply(GameState state) => state with
     {
-        Combat = new CombatState(Player, Attackers, ImmutableDictionary<ObjectId, ImmutableList<ObjectId>>.Empty, AttackersDeclared: true, BlockersDeclared: false),
+        Combat = new CombatState(Player, Attackers, ImmutableDictionary<ObjectId, ImmutableList<ObjectId>>.Empty, AttackersDeclared: true, BlockersDeclared: false)
+        {
+            DefendingPlayers = DefendingPlayers.IsEmpty
+                ? [.. Attackers.Values.Where(t => t.Player is not null).Select(t => t.Player!.Value).Distinct()]
+                : DefendingPlayers,
+        },
         History = state.History with { AttackedWith = state.History.AttackedWith.AddRange(Attackers.Keys) },
     };
 }
@@ -445,8 +514,21 @@ public sealed record AttackersDeclared(PlayerId Player, ImmutableDictionary<Obje
 [RuleRef("509")]
 public sealed record BlockersDeclared(PlayerId Player, ImmutableDictionary<ObjectId, ImmutableList<ObjectId>> Blockers) : GameEvent
 {
-    public override GameState Apply(GameState state) =>
-        state.Combat is null ? state : state with { Combat = state.Combat with { Blockers = Blockers, BlockersDeclared = true } };
+    public override GameState Apply(GameState state)
+    {
+        if (state.Combat is not { } combat)
+            return state;
+        var declared = combat.BlockersDeclaredBy.Contains(Player) ? combat.BlockersDeclaredBy : combat.BlockersDeclaredBy.Add(Player);
+        return state with
+        {
+            Combat = combat with
+            {
+                Blockers = combat.Blockers.SetItems(Blockers),
+                BlockersDeclaredBy = declared,
+                BlockersDeclared = combat.DefendingPlayers.Where(p => !state.Player(p).HasLost).All(declared.Contains),
+            },
+        };
+    }
 }
 
 [RuleRef("511")]
@@ -457,37 +539,6 @@ public sealed record CombatEnded : GameEvent
 
 /// <summary>An object was destroyed, sacrificed, countered or otherwise left by a named rule; the zone change itself is a separate <see cref="ObjectMoved"/>.</summary>
 public sealed record ObjectLeftBy(ObjectId Object, string Verb, ObjectId? By) : GameEvent
-{
-    public override GameState Apply(GameState state) => state;
-}
-
-/// <summary>The randomness was used: the state's counter advanced. The consuming event records what came out.</summary>
-public sealed record RngAdvanced(RngState To) : GameEvent
-{
-    public override GameState Apply(GameState state) => state with { Rng = To };
-}
-
-[RuleRef("104.3")]
-public sealed record PlayerLost(PlayerId Player, string Reason) : GameEvent
-{
-    public override GameState Apply(GameState state)
-    {
-        var p = state.Player(Player);
-        return state with { Players = state.Players.SetItem(Player.Value, p with { HasLost = true }) };
-    }
-}
-
-[RuleRef("104")]
-public sealed record GameEnded(GameOutcome Outcome) : GameEvent
-{
-    public override GameState Apply(GameState state) => state with { Outcome = Outcome, Priority = PriorityState.None };
-}
-
-/// <summary>
-/// A player did something by hand on an honour-system object. The actor is recorded so the
-/// log shows who did what; the engine applied no rule to it.
-/// </summary>
-public sealed record ManualActionTaken(PlayerId Actor, string Action, ObjectId? Object, string Detail) : GameEvent
 {
     public override GameState Apply(GameState state) => state;
 }

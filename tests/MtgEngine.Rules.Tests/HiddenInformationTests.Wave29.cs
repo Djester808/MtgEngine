@@ -61,12 +61,11 @@ public sealed partial class HiddenInformationTests
     }
 
     /// <summary>
-    /// CR 401.6: a card that stops being revealed and is revealed again is a new object. The view
-    /// carries no memory, so the assertion is that what it shows is the object that is on top now
-    /// — a different id once the card that was revealed has left.
+    /// The projected top updates after the previous top card leaves the library. This does not
+    /// test CR 401.6: hiding and revealing the same physical card without changing its zone.
     /// </summary>
     [Fact]
-    [RuleRef("401.6")]
+    [RuleRef("401.5")]
     public void The_revealed_card_is_whichever_object_is_on_top_now()
     {
         var state = Revealing(Start(openingHand: 0), Me);

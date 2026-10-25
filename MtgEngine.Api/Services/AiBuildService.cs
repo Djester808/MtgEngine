@@ -1028,7 +1028,7 @@ public sealed class AiBuildService : IAiBuildService
             var def = await _scryfall.GetByOracleIdAsync(row.OracleId);
             if (def is null)
                 continue;
-            for (int i = 0; i < Math.Max(1, row.Quantity + row.QuantityFoil); i++)
+            for (int i = 0; i < Math.Max(1, row.Quantity + row.QuantityFoil + row.QuantityEtched); i++)
                 mainDefs.Add(def);
         }
         var deckFacts = MeasureFacts([.. mainDefs]);

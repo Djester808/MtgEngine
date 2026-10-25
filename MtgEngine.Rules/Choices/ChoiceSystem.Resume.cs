@@ -15,14 +15,15 @@ namespace MtgEngine.Rules.Choices;
 /// </summary>
 public sealed partial class ChoiceSystem
 {
-    private const int DefaultHandSize = 7;
+    private readonly OpeningHands.OpeningHandCoordinator openingHands = new(zones);
 
     private Outcome Resume(GameState state, PendingChoice choice, ImmutableList<ChoiceOption> chosen) => choice.Kind switch
     {
         ChoiceKinds.Discard => Discard(state, chosen),
         ChoiceKinds.LegendRule => LegendRule(state, choice, chosen),
-        ChoiceKinds.Mulligan => Mulligan(state, choice, chosen).Then(s => Next(s, choice.Player)),
-        ChoiceKinds.MulliganBottom => Bottom(state, chosen).Then(s => Next(s, choice.Player)),
+        ChoiceKinds.CommanderReturn => ReturnCommander(state, choice, chosen),
+        ChoiceKinds.Mulligan => openingHands.Decide(state, choice, chosen).Then(s => Next(s, choice.Player)),
+        ChoiceKinds.MulliganBottom => openingHands.Bottom(state, choice, chosen).Then(s => Next(s, choice.Player)),
 
         // CR 117.3b with 608.2: every other kind is a card's question, asked in the middle of
         // something the game was already doing — a resolution, a combat damage batch, a cast.
@@ -30,9 +31,20 @@ public sealed partial class ChoiceSystem
         // nothing while another question stands or while a player still holds priority, so an
         // answer that finished nothing changes nothing here. A mulligan keep is not among them:
         // it opens the game rather than a step, through Next and CR 103.5.
-        _ => AndTheRest(Resumed(resumable.Resume(state, new Resumption(choice.Kind, choice.Player, chosen, choice.Context))), choice)
+        _ => ResumeOperation(state, choice, chosen)
             .Then(turn.OpenStep),
     };
+
+    /// <summary>Finish the interrupted operation before evaluating its enclosing payment.</summary>
+    private Outcome ResumeOperation(GameState state, PendingChoice choice, ImmutableList<ChoiceOption> chosen)
+    {
+        var resumed = resumable.Resume(state, new Resumption(choice.Kind, choice.Player, chosen, choice.Context));
+        var resolved = Resumed(resumed);
+        var drawn = Library.LibraryDrawCoordinator.Resume(resolved, choice.Context.DeferredDraws, zones);
+        var batch = FinishZoneBatch(AndTheRest(drawn, choice), choice);
+        return Library.LibraryShuffleContinuation.Complete(batch, choice.Context.DeferredShuffles, zones);
+    }
+
 
     /// <summary>
     /// CR 510.2 with 702.15b: the rest of a halted combat damage batch, told what the halted hit
@@ -131,7 +143,7 @@ public sealed partial class ChoiceSystem
     /// </summary>
     [RuleRef("514.1")]
     private Outcome Discard(GameState state, ImmutableList<ChoiceOption> chosen) =>
-        zones.MoveAll(state, ToGraveyard(state, chosen)).Then(turn.Advance);
+        AdvanceAfterBatch(zones.MoveAll(state, ToGraveyard(state, chosen)));
 
     /// <summary>
     /// CR 704.5j: the controller of two or more legendary permanents with the same name keeps
@@ -144,104 +156,6 @@ public sealed partial class ChoiceSystem
         var kept = chosen.Select(c => c.Id).ToImmutableHashSet(StringComparer.Ordinal);
         var rest = choice.Options.Where(o => !kept.Contains(o.Id)).ToImmutableList();
         return zones.MoveAll(state, ToGraveyard(state, rest));
-    }
-
-    /// <summary>
-    /// CR 103.5: a player dissatisfied with their hand takes a mulligan — the hand is shuffled
-    /// back, a new one of the starting size is drawn, and then, once they keep, they put one
-    /// card per mulligan taken on the bottom of their library. Each declaration is its own
-    /// question, so the count so far travels in the context rather than in a loop variable.
-    /// </summary>
-    [RuleRef("103.5")]
-    private Outcome Mulligan(GameState state, PendingChoice choice, ImmutableList<ChoiceOption> chosen)
-    {
-        var player = choice.Player;
-        var taken = Number(choice.Context, "mulligans");
-        var handSize = Number(choice.Context, "handSize", DefaultHandSize);
-
-        if (!chosen.Any(c => string.Equals(c.Id, ChoiceKinds.Mulligan, StringComparison.Ordinal)))
-            return AskToBottom(state, player, taken, handSize);
-
-        var hand = Hand(state, player);
-        var back = hand.Select(id => new MoveRequest(id, ZoneKey.Of(Zone.Library, player))).ToImmutableList();
-        var next = taken + 1;
-        return zones.MoveAll(state, back)
-            .Then(s => zones.Shuffle(s, player))
-            .Then(s => zones.Draw(s, player, handSize))
-
-            // CR 103.5: mulligans may be taken until the opening hand would be zero cards.
-            .Then(s => next < handSize
-                ? Ask(s, Declaration(s, player, next, handSize))
-                : AskToBottom(s, player, next, handSize));
-    }
-
-    /// <summary>
-    /// CR 103.5: the kept cards that go on the bottom of the library, in the order answered —
-    /// the rule says any order, and the answer is the order the player chose.
-    /// </summary>
-    [RuleRef("103.5")]
-    private Outcome Bottom(GameState state, ImmutableList<ChoiceOption> chosen)
-    {
-        var moves = ImmutableList.CreateBuilder<MoveRequest>();
-        foreach (var (id, obj) in Objects(state, chosen))
-            moves.Add(new MoveRequest(id, ZoneKey.Of(Zone.Library, obj.Owner), Placement.Bottom));
-        return zones.MoveAll(state, moves.ToImmutable());
-    }
-
-    /// <summary>
-    /// The declaration a player makes each round of mulligans, CR 103.5. Public because the
-    /// turn system raises the first one when the game begins; every later one is raised here.
-    /// </summary>
-    public static PendingChoice Declaration(GameState state, PlayerId player, int taken, int handSize) =>
-        new(
-            new ChoiceId(state.NextChoiceId),
-            player,
-            ChoiceKinds.Mulligan,
-            "Keep this hand, or take a mulligan?",
-            [new ChoiceOption(ChoiceKinds.Keep, "Keep"), new ChoiceOption(ChoiceKinds.Mulligan, "Mulligan")],
-            1,
-            1,
-            MulliganContext(taken, handSize));
-
-    /// <summary>Where a mulligan declaration keeps its count and the starting hand size, CR 103.5.</summary>
-    public static ChoiceContext MulliganContext(int taken, int handSize) =>
-        new(
-            null,
-            null,
-            ChoiceKinds.Mulligan,
-            ImmutableDictionary<string, string>.Empty
-                .Add("mulligans", taken.ToString(CultureInfo.InvariantCulture))
-                .Add("handSize", handSize.ToString(CultureInfo.InvariantCulture)));
-
-    /// <summary>
-    /// One card per mulligan taken goes on the bottom, CR 103.5. A player who kept their first
-    /// hand puts none back, and there is nothing to ask.
-    /// </summary>
-    private static Outcome AskToBottom(GameState state, PlayerId player, int taken, int handSize)
-    {
-        var hand = Hand(state, player);
-        var count = Math.Min(taken, hand.Count);
-        if (count <= 0)
-            return Outcome.Unchanged(state);
-
-        var options = hand
-            .Select(id => new ChoiceOption(id.Value.ToString(CultureInfo.InvariantCulture), state.Objects[id].Face.Name, id))
-            .ToImmutableList();
-        return Ask(state, new PendingChoice(
-            new ChoiceId(state.NextChoiceId),
-            player,
-            ChoiceKinds.MulliganBottom,
-            $"Put {count} card(s) on the bottom of your library.",
-            options,
-            count,
-            count,
-            MulliganContext(taken, handSize)));
-    }
-
-    private static Outcome Ask(GameState state, PendingChoice choice)
-    {
-        var requested = new ChoiceRequested(choice);
-        return new Outcome(requested.Apply(state), [requested]);
     }
 
     private static ImmutableList<MoveRequest> ToGraveyard(GameState state, IEnumerable<ChoiceOption> options)
@@ -266,12 +180,4 @@ public sealed partial class ChoiceSystem
         }
     }
 
-    private static ImmutableList<ObjectId> Hand(GameState state, PlayerId player) =>
-        state.In(ZoneKey.Of(Zone.Hand, player));
-
-    private static int Number(ChoiceContext context, string key, int fallback = 0) =>
-        context.Extra.TryGetValue(key, out var raw)
-        && int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
-            ? value
-            : fallback;
 }

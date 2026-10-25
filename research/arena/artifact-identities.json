@@ -1,0 +1,32 @@
+[
+  {
+    "name": "Core.dll",
+    "path": "C:\\Program Files\\Wizards of the Coast\\MTGA\\MTGA_Data\\Managed\\Core.dll",
+    "bytes": 12856320,
+    "sha256": "3e85d45e88b10a2fd3841e3abe6f5b37a17e0c42d360c93988e2270b4fdc858a"
+  },
+  {
+    "name": "SharedClientCore.dll",
+    "path": "C:\\Program Files\\Wizards of the Coast\\MTGA\\MTGA_Data\\Managed\\SharedClientCore.dll",
+    "bytes": 1569792,
+    "sha256": "42f2fb5f062ccc6098182a902d411746070759a404e875b6e0aac44d3b7ccc6e"
+  },
+  {
+    "name": "Wizards.MDN.GreProtobuf.dll",
+    "path": "C:\\Program Files\\Wizards of the Coast\\MTGA\\MTGA_Data\\Managed\\Wizards.MDN.GreProtobuf.dll",
+    "bytes": 1431040,
+    "sha256": "7ca28480089cc2b21417abfea82b9c8721ff855f0369966858d70d58f2afcdae"
+  },
+  {
+    "name": "GrpdParser.dll",
+    "path": "C:\\Program Files\\Wizards of the Coast\\MTGA\\MTGA_Data\\Managed\\GrpdParser.dll",
+    "bytes": 96768,
+    "sha256": "948a9df0d6571a99d2978d82b02d79887e26bc0c763e812335541d5dfff1caab"
+  },
+  {
+    "name": "Wizards.Arena.DeckValidation.Core.dll",
+    "path": "C:\\Program Files\\Wizards of the Coast\\MTGA\\MTGA_Data\\Managed\\Wizards.Arena.DeckValidation.Core.dll",
+    "bytes": 106496,
+    "sha256": "2231f14e07d8665036935e97d2355129ac5f85bf94022af611c0b57b3796969d"
+  }
+]

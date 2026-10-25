@@ -90,6 +90,7 @@ public sealed class ProfileService : IProfileService
         // Ordered by contribution, so the list opens on the people worth reading.
         var users = await _db.Users
             .AsNoTracking()
+            .Where(u => u.DeletedAt == null)
             .Select(u => new
             {
                 u.Id,
@@ -98,6 +99,7 @@ public sealed class ProfileService : IProfileService
                 u.Tagline,
                 u.CreatedAt,
                 u.AvatarUpdatedAt,
+                u.HideProfileDecks,
             })
             .ToListAsync(ct);
 
@@ -128,7 +130,7 @@ public sealed class ProfileService : IProfileService
                     Tagline = u.Tagline,
                     AvatarUrl = AvatarUrl(u.Username, u.AvatarUpdatedAt),
                     JoinedAt = u.CreatedAt,
-                    DeckCount = deckCounts.GetValueOrDefault(key),
+                    DeckCount = u.HideProfileDecks ? 0 : deckCounts.GetValueOrDefault(key),
                     CommentCount = commentCounts.GetValueOrDefault(key),
                 };
             })
@@ -250,7 +252,7 @@ public sealed class ProfileService : IProfileService
 
         var row = await _db.Users
             .AsNoTracking()
-            .Where(u => u.Username.ToLower() == normalized)
+            .Where(u => u.DeletedAt == null && u.Username.ToLower() == normalized)
             .Join(
                 _db.Set<UserAvatar>().AsNoTracking(),
                 u => u.Id,
@@ -293,15 +295,16 @@ public sealed class ProfileService : IProfileService
                 c.CommanderOracleId,
                 c.IsDeck,
                 c.UpdatedAt,
-                c.Cards.Sum(cc => cc.Quantity + cc.QuantityFoil)))
+                c.Cards.Sum(cc => cc.Quantity + cc.QuantityFoil + cc.QuantityEtched)))
             .ToListAsync(ct);
 
         ct.ThrowIfCancellationRequested();
 
-        var decks = owned.Where(c => c.IsDeck).ToList();
+        var showDecks = includePrivateDecks || !user.HideProfileDecks;
+        var decks = owned.Where(c => c.IsDeck && showDecks).ToList();
         var collections = owned.Where(c => !c.IsDeck).ToList();
 
-        var published = await _forum.GetPostsByAuthorAsync(userId, ct);
+        var published = showDecks ? await _forum.GetPostsByAuthorAsync(userId, ct) : [];
         var publishedByDeck = published
             .GroupBy(p => p.DeckId)
             .ToDictionary(g => g.Key, g => g.First());
@@ -323,7 +326,7 @@ public sealed class ProfileService : IProfileService
             .AsNoTracking()
             .Where(cc => cc.Collection.UserId == userId
                          && !cc.Collection.IsDeck
-                         && cc.Quantity + cc.QuantityFoil > 0)
+                         && cc.Quantity + cc.QuantityFoil + cc.QuantityEtched > 0)
             .Select(cc => cc.OracleId)
             .Distinct()
             .CountAsync(ct);
@@ -355,7 +358,7 @@ public sealed class ProfileService : IProfileService
         var colorSpread = await BuildColorSpreadAsync(commanderCounts, ct);
 
         var favoriteCommander = await ResolveFavoriteCommanderAsync(
-            user.FavoriteCommanderOracleId, commanderCounts, ct);
+            showDecks ? user.FavoriteCommanderOracleId : null, commanderCounts, ct);
 
         // "Most engaged": their published decks, best conversation first.
         var topDecks = published
@@ -389,9 +392,9 @@ public sealed class ProfileService : IProfileService
         {
             DecksBuilt = decks.Count,
             DecksPublished = published.Length,
-            Collections = collections.Count,
-            CardsOwned = collections.Sum(c => c.CardCount),
-            DistinctCards = distinctCards,
+            Collections = includePrivateDecks || user.PublicCollection ? collections.Count : 0,
+            CardsOwned = includePrivateDecks || user.PublicCollection ? collections.Sum(c => c.CardCount) : 0,
+            DistinctCards = includePrivateDecks || user.PublicCollection ? distinctCards : 0,
             CommentsPosted = commentsPosted,
             CommentsReceived = commentsReceived,
             ColorSpread = colorSpread,
@@ -401,7 +404,7 @@ public sealed class ProfileService : IProfileService
                 .Select(g => new FormatCountDto(g.Key, g.Count()))
                 .OrderByDescending(f => f.DeckCount)
                 .ThenBy(f => f.Format, StringComparer.OrdinalIgnoreCase)],
-            LastActiveAt = owned.Count == 0 ? null : owned.Max(c => c.UpdatedAt),
+            LastActiveAt = showDecks && owned.Count > 0 ? owned.Max(c => c.UpdatedAt) : null,
         };
 
         return new UserProfileDto
@@ -418,7 +421,7 @@ public sealed class ProfileService : IProfileService
             Stats = stats,
             FavoriteCommander = favoriteCommander,
             TopCommanders = topCommanders,
-            MostPlayedCards = await GetMostPlayedCardsAsync(userId, ct),
+            MostPlayedCards = showDecks ? await GetMostPlayedCardsAsync(userId, ct) : [],
             TopDecks = topDecks,
             RecentlyActive = recentlyActive,
             PublishedDecks = published,
@@ -435,8 +438,8 @@ public sealed class ProfileService : IProfileService
             .AsNoTracking()
             .Where(cc => cc.Collection.UserId == userId
                          && !cc.Collection.IsDeck
-                         && cc.Quantity + cc.QuantityFoil > 0)
-            .Select(cc => new { cc.OracleId, cc.ScryfallId, cc.Quantity, cc.QuantityFoil })
+                         && cc.Quantity + cc.QuantityFoil + cc.QuantityEtched > 0)
+            .Select(cc => new { cc.OracleId, cc.ScryfallId, cc.Quantity, cc.QuantityFoil, cc.QuantityEtched })
             .Take(MaxRowsValued)
             .ToListAsync(ct);
 
@@ -462,11 +465,16 @@ public sealed class ProfileService : IProfileService
                 copiesValued += row.Quantity;
             }
 
-            var foilPrice = card.Prices.UsdFoil ?? card.Prices.UsdEtched;
+            var foilPrice = card.Prices.UsdFoil;
             if (row.QuantityFoil > 0 && foilPrice is { } foil)
             {
                 total += foil * row.QuantityFoil;
                 copiesValued += row.QuantityFoil;
+            }
+            if (row.QuantityEtched > 0 && card.Prices.UsdEtched is { } etched)
+            {
+                total += etched * row.QuantityEtched;
+                copiesValued += row.QuantityEtched;
             }
         }
 
@@ -673,7 +681,7 @@ public sealed class ProfileService : IProfileService
 
     private async Task<User> FindUserAsync(Guid userId, CancellationToken ct)
     {
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct);
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId && u.DeletedAt == null, ct);
 
         return user ?? throw new ResourceNotFoundException("Your account was not found.");
     }

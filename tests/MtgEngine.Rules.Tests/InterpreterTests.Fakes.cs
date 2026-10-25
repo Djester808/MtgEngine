@@ -1,4 +1,5 @@
 using MtgEngine.Cards;
+using MtgEngine.Rules.Choices;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.Interpreter;
@@ -63,15 +64,28 @@ internal sealed class InterpreterFakeReplacements : IReplacementSystem
 
     public Func<GameEvent, GameEvent?> Instead { get; set; } = e => e;
 
+    /// <summary>
+    /// Which proposed events more than one replacement effect applies to, CR 616.1. A test that
+    /// sets this gets the real shape of that question: the proposed event does NOT happen, the
+    /// question carries the event, and the answer is what finally applies it.
+    /// </summary>
+    public Func<GameEvent, bool> Asks { get; set; } = _ => false;
+
     public List<GameEvent> Proposed { get; } = [];
 
     public List<Resumption> Resumed { get; } = [];
 
-    /// <summary>CR 616.1: the order question goes back to this system unchanged; the test only records that it arrived.</summary>
+    /// <summary>
+    /// CR 616.1: the answer says which effect applies first, and this layer then finishes the
+    /// event it was asked about. The fake applies it unreplaced, which is enough to show that the
+    /// event happened exactly once and that the walk went on afterwards.
+    /// </summary>
     public Outcome Resume(GameState state, Resumption resumption)
     {
         Resumed.Add(resumption);
-        return Outcome.Unchanged(state);
+        return resumption.Context.Event is { } proposed
+            ? new Outcome(proposed.Apply(state), [proposed])
+            : Outcome.Unchanged(state);
     }
 
     /// <summary>The keys the interpreter said had already applied, one entry per offer (CR 614.5).</summary>
@@ -89,6 +103,24 @@ internal sealed class InterpreterFakeReplacements : IReplacementSystem
     {
         Proposed.Add(proposed);
         Used.Add([.. used ?? []]);
+
+        // CR 616.1: while the question stands the proposed event has NOT happened. The context is
+        // shaped the way the real layer shapes it - no source, no ability, no path, and the event
+        // itself riding along - so a caller that cannot be found again fails here too.
+        if (Asks(proposed))
+        {
+            var asking = new ChoiceRequested(new PendingChoice(
+                new ChoiceId(state.NextChoiceId),
+                affected,
+                ChoiceKinds.ReplacementOrder,
+                "Choose which replacement or prevention effect to apply first",
+                [new ChoiceOption("first", "first"), new ChoiceOption("second", "second")],
+                1,
+                1,
+                new ChoiceContext(null, null, null, ImmutableDictionary<string, string>.Empty, proposed)));
+            return new Outcome(asking.Apply(state), [asking]);
+        }
+
         var actual = Instead(proposed);
         return actual is null ? Outcome.Unchanged(state) : new Outcome(actual.Apply(state), [actual]);
     }

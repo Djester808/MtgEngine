@@ -17,6 +17,30 @@ public sealed class PriorityTests
 
     private TurnSystem Turns => new(_zones, _casting);
 
+    [Theory]
+    [InlineData(0, false)]
+    [InlineData(2, false)]
+    [InlineData(3, false)]
+    [InlineData(0, true)]
+    public void Losing_priority_holder_passes_to_next_survivor_and_the_turn_continues(int seat, bool skipNext)
+    {
+        var player = new PlayerId(seat);
+        var initial = TurnFixture.Table(4).At(Step.PrecombatMain, player).Holding(player);
+        var events = new List<GameEvent>();
+        if (skipNext)
+            events.Add(new PlayerLost(new PlayerId((seat + 1) % 4), "earlier loss"));
+        events.Add(new PlayerLost(player, "drew from empty library"));
+        var state = GameReducer.Apply(initial, EventLogSerializer.Read(EventLogSerializer.Write(events)));
+        var next = new PlayerId((seat + (skipNext ? 2 : 1)) % 4);
+        Assert.Equal(next, state.Priority.Holder);
+        Assert.Throws<RefusedException>(() => Turns.Pass(state, player));
+        for (var index = 0; index < (skipNext ? 2 : 3); index++)
+            state = Turns.Pass(state, state.Priority.Holder!.Value).State;
+        Assert.Equal(Step.BeginningOfCombat, state.Turn.Step);
+        Assert.Equal(player, state.Turn.ActivePlayer);
+        Assert.Equal(next, state.Priority.Holder);
+    }
+
     [Fact]
     public void The_active_player_receives_priority_when_a_step_begins()
     {

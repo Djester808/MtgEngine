@@ -112,6 +112,12 @@ public sealed partial class StateBasedActions(IZoneSystem zones, ICharacteristic
         events.AddRange(permanents.Events);
         state = permanents.State;
 
+        if (state.Pending is null && CommanderReturn(state) is { } commander)
+        {
+            events.Add(commander);
+            state = commander.Apply(state);
+        }
+
         // 704.5h is "since the last time state-based actions were checked" too: every deathtouch
         // mark that survived this check is consumed now, so it cannot destroy on a later one.
         foreach (var obj in before.Objects.Values.Where(o => o.DealtDeathtouchDamage))

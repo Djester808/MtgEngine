@@ -61,6 +61,26 @@ public sealed class CollectionMoveMergeTests : IDisposable
         return card;
     }
 
+    [Fact]
+    public async Task EtchedCopiesCanBeAddedMovedAndUpdatedIndependently()
+    {
+        var source = NewCollection("Etched source");
+        var target = NewCollection("Etched target");
+        await _db.SaveChangesAsync();
+        var added = await _sut.AddCardToCollectionAsync(source.Id, UserId, new("oracle-1", "scry-1", Quantity: 0, QuantityFoil: 0, Notes: "Keep this note", QuantityEtched: 3));
+        Assert.Equal(3, added.Card.QuantityEtched);
+        Assert.Equal(0, added.Card.Quantity);
+        var moved = await _sut.MoveCardAsync(source.Id, added.Card.Id, UserId, new(target.Id, Quantity: 0, QuantityFoil: 0, QuantityEtched: 1));
+        Assert.Equal(1, moved.Target.QuantityEtched);
+        Assert.Equal(2, moved.SourceRemainder!.QuantityEtched);
+        var updated = await _sut.UpdateCollectionCardAsync(source.Id, added.Card.Id, UserId, new(Quantity: 0, QuantityFoil: 0, QuantityEtched: 4));
+        Assert.Equal(4, updated.QuantityEtched);
+        Assert.Equal("Keep this note", updated.Notes);
+        var history = await new CardHistoryService(_db).GetForCardAsync(UserId, "oracle-1", 50, default);
+        Assert.Contains(history, e => e.QuantityEtchedDelta == 3 && e.QuantityEtchedAfter == 3);
+        Assert.Contains(history, e => e.QuantityEtchedDelta == -1 && e.QuantityEtchedAfter == 2);
+    }
+
     // ---- Move ----------------------------------------------------------
 
     [Fact]

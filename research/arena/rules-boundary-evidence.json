@@ -1,0 +1,5272 @@
+{
+  "evidence_id": "ev_99270613b579e92d6cc431fa8d639036b41fbf27d7ab6d4000c4ef2ea6853b54",
+  "artifact": {
+    "path": "C:\\Program Files\\Wizards of the Coast\\MTGA\\MTGA_Data\\Managed\\SharedClientCore.dll",
+    "sha256": "42f2fb5f062ccc6098182a902d411746070759a404e875b6e0aac44d3b7ccc6e",
+    "byte_length": 1569792,
+    "format": "pe"
+  },
+  "methods": [
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "get_History",
+      "token": "0x060003fb"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "set_History",
+      "token": "0x060003fc"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "get_MatchId",
+      "token": "0x060003fd"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "set_MatchId",
+      "token": "0x060003fe"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "get_McFabricUri",
+      "token": "0x060003ff"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "set_McFabricUri",
+      "token": "0x06000400"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "get_MatchDoorState",
+      "token": "0x06000401"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "set_MatchDoorState",
+      "token": "0x06000402"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": ".ctor",
+      "token": "0x06000403"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "add_MatchConnectionStateChanged",
+      "token": "0x06000404"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "remove_MatchConnectionStateChanged",
+      "token": "0x06000405"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "add_MessageReceived",
+      "token": "0x06000406"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "remove_MessageReceived",
+      "token": "0x06000407"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "add_ServerExceptionReceived",
+      "token": "0x06000408"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "remove_ServerExceptionReceived",
+      "token": "0x06000409"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "add_MatchCompleted",
+      "token": "0x0600040a"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "remove_MatchCompleted",
+      "token": "0x0600040b"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "add_ConnectionLost",
+      "token": "0x0600040c"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "remove_ConnectionLost",
+      "token": "0x0600040d"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "add_ConnectionFailed",
+      "token": "0x0600040e"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "remove_ConnectionFailed",
+      "token": "0x0600040f"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "add_MatchFailed",
+      "token": "0x06000410"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "remove_MatchFailed",
+      "token": "0x06000411"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "OnTcpMessageReceived",
+      "token": "0x06000412"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "ChangeMatchConnectionState",
+      "token": "0x06000413"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "Connect",
+      "token": "0x06000414"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "CreateMatch",
+      "token": "0x06000415"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "SendMessage",
+      "token": "0x06000416"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "ProcessMessages",
+      "token": "0x06000417"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "HandleTcpEvent",
+      "token": "0x06000418"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "RecordMessageForHistory",
+      "token": "0x06000419"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "HandleTcpOpen",
+      "token": "0x0600041a"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "HandleTcpClosed",
+      "token": "0x0600041b"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "HandleMatchServiceMessage",
+      "token": "0x0600041c"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "ConnectToGRE",
+      "token": "0x0600041d"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "CreateConnectReq",
+      "token": "0x0600041e"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "ProcessRoomState",
+      "token": "0x0600041f"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "SendNetworkMessage",
+      "token": "0x06000420"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "FormatMatchServiceToClientMessageString",
+      "token": "0x06000421"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "Close",
+      "token": "0x06000422"
+    },
+    {
+      "declaring_type": "GreClient.Network.GREConnection",
+      "name": "Dispose",
+      "token": "0x06000423"
+    },
+    {
+      "declaring_type": "GreClient.Network.MatchTcpConnection",
+      "name": "get_ConnectState",
+      "token": "0x06000490"
+    },
+    {
+      "declaring_type": "GreClient.Network.MatchTcpConnection",
+      "name": "get_IsConnected",
+      "token": "0x06000491"
+    },
+    {
+      "declaring_type": "GreClient.Network.MatchTcpConnection",
+      "name": "add_TcpEventReceived",
+      "token": "0x06000492"
+    },
+    {
+      "declaring_type": "GreClient.Network.MatchTcpConnection",
+      "name": "remove_TcpEventReceived",
+      "token": "0x06000493"
+    },
+    {
+      "declaring_type": "GreClient.Network.MatchTcpConnection",
+      "name": ".ctor",
+      "token": "0x06000494"
+    },
+    {
+      "declaring_type": "GreClient.Network.MatchTcpConnection",
+      "name": "Connect",
+      "token": "0x06000495"
+    },
+    {
+      "declaring_type": "GreClient.Network.MatchTcpConnection",
+      "name": "Close",
+      "token": "0x06000496"
+    },
+    {
+      "declaring_type": "GreClient.Network.MatchTcpConnection",
+      "name": "LogFormat",
+      "token": "0x06000497"
+    },
+    {
+      "declaring_type": "GreClient.Network.MatchTcpConnection",
+      "name": "OnConnected",
+      "token": "0x06000498"
+    },
+    {
+      "declaring_type": "GreClient.Network.MatchTcpConnection",
+      "name": "OnClose",
+      "token": "0x06000499"
+    },
+    {
+      "declaring_type": "GreClient.Network.MatchTcpConnection",
+      "name": "OnMsgReceived",
+      "token": "0x0600049a"
+    },
+    {
+      "declaring_type": "GreClient.Network.MatchTcpConnection",
+      "name": "ProcessTcpEvent",
+      "token": "0x0600049b"
+    },
+    {
+      "declaring_type": "GreClient.Network.MatchTcpConnection",
+      "name": "HandleMatchServiceMessage",
+      "token": "0x0600049c"
+    },
+    {
+      "declaring_type": "GreClient.Network.MatchTcpConnection",
+      "name": "Send",
+      "token": "0x0600049d"
+    },
+    {
+      "declaring_type": "GreClient.Network.MatchTcpConnection",
+      "name": "Dispose",
+      "token": "0x0600049e"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "GetPreviousIncrementalEntity",
+      "token": "0x060008df"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "CreateNewIncrementalEntity",
+      "token": "0x060008e0"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "MergeDiffMessageIntoFullMessage",
+      "token": "0x060008e1"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "RemoveDeletedObjects",
+      "token": "0x060008e2"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "MergeRepeatedFields",
+      "token": "0x060008e3"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "ParseFullGameStateMessage",
+      "token": "0x060008e4"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "SetupCrossCardReferences",
+      "token": "0x060008e5"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "CarryOverStateDataUndo",
+      "token": "0x060008e6"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "CarryOverStateData",
+      "token": "0x060008e7"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "GetZoneUpdates",
+      "token": "0x060008e8"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "ParseAnnotationsPreGameState",
+      "token": "0x060008e9"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "ParseAnnotations",
+      "token": "0x060008ea"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "AreSameEntity",
+      "token": "0x060008eb"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "GetDiffChanges",
+      "token": "0x060008ec"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "GetOldCardInstance",
+      "token": "0x060008ed"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "GetCardDiffChanges",
+      "token": "0x060008ee"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "GetUndoDiffChanges",
+      "token": "0x060008ef"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "FirstGameStateEvents",
+      "token": "0x060008f0"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "GetZoneChanges",
+      "token": "0x060008f1"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "GetSeatId",
+      "token": "0x060008f2"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "GetCurrentGamestate",
+      "token": "0x060008f3"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "GetPendingGamestateUpdate",
+      "token": "0x060008f4"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "SetPendingGamestateUpdate",
+      "token": "0x060008f5"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "GetClientUpdates",
+      "token": "0x060008f6"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": ".ctor",
+      "token": "0x060008f7"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "SubmitUIMessage",
+      "token": "0x060008f8"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "SetAutoPass",
+      "token": "0x060008f9"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "SetAutoPayMana",
+      "token": "0x060008fa"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "SetSettings",
+      "token": "0x060008fb"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "ConcedeGame",
+      "token": "0x060008fc"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "ConcedeMatch",
+      "token": "0x060008fd"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "Concede",
+      "token": "0x060008fe"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "OnMessageReceived",
+      "token": "0x060008ff"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "EnqueueOutgoingMessage",
+      "token": "0x06000900"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "RetrieveClientUpdates",
+      "token": "0x06000901"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "DequeueOutgoingMessage",
+      "token": "0x06000902"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "ProcessQueues",
+      "token": "0x06000903"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "ProcessQueuesDefault",
+      "token": "0x06000904"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "ProcessMessage",
+      "token": "0x06000905"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "ModifyEventsList",
+      "token": "0x06000906"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "Dispose",
+      "token": "0x06000907"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "OnDisposed",
+      "token": "0x06000908"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "<ParseFullGameStateMessage>g__getMyTeamId|21_0",
+      "token": "0x06000909"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "<GetCardDiffChanges>g__IndexOfPreviousMatchingCardChange|31_6",
+      "token": "0x0600090a"
+    },
+    {
+      "declaring_type": "GreClient.Rules.GreInterface",
+      "name": "<GetCardDiffChanges>g__DecoratorTypesMatchPropertyType|31_7",
+      "token": "0x0600090b"
+    },
+    {
+      "declaring_type": "GreClient.Rules.ActionsAvailableRequestTranslator",
+      "name": ".ctor",
+      "token": "0x06000af5"
+    },
+    {
+      "declaring_type": "GreClient.Rules.ActionsAvailableRequestTranslator",
+      "name": "Translate",
+      "token": "0x06000af6"
+    },
+    {
+      "declaring_type": "GreClient.Rules.ActionsAvailableRequestTranslator",
+      "name": "SetupManaPaymentConditionAbilities",
+      "token": "0x06000af7"
+    },
+    {
+      "declaring_type": "GreClient.Rules.ActionsAvailableRequestTranslator",
+      "name": "CheckForAlternateConditionAbility",
+      "token": "0x06000af8"
+    }
+  ],
+  "call_edges": [
+    {
+      "caller_token": "0x06000416",
+      "caller": "GreClient.Network.GREConnection.SendMessage",
+      "opcode": "newobj",
+      "target_token": "0x0a00052c",
+      "target_kind": "member-ref",
+      "target_name": ".ctor",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.ClientToMatchServiceMessage"
+    },
+    {
+      "caller_token": "0x06000416",
+      "caller": "GreClient.Network.GREConnection.SendMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00019f",
+      "target_kind": "member-ref",
+      "target_name": "get_Type",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.ClientToGREMessage"
+    },
+    {
+      "caller_token": "0x06000416",
+      "caller": "GreClient.Network.GREConnection.SendMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00052d",
+      "target_kind": "member-ref",
+      "target_name": "set_ClientToMatchServiceMessageType",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.ClientToMatchServiceMessage"
+    },
+    {
+      "caller_token": "0x06000416",
+      "caller": "GreClient.Network.GREConnection.SendMessage",
+      "opcode": "call",
+      "target_token": "0x0a00052e",
+      "target_kind": "member-ref",
+      "target_name": "ToByteString",
+      "target_declaring_type": "Google.Protobuf.MessageExtensions"
+    },
+    {
+      "caller_token": "0x06000416",
+      "caller": "GreClient.Network.GREConnection.SendMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00052f",
+      "target_kind": "member-ref",
+      "target_name": "set_Payload",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.ClientToMatchServiceMessage"
+    },
+    {
+      "caller_token": "0x06000416",
+      "caller": "GreClient.Network.GREConnection.SendMessage",
+      "opcode": "call",
+      "target_token": "0x06000420",
+      "target_kind": "method-def",
+      "target_name": "SendNetworkMessage",
+      "target_declaring_type": "GreClient.Network.GREConnection"
+    },
+    {
+      "caller_token": "0x06000416",
+      "caller": "GreClient.Network.GREConnection.SendMessage",
+      "opcode": "callvirt",
+      "target_token": "0x06000042",
+      "target_kind": "method-def",
+      "target_name": "get_VerboseLogs",
+      "target_declaring_type": "LoggingConfig"
+    },
+    {
+      "caller_token": "0x06000416",
+      "caller": "GreClient.Network.GREConnection.SendMessage",
+      "opcode": "call",
+      "target_token": "0x0a000530",
+      "target_kind": "member-ref",
+      "target_name": "ProtobufToJson",
+      "target_declaring_type": "Wizards.MDN.GreProtobuf.Extensions"
+    },
+    {
+      "caller_token": "0x06000416",
+      "caller": "GreClient.Network.GREConnection.SendMessage",
+      "opcode": "call",
+      "target_token": "0x0a000531",
+      "target_kind": "member-ref",
+      "target_name": "Parse",
+      "target_declaring_type": "Newtonsoft.Json.Linq.JToken"
+    },
+    {
+      "caller_token": "0x06000416",
+      "caller": "GreClient.Network.GREConnection.SendMessage",
+      "opcode": "call",
+      "target_token": "0x0a000530",
+      "target_kind": "member-ref",
+      "target_name": "ProtobufToJson",
+      "target_declaring_type": "Wizards.MDN.GreProtobuf.Extensions"
+    },
+    {
+      "caller_token": "0x06000416",
+      "caller": "GreClient.Network.GREConnection.SendMessage",
+      "opcode": "call",
+      "target_token": "0x0a000531",
+      "target_kind": "member-ref",
+      "target_name": "Parse",
+      "target_declaring_type": "Newtonsoft.Json.Linq.JToken"
+    },
+    {
+      "caller_token": "0x06000416",
+      "caller": "GreClient.Network.GREConnection.SendMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000532",
+      "target_kind": "member-ref",
+      "target_name": "set_Item",
+      "target_declaring_type": "Newtonsoft.Json.Linq.JToken"
+    },
+    {
+      "caller_token": "0x06000416",
+      "caller": "GreClient.Network.GREConnection.SendMessage",
+      "opcode": "call",
+      "target_token": "0x0a000091",
+      "target_kind": "member-ref",
+      "target_name": "get_Now",
+      "target_declaring_type": "System.DateTime"
+    },
+    {
+      "caller_token": "0x06000416",
+      "caller": "GreClient.Network.GREConnection.SendMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0000ac",
+      "target_kind": "member-ref",
+      "target_name": "get_ClientToMatchServiceMessageType",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.ClientToMatchServiceMessage"
+    },
+    {
+      "caller_token": "0x06000416",
+      "caller": "GreClient.Network.GREConnection.SendMessage",
+      "opcode": "call",
+      "target_token": "0x0a000277",
+      "target_kind": "member-ref",
+      "target_name": "Format",
+      "target_declaring_type": "System.String"
+    },
+    {
+      "caller_token": "0x06000416",
+      "caller": "GreClient.Network.GREConnection.SendMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000250",
+      "target_kind": "member-ref",
+      "target_name": "Info",
+      "target_declaring_type": "Wizards.Arena.Client.Logging.ILogger"
+    },
+    {
+      "caller_token": "0x06000420",
+      "caller": "GreClient.Network.GREConnection.SendNetworkMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0600045b",
+      "target_kind": "method-def",
+      "target_name": "Send",
+      "target_declaring_type": "GreClient.Network.IMatchTcpConnection"
+    },
+    {
+      "caller_token": "0x06000420",
+      "caller": "GreClient.Network.GREConnection.SendNetworkMessage",
+      "opcode": "call",
+      "target_token": "0x060003fb",
+      "target_kind": "method-def",
+      "target_name": "get_History",
+      "target_declaring_type": "GreClient.Network.GREConnection"
+    },
+    {
+      "caller_token": "0x06000420",
+      "caller": "GreClient.Network.GREConnection.SendNetworkMessage",
+      "opcode": "callvirt",
+      "target_token": "0x06001568",
+      "target_kind": "method-def",
+      "target_name": "get_RecordHistory",
+      "target_declaring_type": "Core.Shared.Code.DebugTools.IConnectionHistory"
+    },
+    {
+      "caller_token": "0x06000420",
+      "caller": "GreClient.Network.GREConnection.SendNetworkMessage",
+      "opcode": "call",
+      "target_token": "0x060003fb",
+      "target_kind": "method-def",
+      "target_name": "get_History",
+      "target_declaring_type": "GreClient.Network.GREConnection"
+    },
+    {
+      "caller_token": "0x06000420",
+      "caller": "GreClient.Network.GREConnection.SendNetworkMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0600156d",
+      "target_kind": "method-def",
+      "target_name": "RecordOutgoingMessageForHistory",
+      "target_declaring_type": "Core.Shared.Code.DebugTools.IConnectionHistory"
+    },
+    {
+      "caller_token": "0x0600049d",
+      "caller": "GreClient.Network.MatchTcpConnection.Send",
+      "opcode": "callvirt",
+      "target_token": "0x0a00059a",
+      "target_kind": "member-ref",
+      "target_name": "set_RequestId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.ClientToMatchServiceMessage"
+    },
+    {
+      "caller_token": "0x0600049d",
+      "caller": "GreClient.Network.MatchTcpConnection.Send",
+      "opcode": "call",
+      "target_token": "0x0a00047d",
+      "target_kind": "member-ref",
+      "target_name": "get_UtcNow",
+      "target_declaring_type": "System.DateTime"
+    },
+    {
+      "caller_token": "0x0600049d",
+      "caller": "GreClient.Network.MatchTcpConnection.Send",
+      "opcode": "call",
+      "target_token": "0x0a00059b",
+      "target_kind": "member-ref",
+      "target_name": "get_Ticks",
+      "target_declaring_type": "System.DateTime"
+    },
+    {
+      "caller_token": "0x0600049d",
+      "caller": "GreClient.Network.MatchTcpConnection.Send",
+      "opcode": "callvirt",
+      "target_token": "0x0a00059c",
+      "target_kind": "member-ref",
+      "target_name": "set_Timestamp",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.ClientToMatchServiceMessage"
+    },
+    {
+      "caller_token": "0x0600049d",
+      "caller": "GreClient.Network.MatchTcpConnection.Send",
+      "opcode": "call",
+      "target_token": "0x0a000239",
+      "target_kind": "member-ref",
+      "target_name": "NewGuid",
+      "target_declaring_type": "System.Guid"
+    },
+    {
+      "caller_token": "0x0600049d",
+      "caller": "GreClient.Network.MatchTcpConnection.Send",
+      "opcode": "callvirt",
+      "target_token": "0x0a00007f",
+      "target_kind": "member-ref",
+      "target_name": "ToString",
+      "target_declaring_type": "System.Object"
+    },
+    {
+      "caller_token": "0x0600049d",
+      "caller": "GreClient.Network.MatchTcpConnection.Send",
+      "opcode": "callvirt",
+      "target_token": "0x0a00059d",
+      "target_kind": "member-ref",
+      "target_name": "set_TransactionId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.ClientToMatchServiceMessage"
+    },
+    {
+      "caller_token": "0x0600049d",
+      "caller": "GreClient.Network.MatchTcpConnection.Send",
+      "opcode": "newobj",
+      "target_token": "0x06001914",
+      "target_kind": "method-def",
+      "target_name": ".ctor",
+      "target_declaring_type": "ClientToMatchSvcMsgWrapper"
+    },
+    {
+      "caller_token": "0x0600049d",
+      "caller": "GreClient.Network.MatchTcpConnection.Send",
+      "opcode": "callvirt",
+      "target_token": "0x0a000267",
+      "target_kind": "member-ref",
+      "target_name": "Send",
+      "target_declaring_type": "Wizards.Arena.TcpConnection.TcpConnection"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "newobj",
+      "target_token": "0x060009d2",
+      "target_kind": "method-def",
+      "target_name": ".ctor",
+      "target_declaring_type": "GreClient.Rules.MtgGameState"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0004f6",
+      "target_kind": "member-ref",
+      "target_name": "get_GameStateId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameStateMessage"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000886",
+      "target_kind": "member-ref",
+      "target_name": "get_PrevGameStateId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameStateMessage"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000149",
+      "target_kind": "member-ref",
+      "target_name": "get_GameInfo",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameStateMessage"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00089c",
+      "target_kind": "member-ref",
+      "target_name": "get_Timers",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameStateMessage"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008a6",
+      "target_kind": "member-ref",
+      "target_name": "GetEnumerator",
+      "target_declaring_type": "Google.Protobuf.Collections.RepeatedField`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008a7",
+      "target_kind": "member-ref",
+      "target_name": "get_Current",
+      "target_declaring_type": "System.Collections.Generic.IEnumerator`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "newobj",
+      "target_token": "0x060009e3",
+      "target_kind": "method-def",
+      "target_name": ".ctor",
+      "target_declaring_type": "GreClient.Rules.MtgTimer"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008a8",
+      "target_kind": "member-ref",
+      "target_name": "get_TimerId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.TimerInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008a9",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.Dictionary`2"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000022",
+      "target_kind": "member-ref",
+      "target_name": "MoveNext",
+      "target_declaring_type": "System.Collections.IEnumerator"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000021",
+      "target_kind": "member-ref",
+      "target_name": "Dispose",
+      "target_declaring_type": "System.IDisposable"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00089a",
+      "target_kind": "member-ref",
+      "target_name": "get_Players",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameStateMessage"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "call",
+      "target_token": "0x06000909",
+      "target_kind": "method-def",
+      "target_name": "<ParseFullGameStateMessage>g__getMyTeamId|21_0",
+      "target_declaring_type": "GreClient.Rules.GreInterface"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "newobj",
+      "target_token": "0x0a0008aa",
+      "target_kind": "member-ref",
+      "target_name": ".ctor",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00089a",
+      "target_kind": "member-ref",
+      "target_name": "get_Players",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameStateMessage"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008ab",
+      "target_kind": "member-ref",
+      "target_name": "GetEnumerator",
+      "target_declaring_type": "Google.Protobuf.Collections.RepeatedField`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008ac",
+      "target_kind": "member-ref",
+      "target_name": "get_Current",
+      "target_declaring_type": "System.Collections.Generic.IEnumerator`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008ad",
+      "target_kind": "member-ref",
+      "target_name": "get_SystemSeatNumber",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.PlayerInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008ae",
+      "target_kind": "member-ref",
+      "target_name": "get_TeamId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.PlayerInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "newobj",
+      "target_token": "0x060009d9",
+      "target_kind": "method-def",
+      "target_name": ".ctor",
+      "target_declaring_type": "GreClient.Rules.MtgPlayer"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008af",
+      "target_kind": "member-ref",
+      "target_name": "get_ManaPool",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.PlayerInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000228",
+      "target_kind": "member-ref",
+      "target_name": "GetEnumerator",
+      "target_declaring_type": "Google.Protobuf.Collections.RepeatedField`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000229",
+      "target_kind": "member-ref",
+      "target_name": "get_Current",
+      "target_declaring_type": "System.Collections.Generic.IEnumerator`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "newobj",
+      "target_token": "0x060009d3",
+      "target_kind": "method-def",
+      "target_name": ".ctor",
+      "target_declaring_type": "GreClient.Rules.MtgMana"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008b0",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00022a",
+      "target_kind": "member-ref",
+      "target_name": "get_ManaId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.ManaInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008b1",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.Dictionary`2"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000022",
+      "target_kind": "member-ref",
+      "target_name": "MoveNext",
+      "target_declaring_type": "System.Collections.IEnumerator"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000021",
+      "target_kind": "member-ref",
+      "target_name": "Dispose",
+      "target_declaring_type": "System.IDisposable"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008b2",
+      "target_kind": "member-ref",
+      "target_name": "get_TimerIds",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.PlayerInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000203",
+      "target_kind": "member-ref",
+      "target_name": "GetEnumerator",
+      "target_declaring_type": "Google.Protobuf.Collections.RepeatedField`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000023",
+      "target_kind": "member-ref",
+      "target_name": "get_Current",
+      "target_declaring_type": "System.Collections.Generic.IEnumerator`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008b3",
+      "target_kind": "member-ref",
+      "target_name": "TryGetValue",
+      "target_declaring_type": "System.Collections.Generic.Dictionary`2"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x060009e4",
+      "target_kind": "method-def",
+      "target_name": "SetOwnerId",
+      "target_declaring_type": "GreClient.Rules.MtgTimer"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008b4",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000022",
+      "target_kind": "member-ref",
+      "target_name": "MoveNext",
+      "target_declaring_type": "System.Collections.IEnumerator"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000021",
+      "target_kind": "member-ref",
+      "target_name": "Dispose",
+      "target_declaring_type": "System.IDisposable"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008b5",
+      "target_kind": "member-ref",
+      "target_name": "get_StartingLifeTotal",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.PlayerInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008b6",
+      "target_kind": "member-ref",
+      "target_name": "get_LifeTotal",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.PlayerInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008b7",
+      "target_kind": "member-ref",
+      "target_name": "get_MulliganCount",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.PlayerInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008b8",
+      "target_kind": "member-ref",
+      "target_name": "get_MaxHandSize",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.PlayerInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008b9",
+      "target_kind": "member-ref",
+      "target_name": "get_ControllerType",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.PlayerInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008ba",
+      "target_kind": "member-ref",
+      "target_name": "get_TimeoutCount",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.PlayerInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008bb",
+      "target_kind": "member-ref",
+      "target_name": "get_PendingMessageType",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.PlayerInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008bc",
+      "target_kind": "member-ref",
+      "target_name": "get_ControllerSeatId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.PlayerInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008bd",
+      "target_kind": "member-ref",
+      "target_name": "get_Status",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.PlayerInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008be",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008ae",
+      "target_kind": "member-ref",
+      "target_name": "get_TeamId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.PlayerInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008bf",
+      "target_kind": "member-ref",
+      "target_name": "TryGetValue",
+      "target_declaring_type": "System.Collections.Generic.Dictionary`2"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008be",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "newobj",
+      "target_token": "0x060009de",
+      "target_kind": "method-def",
+      "target_name": ".ctor",
+      "target_declaring_type": "GreClient.Rules.MtgTeam"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008ae",
+      "target_kind": "member-ref",
+      "target_name": "get_TeamId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.PlayerInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008ae",
+      "target_kind": "member-ref",
+      "target_name": "get_TeamId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.PlayerInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "newobj",
+      "target_token": "0x0a0008aa",
+      "target_kind": "member-ref",
+      "target_name": ".ctor",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008be",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008ae",
+      "target_kind": "member-ref",
+      "target_name": "get_TeamId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.PlayerInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008c0",
+      "target_kind": "member-ref",
+      "target_name": "set_Item",
+      "target_declaring_type": "System.Collections.Generic.Dictionary`2"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000022",
+      "target_kind": "member-ref",
+      "target_name": "MoveNext",
+      "target_declaring_type": "System.Collections.IEnumerator"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000021",
+      "target_kind": "member-ref",
+      "target_name": "Dispose",
+      "target_declaring_type": "System.IDisposable"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "ldftn",
+      "target_token": "0x06001a2c",
+      "target_kind": "method-def",
+      "target_name": "<ParseFullGameStateMessage>b__21_1",
+      "target_declaring_type": "<>c"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "newobj",
+      "target_token": "0x0a0008c1",
+      "target_kind": "member-ref",
+      "target_name": ".ctor",
+      "target_declaring_type": "System.Comparison`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008c2",
+      "target_kind": "member-ref",
+      "target_name": "Sort",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000898",
+      "target_kind": "member-ref",
+      "target_name": "get_Zones",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameStateMessage"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008c3",
+      "target_kind": "member-ref",
+      "target_name": "GetEnumerator",
+      "target_declaring_type": "Google.Protobuf.Collections.RepeatedField`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008c4",
+      "target_kind": "member-ref",
+      "target_name": "get_Current",
+      "target_declaring_type": "System.Collections.Generic.IEnumerator`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "newobj",
+      "target_token": "0x060009e9",
+      "target_kind": "method-def",
+      "target_name": ".ctor",
+      "target_declaring_type": "GreClient.Rules.MtgZone"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008c5",
+      "target_kind": "member-ref",
+      "target_name": "get_ZoneId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.ZoneInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008c6",
+      "target_kind": "member-ref",
+      "target_name": "get_OwnerSeatId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.ZoneInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x060009b6",
+      "target_kind": "method-def",
+      "target_name": "GetPlayerById",
+      "target_declaring_type": "GreClient.Rules.MtgGameState"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008c7",
+      "target_kind": "member-ref",
+      "target_name": "get_Type",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.ZoneInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008c8",
+      "target_kind": "member-ref",
+      "target_name": "get_ObjectInstanceIds",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.ZoneInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "newobj",
+      "target_token": "0x0a00016f",
+      "target_kind": "member-ref",
+      "target_name": ".ctor",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008c9",
+      "target_kind": "member-ref",
+      "target_name": "get_Visibility",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.ZoneInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008ca",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.Dictionary`2"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008c8",
+      "target_kind": "member-ref",
+      "target_name": "get_ObjectInstanceIds",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.ZoneInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0006d8",
+      "target_kind": "member-ref",
+      "target_name": "UnionWith",
+      "target_declaring_type": "System.Collections.Generic.HashSet`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000022",
+      "target_kind": "member-ref",
+      "target_name": "MoveNext",
+      "target_declaring_type": "System.Collections.IEnumerator"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000021",
+      "target_kind": "member-ref",
+      "target_name": "Dispose",
+      "target_declaring_type": "System.IDisposable"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00055f",
+      "target_kind": "member-ref",
+      "target_name": "get_GameObjects",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameStateMessage"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008cb",
+      "target_kind": "member-ref",
+      "target_name": "GetEnumerator",
+      "target_declaring_type": "Google.Protobuf.Collections.RepeatedField`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "newobj",
+      "target_token": "0x06001a47",
+      "target_kind": "method-def",
+      "target_name": ".ctor",
+      "target_declaring_type": "<>c__DisplayClass21_0"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008cc",
+      "target_kind": "member-ref",
+      "target_name": "get_Current",
+      "target_declaring_type": "System.Collections.Generic.IEnumerator`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "newobj",
+      "target_token": "0x060009a6",
+      "target_kind": "method-def",
+      "target_name": ".ctor",
+      "target_declaring_type": "GreClient.Rules.MtgCardInstance"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008cd",
+      "target_kind": "member-ref",
+      "target_name": "get_InstanceId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008ce",
+      "target_kind": "member-ref",
+      "target_name": "get_GrpId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x06000993",
+      "target_kind": "method-def",
+      "target_name": "set_GrpId",
+      "target_declaring_type": "GreClient.Rules.MtgCardInstance"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008cf",
+      "target_kind": "member-ref",
+      "target_name": "get_Type",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008d0",
+      "target_kind": "member-ref",
+      "target_name": "get_AttackState",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008d1",
+      "target_kind": "member-ref",
+      "target_name": "get_BlockState",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008d2",
+      "target_kind": "member-ref",
+      "target_name": "get_ControllerSeatId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x060009b6",
+      "target_kind": "method-def",
+      "target_name": "GetPlayerById",
+      "target_declaring_type": "GreClient.Rules.MtgGameState"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008d3",
+      "target_kind": "member-ref",
+      "target_name": "get_OwnerSeatId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x060009b6",
+      "target_kind": "method-def",
+      "target_name": "GetPlayerById",
+      "target_declaring_type": "GreClient.Rules.MtgGameState"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008d4",
+      "target_kind": "member-ref",
+      "target_name": "get_HasSummoningSickness",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008d5",
+      "target_kind": "member-ref",
+      "target_name": "get_IsTapped",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008d6",
+      "target_kind": "member-ref",
+      "target_name": "get_Power",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008d6",
+      "target_kind": "member-ref",
+      "target_name": "get_Power",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008d7",
+      "target_kind": "member-ref",
+      "target_name": "get_Value",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.Int32Value"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "newobj",
+      "target_token": "0x0600015b",
+      "target_kind": "method-def",
+      "target_name": ".ctor",
+      "target_declaring_type": "StringBackedInt"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008d8",
+      "target_kind": "member-ref",
+      "target_name": "get_Toughness",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008d8",
+      "target_kind": "member-ref",
+      "target_name": "get_Toughness",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008d7",
+      "target_kind": "member-ref",
+      "target_name": "get_Value",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.Int32Value"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "newobj",
+      "target_token": "0x0600015b",
+      "target_kind": "method-def",
+      "target_name": ".ctor",
+      "target_declaring_type": "StringBackedInt"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008d9",
+      "target_kind": "member-ref",
+      "target_name": "get_Visibility",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008da",
+      "target_kind": "member-ref",
+      "target_name": "get_ObjectSourceGrpId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x060013b0",
+      "target_kind": "method-def",
+      "target_name": "get_CardDataProvider",
+      "target_declaring_type": "Wotc.Mtga.Cards.Database.ICardDatabaseAdapter"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008da",
+      "target_kind": "member-ref",
+      "target_name": "get_ObjectSourceGrpId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x060013a4",
+      "target_kind": "method-def",
+      "target_name": "GetCardPrintingById",
+      "target_declaring_type": "Wotc.Mtga.Cards.Database.ICardDataProvider"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008db",
+      "target_kind": "member-ref",
+      "target_name": "get_OthersideGrpId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "newobj",
+      "target_token": "0x0a0001d8",
+      "target_kind": "member-ref",
+      "target_name": ".ctor",
+      "target_declaring_type": "System.Nullable`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008dc",
+      "target_kind": "member-ref",
+      "target_name": "get_SuperTypes",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0007b1",
+      "target_kind": "member-ref",
+      "target_name": "AddRange",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008dd",
+      "target_kind": "member-ref",
+      "target_name": "get_CardTypes",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0007ad",
+      "target_kind": "member-ref",
+      "target_name": "AddRange",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008de",
+      "target_kind": "member-ref",
+      "target_name": "get_Subtypes",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0007af",
+      "target_kind": "member-ref",
+      "target_name": "AddRange",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008df",
+      "target_kind": "member-ref",
+      "target_name": "get_RemovedSubtypes",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0007af",
+      "target_kind": "member-ref",
+      "target_name": "AddRange",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008e0",
+      "target_kind": "member-ref",
+      "target_name": "get_Color",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00073d",
+      "target_kind": "member-ref",
+      "target_name": "AddRange",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008e1",
+      "target_kind": "member-ref",
+      "target_name": "get_ParentId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008e2",
+      "target_kind": "member-ref",
+      "target_name": "get_SkinCode",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x06000998",
+      "target_kind": "method-def",
+      "target_name": "set_SkinCode",
+      "target_declaring_type": "GreClient.Rules.MtgCardInstance"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008e3",
+      "target_kind": "member-ref",
+      "target_name": "get_BaseSkinCode",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008e4",
+      "target_kind": "member-ref",
+      "target_name": "get_IsCopy",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008e5",
+      "target_kind": "member-ref",
+      "target_name": "get_Loyalty",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008e5",
+      "target_kind": "member-ref",
+      "target_name": "get_Loyalty",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008e6",
+      "target_kind": "member-ref",
+      "target_name": "get_Value",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.UInt32Value"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "newobj",
+      "target_token": "0x0a0001d8",
+      "target_kind": "member-ref",
+      "target_name": ".ctor",
+      "target_declaring_type": "System.Nullable`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008e7",
+      "target_kind": "member-ref",
+      "target_name": "get_Defense",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008e7",
+      "target_kind": "member-ref",
+      "target_name": "get_Defense",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008e6",
+      "target_kind": "member-ref",
+      "target_name": "get_Value",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.UInt32Value"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "newobj",
+      "target_token": "0x0a0001d8",
+      "target_kind": "member-ref",
+      "target_name": ".ctor",
+      "target_declaring_type": "System.Nullable`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x060013b0",
+      "target_kind": "method-def",
+      "target_name": "get_CardDataProvider",
+      "target_declaring_type": "Wotc.Mtga.Cards.Database.ICardDatabaseAdapter"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008ce",
+      "target_kind": "member-ref",
+      "target_name": "get_GrpId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x060013a4",
+      "target_kind": "method-def",
+      "target_name": "GetCardPrintingById",
+      "target_declaring_type": "Wotc.Mtga.Cards.Database.ICardDataProvider"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x06000992",
+      "target_kind": "method-def",
+      "target_name": "get_GrpId",
+      "target_declaring_type": "GreClient.Rules.MtgCardInstance"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0001a3",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.HashSet`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x060005a7",
+      "target_kind": "method-def",
+      "target_name": "get_LinkedFaceGrpIds",
+      "target_declaring_type": "GreClient.CardData.CardPrintingData"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000026",
+      "target_kind": "member-ref",
+      "target_name": "GetEnumerator",
+      "target_declaring_type": "System.Collections.Generic.IEnumerable`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000023",
+      "target_kind": "member-ref",
+      "target_name": "get_Current",
+      "target_declaring_type": "System.Collections.Generic.IEnumerator`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0001a3",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.HashSet`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000022",
+      "target_kind": "member-ref",
+      "target_name": "MoveNext",
+      "target_declaring_type": "System.Collections.IEnumerator"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000021",
+      "target_kind": "member-ref",
+      "target_name": "Dispose",
+      "target_declaring_type": "System.IDisposable"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0600059f",
+      "target_kind": "method-def",
+      "target_name": "get_Colors",
+      "target_declaring_type": "GreClient.CardData.CardPrintingData"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "call",
+      "target_token": "0x2b00011a",
+      "target_kind": "method-spec",
+      "target_name": "SequenceEqual",
+      "target_declaring_type": "System.Linq.Enumerable"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "newobj",
+      "target_token": "0x06000985",
+      "target_kind": "method-def",
+      "target_name": ".ctor",
+      "target_declaring_type": "GreClient.Rules.ColorModification"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008e8",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008dd",
+      "target_kind": "member-ref",
+      "target_name": "get_CardTypes",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008e9",
+      "target_kind": "member-ref",
+      "target_name": "Contains",
+      "target_declaring_type": "Google.Protobuf.Collections.RepeatedField`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008dd",
+      "target_kind": "member-ref",
+      "target_name": "get_CardTypes",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008e9",
+      "target_kind": "member-ref",
+      "target_name": "Contains",
+      "target_declaring_type": "Google.Protobuf.Collections.RepeatedField`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008ea",
+      "target_kind": "member-ref",
+      "target_name": "get_Damage",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008ea",
+      "target_kind": "member-ref",
+      "target_name": "get_Damage",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008eb",
+      "target_kind": "member-ref",
+      "target_name": "get_BlockInfo",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008cd",
+      "target_kind": "member-ref",
+      "target_name": "get_InstanceId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008eb",
+      "target_kind": "member-ref",
+      "target_name": "get_BlockInfo",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008ec",
+      "target_kind": "member-ref",
+      "target_name": "set_Item",
+      "target_declaring_type": "System.Collections.Generic.Dictionary`2"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008eb",
+      "target_kind": "member-ref",
+      "target_name": "get_BlockInfo",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008ed",
+      "target_kind": "member-ref",
+      "target_name": "get_OrderedAttackers",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.BlockInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008ee",
+      "target_kind": "member-ref",
+      "target_name": "get_Count",
+      "target_declaring_type": "Google.Protobuf.Collections.RepeatedField`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008eb",
+      "target_kind": "member-ref",
+      "target_name": "get_BlockInfo",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008ef",
+      "target_kind": "member-ref",
+      "target_name": "get_AttackerIds",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.BlockInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008eb",
+      "target_kind": "member-ref",
+      "target_name": "get_BlockInfo",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008ed",
+      "target_kind": "member-ref",
+      "target_name": "get_OrderedAttackers",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.BlockInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "ldftn",
+      "target_token": "0x06001a2d",
+      "target_kind": "method-def",
+      "target_name": "<ParseFullGameStateMessage>b__21_2",
+      "target_declaring_type": "<>c"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "newobj",
+      "target_token": "0x0a0008f0",
+      "target_kind": "member-ref",
+      "target_name": ".ctor",
+      "target_declaring_type": "System.Func`2"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "call",
+      "target_token": "0x2b00011b",
+      "target_kind": "method-spec",
+      "target_name": "Select",
+      "target_declaring_type": "System.Linq.Enumerable"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00021c",
+      "target_kind": "member-ref",
+      "target_name": "AddRange",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008f1",
+      "target_kind": "member-ref",
+      "target_name": "get_AttackInfo",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008cd",
+      "target_kind": "member-ref",
+      "target_name": "get_InstanceId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008f1",
+      "target_kind": "member-ref",
+      "target_name": "get_AttackInfo",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008f2",
+      "target_kind": "member-ref",
+      "target_name": "set_Item",
+      "target_declaring_type": "System.Collections.Generic.Dictionary`2"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008f1",
+      "target_kind": "member-ref",
+      "target_name": "get_AttackInfo",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008f3",
+      "target_kind": "member-ref",
+      "target_name": "get_TargetId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.AttackInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008f1",
+      "target_kind": "member-ref",
+      "target_name": "get_AttackInfo",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008f4",
+      "target_kind": "member-ref",
+      "target_name": "get_OrderedBlockers",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.AttackInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008ee",
+      "target_kind": "member-ref",
+      "target_name": "get_Count",
+      "target_declaring_type": "Google.Protobuf.Collections.RepeatedField`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008f1",
+      "target_kind": "member-ref",
+      "target_name": "get_AttackInfo",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008f4",
+      "target_kind": "member-ref",
+      "target_name": "get_OrderedBlockers",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.AttackInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "ldftn",
+      "target_token": "0x06001a2e",
+      "target_kind": "method-def",
+      "target_name": "<ParseFullGameStateMessage>b__21_3",
+      "target_declaring_type": "<>c"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "newobj",
+      "target_token": "0x0a0008f0",
+      "target_kind": "member-ref",
+      "target_name": ".ctor",
+      "target_declaring_type": "System.Func`2"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "call",
+      "target_token": "0x2b00011b",
+      "target_kind": "method-spec",
+      "target_name": "Select",
+      "target_declaring_type": "System.Linq.Enumerable"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00021c",
+      "target_kind": "member-ref",
+      "target_name": "AddRange",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x06000381",
+      "target_kind": "method-def",
+      "target_name": "Add",
+      "target_declaring_type": "ReferenceMap.Map"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008cf",
+      "target_kind": "member-ref",
+      "target_name": "get_Type",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008cf",
+      "target_kind": "member-ref",
+      "target_name": "get_Type",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x060009b4",
+      "target_kind": "method-def",
+      "target_name": "TryGetCard",
+      "target_declaring_type": "GreClient.Rules.MtgGameState"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x060013b0",
+      "target_kind": "method-def",
+      "target_name": "get_CardDataProvider",
+      "target_declaring_type": "Wotc.Mtga.Cards.Database.ICardDatabaseAdapter"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x06000992",
+      "target_kind": "method-def",
+      "target_name": "get_GrpId",
+      "target_declaring_type": "GreClient.Rules.MtgCardInstance"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x060013a4",
+      "target_kind": "method-def",
+      "target_name": "GetCardPrintingById",
+      "target_declaring_type": "Wotc.Mtga.Cards.Database.ICardDataProvider"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00064b",
+      "target_kind": "member-ref",
+      "target_name": "GetEnumerator",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "newobj",
+      "target_token": "0x06001a49",
+      "target_kind": "method-def",
+      "target_name": ".ctor",
+      "target_declaring_type": "<>c__DisplayClass21_1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "call",
+      "target_token": "0x0a00064c",
+      "target_kind": "member-ref",
+      "target_name": "get_Current",
+      "target_declaring_type": "Enumerator"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x060005bd",
+      "target_kind": "method-def",
+      "target_name": "get_Abilities",
+      "target_declaring_type": "GreClient.CardData.CardPrintingData"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "ldftn",
+      "target_token": "0x06001a4a",
+      "target_kind": "method-def",
+      "target_name": "<ParseFullGameStateMessage>b__4",
+      "target_declaring_type": "<>c__DisplayClass21_1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "newobj",
+      "target_token": "0x0a00062b",
+      "target_kind": "member-ref",
+      "target_name": ".ctor",
+      "target_declaring_type": "System.Predicate`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "call",
+      "target_token": "0x2b0000ab",
+      "target_kind": "method-spec",
+      "target_name": "Exists",
+      "target_declaring_type": "Wotc.Mtga.Extensions.ListExtensions"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008f5",
+      "target_kind": "member-ref",
+      "target_name": "get_UniqueAbilities",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "ldftn",
+      "target_token": "0x06001a4b",
+      "target_kind": "method-def",
+      "target_name": "<ParseFullGameStateMessage>b__5",
+      "target_declaring_type": "<>c__DisplayClass21_1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "newobj",
+      "target_token": "0x0a0008f6",
+      "target_kind": "member-ref",
+      "target_name": ".ctor",
+      "target_declaring_type": "System.Predicate`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "call",
+      "target_token": "0x2b00011c",
+      "target_kind": "method-spec",
+      "target_name": "Exists",
+      "target_declaring_type": "Wotc.Mtga.Extensions.ListExtensions"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x060004d8",
+      "target_kind": "method-def",
+      "target_name": "get_Id",
+      "target_declaring_type": "GreClient.CardData.AbilityPrintingData"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "call",
+      "target_token": "0x06000923",
+      "target_kind": "method-def",
+      "target_name": "Added",
+      "target_declaring_type": "GreClient.Rules.AbilityModification"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00072d",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x060004d8",
+      "target_kind": "method-def",
+      "target_name": "get_Id",
+      "target_declaring_type": "GreClient.CardData.AbilityPrintingData"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "newobj",
+      "target_token": "0x06000921",
+      "target_kind": "method-def",
+      "target_name": ".ctor",
+      "target_declaring_type": "GreClient.Rules.AddedAbilityData"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00072e",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x060013b1",
+      "target_kind": "method-def",
+      "target_name": "get_AbilityDataProvider",
+      "target_declaring_type": "Wotc.Mtga.Cards.Database.ICardDatabaseAdapter"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x060004d8",
+      "target_kind": "method-def",
+      "target_name": "get_Id",
+      "target_declaring_type": "GreClient.CardData.AbilityPrintingData"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x06001377",
+      "target_kind": "method-def",
+      "target_name": "GetAbilityPrintingById",
+      "target_declaring_type": "Wotc.Mtga.Cards.Database.IAbilityDataProvider"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000669",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "call",
+      "target_token": "0x0a00064d",
+      "target_kind": "member-ref",
+      "target_name": "MoveNext",
+      "target_declaring_type": "Enumerator"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000021",
+      "target_kind": "member-ref",
+      "target_name": "Dispose",
+      "target_declaring_type": "System.IDisposable"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008cf",
+      "target_kind": "member-ref",
+      "target_name": "get_Type",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x06000993",
+      "target_kind": "method-def",
+      "target_name": "set_GrpId",
+      "target_declaring_type": "GreClient.Rules.MtgCardInstance"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00067a",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008f7",
+      "target_kind": "member-ref",
+      "target_name": "get_OverlayGrpId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008f7",
+      "target_kind": "member-ref",
+      "target_name": "get_OverlayGrpId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008f7",
+      "target_kind": "member-ref",
+      "target_name": "get_OverlayGrpId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008ce",
+      "target_kind": "member-ref",
+      "target_name": "get_GrpId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008f7",
+      "target_kind": "member-ref",
+      "target_name": "get_OverlayGrpId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "newobj",
+      "target_token": "0x0a0001d8",
+      "target_kind": "member-ref",
+      "target_name": ".ctor",
+      "target_declaring_type": "System.Nullable`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008f8",
+      "target_kind": "member-ref",
+      "target_name": "get_Name",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008cf",
+      "target_kind": "member-ref",
+      "target_name": "get_Type",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00055f",
+      "target_kind": "member-ref",
+      "target_name": "get_GameObjects",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameStateMessage"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "ldftn",
+      "target_token": "0x06001a48",
+      "target_kind": "method-def",
+      "target_name": "<ParseFullGameStateMessage>b__6",
+      "target_declaring_type": "<>c__DisplayClass21_0"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "newobj",
+      "target_token": "0x0a0008f9",
+      "target_kind": "member-ref",
+      "target_name": ".ctor",
+      "target_declaring_type": "System.Func`2"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "call",
+      "target_token": "0x2b00011d",
+      "target_kind": "method-spec",
+      "target_name": "FirstOrDefault",
+      "target_declaring_type": "System.Linq.Enumerable"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008f8",
+      "target_kind": "member-ref",
+      "target_name": "get_Name",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008f5",
+      "target_kind": "member-ref",
+      "target_name": "get_UniqueAbilities",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008fa",
+      "target_kind": "member-ref",
+      "target_name": "GetEnumerator",
+      "target_declaring_type": "Google.Protobuf.Collections.RepeatedField`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008fb",
+      "target_kind": "member-ref",
+      "target_name": "get_Current",
+      "target_declaring_type": "System.Collections.Generic.IEnumerator`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008fc",
+      "target_kind": "member-ref",
+      "target_name": "get_GrpId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.UniqueAbilityInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x060013b1",
+      "target_kind": "method-def",
+      "target_name": "get_AbilityDataProvider",
+      "target_declaring_type": "Wotc.Mtga.Cards.Database.ICardDatabaseAdapter"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "call",
+      "target_token": "0x0600137e",
+      "target_kind": "method-def",
+      "target_name": "TryGetAbilityPrintingById",
+      "target_declaring_type": "Wotc.Mtga.Cards.Database.IAbilityDataProviderExtensions"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x060004d8",
+      "target_kind": "method-def",
+      "target_name": "get_Id",
+      "target_declaring_type": "GreClient.CardData.AbilityPrintingData"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000669",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008fd",
+      "target_kind": "member-ref",
+      "target_name": "get_Id",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.UniqueAbilityInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008fc",
+      "target_kind": "member-ref",
+      "target_name": "get_GrpId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.UniqueAbilityInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "newobj",
+      "target_token": "0x06000989",
+      "target_kind": "method-def",
+      "target_name": ".ctor",
+      "target_declaring_type": "GreClient.Rules.MtgAbilityInstance"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008fe",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008ff",
+      "target_kind": "member-ref",
+      "target_name": "set_Item",
+      "target_declaring_type": "System.Collections.Generic.Dictionary`2"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "newobj",
+      "target_token": "0x0a000208",
+      "target_kind": "member-ref",
+      "target_name": ".ctor",
+      "target_declaring_type": "Newtonsoft.Json.Linq.JObject"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "call",
+      "target_token": "0x0a000209",
+      "target_kind": "member-ref",
+      "target_name": "op_Implicit",
+      "target_declaring_type": "Newtonsoft.Json.Linq.JToken"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00020a",
+      "target_kind": "member-ref",
+      "target_name": "set_Item",
+      "target_declaring_type": "Newtonsoft.Json.Linq.JObject"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x06000992",
+      "target_kind": "method-def",
+      "target_name": "get_GrpId",
+      "target_declaring_type": "GreClient.Rules.MtgCardInstance"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "call",
+      "target_token": "0x0a000209",
+      "target_kind": "member-ref",
+      "target_name": "op_Implicit",
+      "target_declaring_type": "Newtonsoft.Json.Linq.JToken"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00020a",
+      "target_kind": "member-ref",
+      "target_name": "set_Item",
+      "target_declaring_type": "Newtonsoft.Json.Linq.JObject"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000900",
+      "target_kind": "member-ref",
+      "target_name": "Warn",
+      "target_declaring_type": "Wizards.Arena.Client.Logging.CompoundLogger"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "call",
+      "target_token": "0x060004d5",
+      "target_kind": "method-def",
+      "target_name": "InvalidAbility",
+      "target_declaring_type": "GreClient.CardData.AbilityPrintingData"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000669",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000022",
+      "target_kind": "member-ref",
+      "target_name": "MoveNext",
+      "target_declaring_type": "System.Collections.IEnumerator"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000021",
+      "target_kind": "member-ref",
+      "target_name": "Dispose",
+      "target_declaring_type": "System.IDisposable"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000901",
+      "target_kind": "member-ref",
+      "target_name": "get_AbilityOriginalCardGrpIds",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000203",
+      "target_kind": "member-ref",
+      "target_name": "GetEnumerator",
+      "target_declaring_type": "Google.Protobuf.Collections.RepeatedField`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000023",
+      "target_kind": "member-ref",
+      "target_name": "get_Current",
+      "target_declaring_type": "System.Collections.Generic.IEnumerator`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0001a3",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.HashSet`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000022",
+      "target_kind": "member-ref",
+      "target_name": "MoveNext",
+      "target_declaring_type": "System.Collections.IEnumerator"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000021",
+      "target_kind": "member-ref",
+      "target_name": "Dispose",
+      "target_declaring_type": "System.IDisposable"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000902",
+      "target_kind": "member-ref",
+      "target_name": "get_Viewers",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000902",
+      "target_kind": "member-ref",
+      "target_name": "get_Viewers",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000203",
+      "target_kind": "member-ref",
+      "target_name": "GetEnumerator",
+      "target_declaring_type": "Google.Protobuf.Collections.RepeatedField`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000023",
+      "target_kind": "member-ref",
+      "target_name": "get_Current",
+      "target_declaring_type": "System.Collections.Generic.IEnumerator`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000903",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000903",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000022",
+      "target_kind": "member-ref",
+      "target_name": "MoveNext",
+      "target_declaring_type": "System.Collections.IEnumerator"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000021",
+      "target_kind": "member-ref",
+      "target_name": "Dispose",
+      "target_declaring_type": "System.IDisposable"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008cd",
+      "target_kind": "member-ref",
+      "target_name": "get_InstanceId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000904",
+      "target_kind": "member-ref",
+      "target_name": "set_Item",
+      "target_declaring_type": "System.Collections.Generic.Dictionary`2"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x060009af",
+      "target_kind": "method-def",
+      "target_name": "GetZone",
+      "target_declaring_type": "GreClient.Rules.MtgGameState"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000905",
+      "target_kind": "member-ref",
+      "target_name": "get_ZoneId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x060009b1",
+      "target_kind": "method-def",
+      "target_name": "GetZoneById",
+      "target_declaring_type": "GreClient.Rules.MtgGameState"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00067a",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000906",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.Dictionary`2"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000905",
+      "target_kind": "member-ref",
+      "target_name": "get_ZoneId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x060009b1",
+      "target_kind": "method-def",
+      "target_name": "GetZoneById",
+      "target_declaring_type": "GreClient.Rules.MtgGameState"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00067a",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x06000996",
+      "target_kind": "method-def",
+      "target_name": "get_IsPhasedOut",
+      "target_declaring_type": "GreClient.Rules.MtgCardInstance"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x060009c1",
+      "target_kind": "method-def",
+      "target_name": "get_Battlefield",
+      "target_declaring_type": "GreClient.Rules.MtgGameState"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00067a",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000905",
+      "target_kind": "member-ref",
+      "target_name": "get_ZoneId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "newobj",
+      "target_token": "0x060009e9",
+      "target_kind": "method-def",
+      "target_name": ".ctor",
+      "target_declaring_type": "GreClient.Rules.MtgZone"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008cd",
+      "target_kind": "member-ref",
+      "target_name": "get_InstanceId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0001a3",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.HashSet`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "newobj",
+      "target_token": "0x060009e9",
+      "target_kind": "method-def",
+      "target_name": ".ctor",
+      "target_declaring_type": "GreClient.Rules.MtgZone"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000905",
+      "target_kind": "member-ref",
+      "target_name": "get_ZoneId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0008cd",
+      "target_kind": "member-ref",
+      "target_name": "get_InstanceId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0001a3",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.HashSet`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "newobj",
+      "target_token": "0x0a000208",
+      "target_kind": "member-ref",
+      "target_name": ".ctor",
+      "target_declaring_type": "Newtonsoft.Json.Linq.JObject"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000905",
+      "target_kind": "member-ref",
+      "target_name": "get_ZoneId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameObjectInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "call",
+      "target_token": "0x0a000209",
+      "target_kind": "member-ref",
+      "target_name": "op_Implicit",
+      "target_declaring_type": "Newtonsoft.Json.Linq.JToken"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00020a",
+      "target_kind": "member-ref",
+      "target_name": "set_Item",
+      "target_declaring_type": "Newtonsoft.Json.Linq.JObject"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000907",
+      "target_kind": "member-ref",
+      "target_name": "Error",
+      "target_declaring_type": "Wizards.Arena.Client.Logging.CompoundLogger"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000906",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.Dictionary`2"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000022",
+      "target_kind": "member-ref",
+      "target_name": "MoveNext",
+      "target_declaring_type": "System.Collections.IEnumerator"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000021",
+      "target_kind": "member-ref",
+      "target_name": "Dispose",
+      "target_declaring_type": "System.IDisposable"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000890",
+      "target_kind": "member-ref",
+      "target_name": "get_Actions",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameStateMessage"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000892",
+      "target_kind": "member-ref",
+      "target_name": "GetEnumerator",
+      "target_declaring_type": "Google.Protobuf.Collections.RepeatedField`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000893",
+      "target_kind": "member-ref",
+      "target_name": "get_Current",
+      "target_declaring_type": "System.Collections.Generic.IEnumerator`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000908",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0001e6",
+      "target_kind": "member-ref",
+      "target_name": "get_Action",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.ActionInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0001da",
+      "target_kind": "member-ref",
+      "target_name": "get_InstanceId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.Action"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000909",
+      "target_kind": "member-ref",
+      "target_name": "TryGetValue",
+      "target_declaring_type": "System.Collections.Generic.Dictionary`2"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000909",
+      "target_kind": "member-ref",
+      "target_name": "TryGetValue",
+      "target_declaring_type": "System.Collections.Generic.Dictionary`2"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000908",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0001d5",
+      "target_kind": "member-ref",
+      "target_name": "get_SourceId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.Action"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000909",
+      "target_kind": "member-ref",
+      "target_name": "TryGetValue",
+      "target_declaring_type": "System.Collections.Generic.Dictionary`2"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000909",
+      "target_kind": "member-ref",
+      "target_name": "TryGetValue",
+      "target_declaring_type": "System.Collections.Generic.Dictionary`2"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000908",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000022",
+      "target_kind": "member-ref",
+      "target_name": "MoveNext",
+      "target_declaring_type": "System.Collections.IEnumerator"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000021",
+      "target_kind": "member-ref",
+      "target_name": "Dispose",
+      "target_declaring_type": "System.IDisposable"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00088b",
+      "target_kind": "member-ref",
+      "target_name": "get_TurnInfo",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameStateMessage"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00090a",
+      "target_kind": "member-ref",
+      "target_name": "get_TurnNumber",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.TurnInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00088b",
+      "target_kind": "member-ref",
+      "target_name": "get_TurnInfo",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameStateMessage"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00090b",
+      "target_kind": "member-ref",
+      "target_name": "get_Phase",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.TurnInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00088b",
+      "target_kind": "member-ref",
+      "target_name": "get_TurnInfo",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameStateMessage"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00090c",
+      "target_kind": "member-ref",
+      "target_name": "get_Step",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.TurnInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00088b",
+      "target_kind": "member-ref",
+      "target_name": "get_TurnInfo",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameStateMessage"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00090d",
+      "target_kind": "member-ref",
+      "target_name": "get_NextStep",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.TurnInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00088b",
+      "target_kind": "member-ref",
+      "target_name": "get_TurnInfo",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameStateMessage"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00090e",
+      "target_kind": "member-ref",
+      "target_name": "get_NextPhase",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.TurnInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00088b",
+      "target_kind": "member-ref",
+      "target_name": "get_TurnInfo",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameStateMessage"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00090f",
+      "target_kind": "member-ref",
+      "target_name": "get_DecisionPlayer",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.TurnInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x060009b6",
+      "target_kind": "method-def",
+      "target_name": "GetPlayerById",
+      "target_declaring_type": "GreClient.Rules.MtgGameState"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00088b",
+      "target_kind": "member-ref",
+      "target_name": "get_TurnInfo",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameStateMessage"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000910",
+      "target_kind": "member-ref",
+      "target_name": "get_ActivePlayer",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.TurnInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x060009b6",
+      "target_kind": "method-def",
+      "target_name": "GetPlayerById",
+      "target_declaring_type": "GreClient.Rules.MtgGameState"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000149",
+      "target_kind": "member-ref",
+      "target_name": "get_GameInfo",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameStateMessage"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000911",
+      "target_kind": "member-ref",
+      "target_name": "get_Stage",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameInfo"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x060009c1",
+      "target_kind": "method-def",
+      "target_name": "get_Battlefield",
+      "target_declaring_type": "GreClient.Rules.MtgGameState"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000644",
+      "target_kind": "member-ref",
+      "target_name": "GetEnumerator",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "call",
+      "target_token": "0x0a000645",
+      "target_kind": "member-ref",
+      "target_name": "get_Current",
+      "target_declaring_type": "Enumerator"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000912",
+      "target_kind": "member-ref",
+      "target_name": "TryGetValue",
+      "target_declaring_type": "System.Collections.Generic.Dictionary`2"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00067a",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "newobj",
+      "target_token": "0x0a000913",
+      "target_kind": "member-ref",
+      "target_name": ".ctor",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00067a",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000914",
+      "target_kind": "member-ref",
+      "target_name": "set_Item",
+      "target_declaring_type": "System.Collections.Generic.Dictionary`2"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "call",
+      "target_token": "0x0a000646",
+      "target_kind": "member-ref",
+      "target_name": "MoveNext",
+      "target_declaring_type": "Enumerator"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000021",
+      "target_kind": "member-ref",
+      "target_name": "Dispose",
+      "target_declaring_type": "System.IDisposable"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x060009cb",
+      "target_kind": "method-def",
+      "target_name": "get_Exile",
+      "target_declaring_type": "GreClient.Rules.MtgGameState"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000644",
+      "target_kind": "member-ref",
+      "target_name": "GetEnumerator",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "call",
+      "target_token": "0x0a000645",
+      "target_kind": "member-ref",
+      "target_name": "get_Current",
+      "target_declaring_type": "Enumerator"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000912",
+      "target_kind": "member-ref",
+      "target_name": "TryGetValue",
+      "target_declaring_type": "System.Collections.Generic.Dictionary`2"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00067a",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "newobj",
+      "target_token": "0x0a000913",
+      "target_kind": "member-ref",
+      "target_name": ".ctor",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00067a",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000914",
+      "target_kind": "member-ref",
+      "target_name": "set_Item",
+      "target_declaring_type": "System.Collections.Generic.Dictionary`2"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "call",
+      "target_token": "0x0a000646",
+      "target_kind": "member-ref",
+      "target_name": "MoveNext",
+      "target_declaring_type": "Enumerator"
+    },
+    {
+      "caller_token": "0x060008e4",
+      "caller": "GreClient.Rules.GreInterface.ParseFullGameStateMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000021",
+      "target_kind": "member-ref",
+      "target_name": "Dispose",
+      "target_declaring_type": "System.IDisposable"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000985",
+      "target_kind": "member-ref",
+      "target_name": "get_SystemSeatIds",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GREToClientMessage"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000202",
+      "target_kind": "member-ref",
+      "target_name": "get_Count",
+      "target_declaring_type": "Google.Protobuf.Collections.RepeatedField`1"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000985",
+      "target_kind": "member-ref",
+      "target_name": "get_SystemSeatIds",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GREToClientMessage"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00084c",
+      "target_kind": "member-ref",
+      "target_name": "get_Item",
+      "target_declaring_type": "Google.Protobuf.Collections.RepeatedField`1"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000986",
+      "target_kind": "member-ref",
+      "target_name": "get_GameStateId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GREToClientMessage"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000146",
+      "target_kind": "member-ref",
+      "target_name": "get_Type",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GREToClientMessage"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000987",
+      "target_kind": "member-ref",
+      "target_name": "TryGetValue",
+      "target_declaring_type": "System.Collections.Generic.Dictionary`2"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x06000add",
+      "target_kind": "method-def",
+      "target_name": "Translate",
+      "target_declaring_type": "GreClient.Rules.GreToClientMessageTranslatorBase"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000561",
+      "target_kind": "member-ref",
+      "target_name": "get_Annotations",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameStateMessage"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000988",
+      "target_kind": "member-ref",
+      "target_name": "Process",
+      "target_declaring_type": "GreClient.Rules.IRequestAnnotationProcessor`1"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000895",
+      "target_kind": "member-ref",
+      "target_name": "get_PersistentAnnotations",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameStateMessage"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000988",
+      "target_kind": "member-ref",
+      "target_name": "Process",
+      "target_declaring_type": "GreClient.Rules.IRequestAnnotationProcessor`1"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000146",
+      "target_kind": "member-ref",
+      "target_name": "get_Type",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GREToClientMessage"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000989",
+      "target_kind": "member-ref",
+      "target_name": "TryGetValue",
+      "target_declaring_type": "System.Collections.Generic.IReadOnlyDictionary`2"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x06000b32",
+      "target_kind": "method-def",
+      "target_name": "Translate",
+      "target_declaring_type": "GreClient.Rules.Notifications.INotificationParser"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000857",
+      "target_kind": "member-ref",
+      "target_name": "Enqueue",
+      "target_declaring_type": "System.Collections.Concurrent.ConcurrentQueue`1"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000146",
+      "target_kind": "member-ref",
+      "target_name": "get_Type",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GREToClientMessage"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000147",
+      "target_kind": "member-ref",
+      "target_name": "get_GameStateMessage",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GREToClientMessage"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000888",
+      "target_kind": "member-ref",
+      "target_name": "get_PendingMessageCount",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameStateMessage"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000147",
+      "target_kind": "member-ref",
+      "target_name": "get_GameStateMessage",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GREToClientMessage"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0004f6",
+      "target_kind": "member-ref",
+      "target_name": "get_GameStateId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameStateMessage"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "newobj",
+      "target_token": "0x06000854",
+      "target_kind": "method-def",
+      "target_name": ".ctor",
+      "target_declaring_type": "GreClient.Rules.GameStateUpdate"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00098a",
+      "target_kind": "member-ref",
+      "target_name": "get_Prompt",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GREToClientMessage"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000147",
+      "target_kind": "member-ref",
+      "target_name": "get_GameStateMessage",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GREToClientMessage"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000148",
+      "target_kind": "member-ref",
+      "target_name": "get_Type",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameStateMessage"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000147",
+      "target_kind": "member-ref",
+      "target_name": "get_GameStateMessage",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GREToClientMessage"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000147",
+      "target_kind": "member-ref",
+      "target_name": "get_GameStateMessage",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GREToClientMessage"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "call",
+      "target_token": "0x060008e1",
+      "target_kind": "method-def",
+      "target_name": "MergeDiffMessageIntoFullMessage",
+      "target_declaring_type": "GreClient.Rules.GreInterface"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "newobj",
+      "target_token": "0x0a00098b",
+      "target_kind": "member-ref",
+      "target_name": ".ctor",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000561",
+      "target_kind": "member-ref",
+      "target_name": "get_Annotations",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameStateMessage"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00098c",
+      "target_kind": "member-ref",
+      "target_name": "AddRange",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000895",
+      "target_kind": "member-ref",
+      "target_name": "get_PersistentAnnotations",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameStateMessage"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00098c",
+      "target_kind": "member-ref",
+      "target_name": "AddRange",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "call",
+      "target_token": "0x060008e9",
+      "target_kind": "method-def",
+      "target_name": "ParseAnnotationsPreGameState",
+      "target_declaring_type": "GreClient.Rules.GreInterface"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000147",
+      "target_kind": "member-ref",
+      "target_name": "get_GameStateMessage",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GREToClientMessage"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00098d",
+      "target_kind": "member-ref",
+      "target_name": "get_Update",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameStateMessage"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "call",
+      "target_token": "0x060008e4",
+      "target_kind": "method-def",
+      "target_name": "ParseFullGameStateMessage",
+      "target_declaring_type": "GreClient.Rules.GreInterface"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "call",
+      "target_token": "0x060008e6",
+      "target_kind": "method-def",
+      "target_name": "CarryOverStateDataUndo",
+      "target_declaring_type": "GreClient.Rules.GreInterface"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "call",
+      "target_token": "0x060008ea",
+      "target_kind": "method-def",
+      "target_name": "ParseAnnotations",
+      "target_declaring_type": "GreClient.Rules.GreInterface"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "call",
+      "target_token": "0x060008e5",
+      "target_kind": "method-def",
+      "target_name": "SetupCrossCardReferences",
+      "target_declaring_type": "GreClient.Rules.GreInterface"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "newobj",
+      "target_token": "0x0a0001a6",
+      "target_kind": "member-ref",
+      "target_name": ".ctor",
+      "target_declaring_type": "System.Collections.Generic.Dictionary`2"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000147",
+      "target_kind": "member-ref",
+      "target_name": "get_GameStateMessage",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GREToClientMessage"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0004f6",
+      "target_kind": "member-ref",
+      "target_name": "get_GameStateId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameStateMessage"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000147",
+      "target_kind": "member-ref",
+      "target_name": "get_GameStateMessage",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GREToClientMessage"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000886",
+      "target_kind": "member-ref",
+      "target_name": "get_PrevGameStateId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameStateMessage"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00098e",
+      "target_kind": "member-ref",
+      "target_name": "ContainsKey",
+      "target_declaring_type": "System.Collections.Generic.Dictionary`2"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00098f",
+      "target_kind": "member-ref",
+      "target_name": "get_Item",
+      "target_declaring_type": "System.Collections.Generic.Dictionary`2"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000951",
+      "target_kind": "member-ref",
+      "target_name": "get_Keys",
+      "target_declaring_type": "System.Collections.Generic.Dictionary`2"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000952",
+      "target_kind": "member-ref",
+      "target_name": "GetEnumerator",
+      "target_declaring_type": "KeyCollection"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "call",
+      "target_token": "0x0a000953",
+      "target_kind": "member-ref",
+      "target_name": "get_Current",
+      "target_declaring_type": "Enumerator"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00098f",
+      "target_kind": "member-ref",
+      "target_name": "get_Item",
+      "target_declaring_type": "System.Collections.Generic.Dictionary`2"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0001a8",
+      "target_kind": "member-ref",
+      "target_name": "get_Item",
+      "target_declaring_type": "System.Collections.Generic.Dictionary`2"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000954",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.Dictionary`2"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "call",
+      "target_token": "0x0a000955",
+      "target_kind": "member-ref",
+      "target_name": "MoveNext",
+      "target_declaring_type": "Enumerator"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000021",
+      "target_kind": "member-ref",
+      "target_name": "Dispose",
+      "target_declaring_type": "System.IDisposable"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000990",
+      "target_kind": "member-ref",
+      "target_name": "Remove",
+      "target_declaring_type": "System.Collections.Generic.Dictionary`2"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000147",
+      "target_kind": "member-ref",
+      "target_name": "get_GameStateMessage",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GREToClientMessage"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "call",
+      "target_token": "0x060008e8",
+      "target_kind": "method-def",
+      "target_name": "GetZoneUpdates",
+      "target_declaring_type": "GreClient.Rules.GreInterface"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "call",
+      "target_token": "0x060008ef",
+      "target_kind": "method-def",
+      "target_name": "GetUndoDiffChanges",
+      "target_declaring_type": "GreClient.Rules.GreInterface"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000919",
+      "target_kind": "member-ref",
+      "target_name": "AddRange",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000919",
+      "target_kind": "member-ref",
+      "target_name": "AddRange",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "call",
+      "target_token": "0x060008e4",
+      "target_kind": "method-def",
+      "target_name": "ParseFullGameStateMessage",
+      "target_declaring_type": "GreClient.Rules.GreInterface"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "call",
+      "target_token": "0x060008e7",
+      "target_kind": "method-def",
+      "target_name": "CarryOverStateData",
+      "target_declaring_type": "GreClient.Rules.GreInterface"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "call",
+      "target_token": "0x060008ea",
+      "target_kind": "method-def",
+      "target_name": "ParseAnnotations",
+      "target_declaring_type": "GreClient.Rules.GreInterface"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "call",
+      "target_token": "0x060008e5",
+      "target_kind": "method-def",
+      "target_name": "SetupCrossCardReferences",
+      "target_declaring_type": "GreClient.Rules.GreInterface"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000147",
+      "target_kind": "member-ref",
+      "target_name": "get_GameStateMessage",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GREToClientMessage"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "call",
+      "target_token": "0x060008e8",
+      "target_kind": "method-def",
+      "target_name": "GetZoneUpdates",
+      "target_declaring_type": "GreClient.Rules.GreInterface"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "newobj",
+      "target_token": "0x0a000991",
+      "target_kind": "member-ref",
+      "target_name": ".ctor",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "call",
+      "target_token": "0x060008f0",
+      "target_kind": "method-def",
+      "target_name": "FirstGameStateEvents",
+      "target_declaring_type": "GreClient.Rules.GreInterface"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000919",
+      "target_kind": "member-ref",
+      "target_name": "AddRange",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x06000bba",
+      "target_kind": "method-def",
+      "target_name": "Process",
+      "target_declaring_type": "GreClient.Rules.Annotations.IAnnotationEventProcessor"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000919",
+      "target_kind": "member-ref",
+      "target_name": "AddRange",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "newobj",
+      "target_token": "0x0a0001a6",
+      "target_kind": "member-ref",
+      "target_name": ".ctor",
+      "target_declaring_type": "System.Collections.Generic.Dictionary`2"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "newobj",
+      "target_token": "0x0a0000df",
+      "target_kind": "member-ref",
+      "target_name": ".ctor",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "newobj",
+      "target_token": "0x0a0000df",
+      "target_kind": "member-ref",
+      "target_name": ".ctor",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "newobj",
+      "target_token": "0x0a0000df",
+      "target_kind": "member-ref",
+      "target_name": ".ctor",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "newobj",
+      "target_token": "0x0a0000df",
+      "target_kind": "member-ref",
+      "target_name": ".ctor",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000992",
+      "target_kind": "member-ref",
+      "target_name": "GetEnumerator",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "call",
+      "target_token": "0x0a000993",
+      "target_kind": "member-ref",
+      "target_name": "get_Current",
+      "target_declaring_type": "Enumerator"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0001fe",
+      "target_kind": "member-ref",
+      "target_name": "get_Type",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.AnnotationInfo"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "call",
+      "target_token": "0x2b00013b",
+      "target_kind": "method-spec",
+      "target_name": "First",
+      "target_declaring_type": "System.Linq.Enumerable"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000877",
+      "target_kind": "member-ref",
+      "target_name": "get_Details",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.AnnotationInfo"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "ldftn",
+      "target_token": "0x06001a40",
+      "target_kind": "method-def",
+      "target_name": "<ProcessMessage>b__77_0",
+      "target_declaring_type": "<>c"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "newobj",
+      "target_token": "0x0a000878",
+      "target_kind": "member-ref",
+      "target_name": ".ctor",
+      "target_declaring_type": "System.Func`2"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "call",
+      "target_token": "0x2b00013c",
+      "target_kind": "method-spec",
+      "target_name": "First",
+      "target_declaring_type": "System.Linq.Enumerable"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000996",
+      "target_kind": "member-ref",
+      "target_name": "get_ValueInt32",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.KeyValuePairInfo"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000997",
+      "target_kind": "member-ref",
+      "target_name": "get_Item",
+      "target_declaring_type": "Google.Protobuf.Collections.RepeatedField`1"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000877",
+      "target_kind": "member-ref",
+      "target_name": "get_Details",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.AnnotationInfo"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "ldftn",
+      "target_token": "0x06001a41",
+      "target_kind": "method-def",
+      "target_name": "<ProcessMessage>b__77_1",
+      "target_declaring_type": "<>c"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "newobj",
+      "target_token": "0x0a000878",
+      "target_kind": "member-ref",
+      "target_name": ".ctor",
+      "target_declaring_type": "System.Func`2"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "call",
+      "target_token": "0x2b00013c",
+      "target_kind": "method-spec",
+      "target_name": "First",
+      "target_declaring_type": "System.Linq.Enumerable"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000996",
+      "target_kind": "member-ref",
+      "target_name": "get_ValueInt32",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.KeyValuePairInfo"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000997",
+      "target_kind": "member-ref",
+      "target_name": "get_Item",
+      "target_declaring_type": "Google.Protobuf.Collections.RepeatedField`1"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000954",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.Dictionary`2"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000201",
+      "target_kind": "member-ref",
+      "target_name": "get_AffectedIds",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.AnnotationInfo"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000203",
+      "target_kind": "member-ref",
+      "target_name": "GetEnumerator",
+      "target_declaring_type": "Google.Protobuf.Collections.RepeatedField`1"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000023",
+      "target_kind": "member-ref",
+      "target_name": "get_Current",
+      "target_declaring_type": "System.Collections.Generic.IEnumerator`1"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x060009b3",
+      "target_kind": "method-def",
+      "target_name": "GetCardById",
+      "target_declaring_type": "GreClient.Rules.MtgGameState"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0000ea",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000022",
+      "target_kind": "member-ref",
+      "target_name": "MoveNext",
+      "target_declaring_type": "System.Collections.IEnumerator"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000021",
+      "target_kind": "member-ref",
+      "target_name": "Dispose",
+      "target_declaring_type": "System.IDisposable"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000201",
+      "target_kind": "member-ref",
+      "target_name": "get_AffectedIds",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.AnnotationInfo"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000203",
+      "target_kind": "member-ref",
+      "target_name": "GetEnumerator",
+      "target_declaring_type": "Google.Protobuf.Collections.RepeatedField`1"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000023",
+      "target_kind": "member-ref",
+      "target_name": "get_Current",
+      "target_declaring_type": "System.Collections.Generic.IEnumerator`1"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0000ea",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000022",
+      "target_kind": "member-ref",
+      "target_name": "MoveNext",
+      "target_declaring_type": "System.Collections.IEnumerator"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000021",
+      "target_kind": "member-ref",
+      "target_name": "Dispose",
+      "target_declaring_type": "System.IDisposable"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000201",
+      "target_kind": "member-ref",
+      "target_name": "get_AffectedIds",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.AnnotationInfo"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000203",
+      "target_kind": "member-ref",
+      "target_name": "GetEnumerator",
+      "target_declaring_type": "Google.Protobuf.Collections.RepeatedField`1"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000023",
+      "target_kind": "member-ref",
+      "target_name": "get_Current",
+      "target_declaring_type": "System.Collections.Generic.IEnumerator`1"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0000ea",
+      "target_kind": "member-ref",
+      "target_name": "Add",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000022",
+      "target_kind": "member-ref",
+      "target_name": "MoveNext",
+      "target_declaring_type": "System.Collections.IEnumerator"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000021",
+      "target_kind": "member-ref",
+      "target_name": "Dispose",
+      "target_declaring_type": "System.IDisposable"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000877",
+      "target_kind": "member-ref",
+      "target_name": "get_Details",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.AnnotationInfo"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "ldftn",
+      "target_token": "0x06001a42",
+      "target_kind": "method-def",
+      "target_name": "<ProcessMessage>b__77_2",
+      "target_declaring_type": "<>c"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "newobj",
+      "target_token": "0x0a000878",
+      "target_kind": "member-ref",
+      "target_name": ".ctor",
+      "target_declaring_type": "System.Func`2"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "call",
+      "target_token": "0x2b00013c",
+      "target_kind": "method-spec",
+      "target_name": "First",
+      "target_declaring_type": "System.Linq.Enumerable"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000996",
+      "target_kind": "member-ref",
+      "target_name": "get_ValueInt32",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.KeyValuePairInfo"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "newobj",
+      "target_token": "0x0a000998",
+      "target_kind": "member-ref",
+      "target_name": ".ctor",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000877",
+      "target_kind": "member-ref",
+      "target_name": "get_Details",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.AnnotationInfo"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "ldftn",
+      "target_token": "0x06001a43",
+      "target_kind": "method-def",
+      "target_name": "<ProcessMessage>b__77_3",
+      "target_declaring_type": "<>c"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "newobj",
+      "target_token": "0x0a000878",
+      "target_kind": "member-ref",
+      "target_name": ".ctor",
+      "target_declaring_type": "System.Func`2"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "call",
+      "target_token": "0x2b00013c",
+      "target_kind": "method-spec",
+      "target_name": "First",
+      "target_declaring_type": "System.Linq.Enumerable"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000996",
+      "target_kind": "member-ref",
+      "target_name": "get_ValueInt32",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.KeyValuePairInfo"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "newobj",
+      "target_token": "0x0a000998",
+      "target_kind": "member-ref",
+      "target_name": ".ctor",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "ldftn",
+      "target_token": "0x06001a44",
+      "target_kind": "method-def",
+      "target_name": "<ProcessMessage>b__77_4",
+      "target_declaring_type": "<>c"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "newobj",
+      "target_token": "0x0a000999",
+      "target_kind": "member-ref",
+      "target_name": ".ctor",
+      "target_declaring_type": "System.Converter`2"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x2b00013d",
+      "target_kind": "method-spec",
+      "target_name": "ConvertAll",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00021c",
+      "target_kind": "member-ref",
+      "target_name": "AddRange",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "ldftn",
+      "target_token": "0x06001a45",
+      "target_kind": "method-def",
+      "target_name": "<ProcessMessage>b__77_5",
+      "target_declaring_type": "<>c"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "newobj",
+      "target_token": "0x0a000999",
+      "target_kind": "member-ref",
+      "target_name": ".ctor",
+      "target_declaring_type": "System.Converter`2"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x2b00013d",
+      "target_kind": "method-spec",
+      "target_name": "ConvertAll",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00021c",
+      "target_kind": "member-ref",
+      "target_name": "AddRange",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "call",
+      "target_token": "0x0a00099b",
+      "target_kind": "member-ref",
+      "target_name": "MoveNext",
+      "target_declaring_type": "Enumerator"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000021",
+      "target_kind": "member-ref",
+      "target_name": "Dispose",
+      "target_declaring_type": "System.IDisposable"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "newobj",
+      "target_token": "0x060008d4",
+      "target_kind": "method-def",
+      "target_name": ".ctor",
+      "target_declaring_type": "GreClient.Rules.AnnotationData"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000147",
+      "target_kind": "member-ref",
+      "target_name": "get_GameStateMessage",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GREToClientMessage"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a0004f6",
+      "target_kind": "member-ref",
+      "target_name": "get_GameStateId",
+      "target_declaring_type": "Wotc.Mtgo.Gre.External.Messaging.GameStateMessage"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a00099c",
+      "target_kind": "member-ref",
+      "target_name": "set_Item",
+      "target_declaring_type": "System.Collections.Generic.Dictionary`2"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "call",
+      "target_token": "0x06000906",
+      "target_kind": "method-def",
+      "target_name": "ModifyEventsList",
+      "target_declaring_type": "GreClient.Rules.GreInterface"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "call",
+      "target_token": "0x060008ec",
+      "target_kind": "method-def",
+      "target_name": "GetDiffChanges",
+      "target_declaring_type": "GreClient.Rules.GreInterface"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000919",
+      "target_kind": "member-ref",
+      "target_name": "AddRange",
+      "target_declaring_type": "System.Collections.Generic.List`1"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x060003c2",
+      "target_kind": "method-def",
+      "target_name": "OnGameStateParsed",
+      "target_declaring_type": "GreClient.History.MessageHistory"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x060009bc",
+      "target_kind": "method-def",
+      "target_name": "get_LocalPlayer",
+      "target_declaring_type": "GreClient.Rules.MtgGameState"
+    },
+    {
+      "caller_token": "0x06000905",
+      "caller": "GreClient.Rules.GreInterface.ProcessMessage",
+      "opcode": "callvirt",
+      "target_token": "0x0a000857",
+      "target_kind": "member-ref",
+      "target_name": "Enqueue",
+      "target_declaring_type": "System.Collections.Concurrent.ConcurrentQueue`1"
+    }
+  ]
+}

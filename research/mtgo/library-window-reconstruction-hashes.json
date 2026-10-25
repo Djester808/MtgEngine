@@ -1,0 +1,18 @@
+[
+  {
+    "path": "research/mtgo/artifacts/SharedResources.dll",
+    "sha256": "948832B84B67D8945B91CFA2C763FC9BD28EA19D7681C9256B4D5C172CDADC47"
+  },
+  {
+    "path": "research/mtgo/decompiled/FloatingPanel.cs",
+    "sha256": "7B4767C894D204C539D732CC80C6ED02D008D4050E0DAAE4BD348799755D359D"
+  },
+  {
+    "path": "research/mtgo/decompiled/shared-window-audit/Shiny.Controls/FloatingPanel.xaml",
+    "sha256": "EF98656F7270CE2269CF6D5E2A09122096AEFBC5F6CB216A03DD45C9C00C6A1F"
+  },
+  {
+    "path": "research/mtgo/decompiled/shared-window-audit/sharedstyles/floatingpaneltemplates.xaml",
+    "sha256": "FF7E205379AAFD029490524BBE2CF579CF9E36A9656035EBFE80F388E3334A8A"
+  }
+]

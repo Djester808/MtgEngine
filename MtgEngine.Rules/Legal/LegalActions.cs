@@ -10,8 +10,9 @@ namespace MtgEngine.Rules.Legal;
 
 /// <summary>
 /// What a player may do now, answered by the code that would do it: every castable card,
-/// playable land and activatable ability is one <see cref="ICastingSystem.Check"/> allows, so
-/// an offer and the command it stands for can never disagree (CR 305, 601, 602). Attackers and
+/// playable land and fully specified activatable ability is one <see cref="ICastingSystem.Check"/> allows.
+/// Library abilities awaiting object choices are explicitly marked as payment-selection offers;
+/// their eventual command is validated again after selection (CR 305, 601, 602). Attackers and
 /// blockers are the same bargain: <see cref="ICombatSystem.CouldAttack"/> and
 /// <see cref="ICombatSystem.CouldBlock"/> are the one reading of CR 508.1a and 509.1a, so a
 /// restriction the combat system enforces on a declaration is one this view never offers. What
@@ -63,14 +64,23 @@ public sealed class LegalActions(
         // action of playing a land all need priority.
         var priority = state.Priority.Holder == player;
         var hand = priority ? state.In(ZoneKey.Of(CardZone.Hand, player)) : [];
+        // Library permissions are checked by the same casting road as the commanded play.
+        // Enumerating a candidate grants neither access nor permission: only successful checks
+        // become offered IDs, including the top-only bound and the ordinary timing restrictions.
+        var playable = priority ? hand.AddRange(state.In(ZoneKey.Of(CardZone.Library, player))) : [];
+        var spells = priority
+            ? playable.AddRange(state.Objects.Values
+                .Where(card => card.Zone.Zone == CardZone.Command && card.Owner == player)
+                .OrderBy(card => card.Id.Value).Select(card => card.Id))
+            : [];
 
         // CR 508.1d — the attackers are priced, not re-decided: the list computed here is the one
         // the offers are made against, so a creature can never carry a price it was not offered.
         var attackers = EligibleAttackers(state, player);
         return new LegalActionsView(
-            [.. hand.Where(id => _casting.Check(state, new CastSpell(player, id, state.Objects[id].FaceIndex)) is null)],
+            [.. spells.Where(id => _casting.Check(state, new CastSpell(player, id, state.Objects[id].FaceIndex)) is null)],
             priority ? Activatable(state, player) : [],
-            [.. hand.Where(id => _casting.Check(state, new PlayLand(player, id)) is null)],
+            [.. playable.Where(id => _casting.Check(state, new PlayLand(player, id)) is null)],
             attackers,
             EligibleBlockers(state, player),
             MayPass: priority,
@@ -98,7 +108,9 @@ public sealed class LegalActions(
             {
                 if (chars.Abilities[index] is not ActivatedAbility ability)
                     continue;
-                if (_casting.Check(state, new ActivateAbility(player, obj.Id, index)) is not null)
+                var command = new ActivateAbility(player, obj.Id, index);
+                var refusal = _casting.Check(state, command);
+                if (refusal is not null)
                     continue;
                 offers.Add(new Views.ActivatableAbility(obj.Id, index, ability.Text ?? string.Empty));
             }
@@ -106,6 +118,7 @@ public sealed class LegalActions(
 
         return offers.ToImmutable();
     }
+
 
     /// <summary>
     /// CR 508.1: the active player declares attackers in the declare attackers step, and does so

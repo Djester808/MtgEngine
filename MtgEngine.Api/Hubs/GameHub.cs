@@ -6,6 +6,7 @@ using MtgEngine.Api.Dtos;
 using MtgEngine.Api.Services;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.State;
+using MtgEngine.Rules.Views;
 
 namespace MtgEngine.Api.Hubs;
 
@@ -32,7 +33,7 @@ namespace MtgEngine.Api.Hubs;
 /// </para>
 /// </remarks>
 [Authorize]
-public sealed class GameHub(GameSessionService sessions, ILogger<GameHub> logger) : Hub
+public sealed class GameHub(GameSessionService sessions, ILogger<GameHub> logger, GameArtworkService? artwork = null) : Hub
 {
     /// <summary>The signed-in account. Taken from the token, never from the message.</summary>
     private string Me =>
@@ -95,8 +96,12 @@ public sealed class GameHub(GameSessionService sessions, ILogger<GameHub> logger
             return;
         }
 
+        // Prepare sequentially: artwork may use a scoped database context. Delivery
+        // is independent per account so one slow connection cannot hold later seats.
+        var deliveries = new List<Delivery>();
         foreach (var (userId, player) in session.SeatedPlayers())
-            await PushAsync(session, userId, player).ConfigureAwait(false);
+            deliveries.Add(await PrepareAsync(session, userId, player).ConfigureAwait(false));
+        await Task.WhenAll(deliveries.Select(SendAsync)).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -128,11 +133,25 @@ public sealed class GameHub(GameSessionService sessions, ILogger<GameHub> logger
     /// <summary>Sends one account its view, its legal actions and any question that is waiting for it.</summary>
     private async Task PushAsync(GameSession session, string userId, PlayerId player)
     {
-        var (view, legal) = session.ProjectFor(player);
-        await Clients.User(userId).SendAsync("ViewUpdated", view, legal).ConfigureAwait(false);
+        await SendAsync(await PrepareAsync(session, userId, player).ConfigureAwait(false)).ConfigureAwait(false);
+    }
 
-        if (session.State.Pending is { } pending && pending.Player == player)
-            await Clients.User(userId).SendAsync("ChoiceRequested", pending).ConfigureAwait(false);
+    private sealed record Delivery(string UserId, PlayerId Player, GameView? View, LegalActions? Legal,
+        IReadOnlyDictionary<string, GameArtwork>? Images);
+
+    private async Task<Delivery> PrepareAsync(GameSession session, string userId, PlayerId player)
+    {
+        var (view, legal) = session.ProjectFor(player);
+        var images = artwork is null ? null : await artwork.ForAsync(view, Context.ConnectionAborted).ConfigureAwait(false);
+        return new Delivery(userId, player, view, legal, images);
+    }
+
+    private async Task SendAsync(Delivery delivery)
+    {
+        var recipient = Clients.User(delivery.UserId);
+        await recipient.SendAsync("ViewUpdated", delivery.View, delivery.Legal, delivery.Images).ConfigureAwait(false);
+        if (delivery.View?.Pending is { } pending && pending.Player == delivery.Player)
+            await recipient.SendAsync("ChoiceRequested", pending).ConfigureAwait(false);
     }
 
     private Task RefuseAsync(string reason, string? rule)
@@ -144,8 +163,16 @@ public sealed class GameHub(GameSessionService sessions, ILogger<GameHub> logger
     /// <summary>The table and the seat the caller holds, or a hub error naming neither.</summary>
     private async Task<(GameSession Session, PlayerId Seat)> SeatAsync(Guid gameId)
     {
-        var session = await sessions.FindAsync(gameId, Context.ConnectionAborted).ConfigureAwait(false)
-            ?? throw new HubException("No such game.");
+        GameSession session;
+        try
+        {
+            session = await sessions.FindAsync(gameId, Context.ConnectionAborted).ConfigureAwait(false)
+                ?? throw new HubException("No such game.");
+        }
+        catch (UnsupportedGameLogException)
+        {
+            throw new HubException(UnsupportedGameLogException.Detail);
+        }
         return session.SeatOf(Me) is { } seat
             ? (session, seat)
             : throw new HubException("You are not seated at that table.");

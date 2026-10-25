@@ -22,6 +22,9 @@ namespace MtgEngine.Rules.Choices;
 /// </summary>
 public static class ChoiceKinds
 {
+    /// <summary>CR 903.9a: owner may move a newly buried or exiled commander to command.</summary>
+    public const string CommanderReturn = "commander-return";
+
     /// <summary>
     /// CR 514.1: discard down to maximum hand size. Raised by the turn system's cleanup step and
     /// by an effect that instructs a discard; finished by the choice system.
@@ -126,6 +129,12 @@ public static class ChoiceKinds
     /// interpreter.
     /// </summary>
     public const string Surveil = "surveil";
+
+    /// <summary>CR 701.22/701.25: order the cards remaining on top after looking.</summary>
+    public const string LibraryTopOrder = "library-top-order";
+
+    /// <summary>The owner orders cards being placed on the bottom of their library.</summary>
+    public const string LibraryBottomOrder = "library-bottom-order";
 
     /// <summary>
     /// CR 601.2c: the targets chosen for a spell or ability. Raised by the casting system and by

@@ -32,9 +32,9 @@ public sealed partial class CastingTests
 
         public Outcome Create(GameSetup setup, IDefinitionStore store) => throw new NotSupportedException();
 
-        public Outcome Draw(GameState state, PlayerId player, int count) => throw new NotSupportedException();
+        public Outcome Draw(GameState state, PlayerId player, int count, IEnumerable<string>? usedReplacements = null) => throw new NotSupportedException();
 
-        public Outcome Shuffle(GameState state, PlayerId player) => throw new NotSupportedException();
+        public Outcome Shuffle(GameState state, PlayerId player, IEnumerable<string>? usedReplacements = null) => throw new NotSupportedException();
 
         public Outcome CreateToken(GameState state, TokenSpec token, PlayerId controller, bool tapped, bool attacking) => throw new NotSupportedException();
     }

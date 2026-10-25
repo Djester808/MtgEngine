@@ -9,6 +9,15 @@ namespace MtgEngine.Rules.State;
 /// </summary>
 public sealed record GameState
 {
+    public ImmutableDictionary<string, LibraryInspection> LibraryInspections { get; init; } = ImmutableDictionary<string, LibraryInspection>.Empty;
+    public ImmutableDictionary<PlayerId, ObjectId> RevealedLibraryTops { get; init; } = ImmutableDictionary<PlayerId, ObjectId>.Empty;
+    public ImmutableHashSet<ObjectId> PreviouslyRevealedLibraryCards { get; init; } = [];
+
+    public ImmutableHashSet<ManualRequest> ManualRequests { get; init; } = [];
+
+    public CardReveal? LastReveal { get; init; }
+    public ImmutableDictionary<PlayerId, CardReveal> LastLooks { get; init; } = ImmutableDictionary<PlayerId, CardReveal>.Empty;
+
     public required ImmutableList<PlayerState> Players { get; init; }
 
     public required ImmutableDictionary<ObjectId, GameObject> Objects { get; init; }
@@ -23,6 +32,8 @@ public sealed record GameState
     public CombatState? Combat { get; init; }
 
     public PendingChoice? Pending { get; init; }
+
+    public OpeningHandsState? OpeningHands { get; init; }
 
     public ImmutableList<ActiveEffect> ActiveEffects { get; init; } = [];
 
@@ -50,6 +61,17 @@ public sealed record GameState
     /// <summary>What happened this turn, for the conditions that ask; reset when a turn begins.</summary>
     public TurnHistory History { get; init; } = TurnHistory.Empty;
 
+    /// <summary>CR 903.9a: commanders newly moved to graveyard or exile, awaiting an owner decision.</summary>
+    public ImmutableHashSet<ObjectId> CommanderReturnCandidates { get; init; } = [];
+
+    /// <summary>CR 903.8: command-zone casts per commander and caster, retained across turns and zone changes.</summary>
+    public ImmutableDictionary<(CommanderIdentity Commander, PlayerId Caster), int> CommanderCasts { get; init; } =
+        ImmutableDictionary<(CommanderIdentity Commander, PlayerId Caster), int>.Empty;
+
+    [RuleRef("903.8")]
+    public int CommandZoneCasts(GameObject commander, PlayerId caster) =>
+        CommanderCasts.GetValueOrDefault((CommanderIdentity.Of(commander), caster));
+
     public PlayerState Player(PlayerId id) => Players[id.Value];
 
     public ImmutableList<ObjectId> In(ZoneKey zone) => Zones.TryGetValue(zone, out var list) ? list : [];
@@ -76,16 +98,46 @@ public sealed record GameState
     /// was kept as a departed object is not counted — nothing in the state says what it was.
     /// </para>
     /// </summary>
+    /// <summary>The objects that left the battlefield this turn, by id. First writer wins: the
+    /// earliest record of an id is the one the old scan found.</summary>
+    private static Dictionary<ObjectId, GameObject> Index(ImmutableList<GameObject> left)
+    {
+        var byId = new Dictionary<ObjectId, GameObject>();
+        foreach (var o in left)
+        {
+            if (!byId.ContainsKey(o.Id))
+                byId[o.Id] = o;
+        }
+
+        return byId;
+    }
+
     [RuleRef("121.1")]
     public int LandsEnteredThisTurn(PlayerId who)
     {
         var counted = new HashSet<ObjectId>();
         var lands = 0;
+
+        // The departed are indexed once rather than scanned per entry: this is reached from
+        // Query.Amounts through PerTurn, once per player per evaluation, and query amounts are
+        // re-derived on every condition check - so the nested scan was O(entered x departed)
+        // every time anything asked a condition.
+        Dictionary<ObjectId, GameObject>? departed = null;
         foreach (var id in History.EnteredBattlefield)
         {
             if (counted.Contains(id))
                 continue;
-            var entered = Objects.TryGetValue(id, out var live) ? live : History.LeftBattlefield.FirstOrDefault(o => o.Id == id);
+            GameObject? entered;
+            if (Objects.TryGetValue(id, out var live))
+            {
+                entered = live;
+            }
+            else
+            {
+                departed ??= Index(History.LeftBattlefield);
+                entered = departed.GetValueOrDefault(id);
+            }
+
             if (entered is null)
                 continue; // CR 111.7: a token that ceased to exist is in neither place; the token record below may still say what it was.
             counted.Add(id);
@@ -119,8 +171,6 @@ public sealed record TurnState(int Number, PlayerId ActivePlayer, Step Step, int
     /// <summary>Extra turns waiting to be taken, most recent first, CR 500.7.</summary>
     public ImmutableList<PlayerId> ExtraTurns { get; init; } = [];
 
-    public ImmutableList<Step> ExtraSteps { get; init; } = [];
-
     public bool IsExtraTurn { get; init; }
 }
 
@@ -136,7 +186,12 @@ public sealed record CombatState(
     ImmutableDictionary<ObjectId, CombatTarget> Attackers,
     ImmutableDictionary<ObjectId, ImmutableList<ObjectId>> Blockers,
     bool AttackersDeclared,
-    bool BlockersDeclared);
+    bool BlockersDeclared)
+{
+    public ImmutableList<PlayerId> DefendingPlayers { get; init; } = [];
+
+    public ImmutableList<PlayerId> BlockersDeclaredBy { get; init; } = [];
+}
 
 /// <summary>What an attacker attacks: a player, or a planeswalker or battle, CR 506.1.</summary>
 public sealed record CombatTarget(PlayerId? Player, ObjectId? Permanent);
@@ -183,13 +238,48 @@ public sealed record PendingChoice(
 
 public sealed record ChoiceOption(string Id, string Label, ObjectId? Object = null, PlayerId? Player = null);
 
-/// <summary>A locator for where the answer goes, so resumption is a branch per kind and never a captured continuation.</summary>
 /// <summary>
 /// Where a question came from, so the answer finds its way back: the source and ability, the
 /// path inside the effect tree, free-form keys, and for a replacement-order question (CR 616.1)
 /// the event the choice is about, which must survive the halt for the loop to resume.
+/// <para>
+/// It is a locator, not a continuation: resumption is a branch per kind, so a halted game
+/// replays from its log rather than from a captured closure.
+/// </para>
 /// </summary>
-public sealed record ChoiceContext(ObjectId? Source, int? AbilityIndex, string? EffectPath, ImmutableDictionary<string, string> Extra, Events.GameEvent? Event = null);
+public sealed record ChoiceContext(ObjectId? Source, int? AbilityIndex, string? EffectPath, ImmutableDictionary<string, string> Extra, Events.GameEvent? Event = null)
+{
+    /// <summary>Private effect tree for an off-stack ability whose source may leave during payment.</summary>
+    public Effect? OffStackEffect { get; init; }
+    /// <summary>Private inner effect interrupted while the outer effect proposed an event.</summary>
+    public ChoiceContext? ReplacementContinuation { get; init; }
+    /// <summary>Read-only legacy data; effect payment continuations are no longer executed.</summary>
+    public ChoiceContext? EffectPaymentContinuation { get; init; }
+    /// <summary>Legacy privacy metadata only; these payments cannot be resumed.</summary>
+    public Casting.RemainingCostPayment? RemainingPayment { get; init; }
+    /// <summary>Server-only remainder of interrupted library draw operations.</summary>
+    public ImmutableList<Library.PendingDrawBatch> DeferredDraws { get; init; } = [];
+
+    /// <summary>Server-only shuffles owed after the interrupted operation completes.</summary>
+    public ImmutableList<PlayerId> DeferredShuffles { get; init; } = [];
+
+    /// <summary>Server-only continuation of a simultaneous zone-move batch.</summary>
+    public ImmutableList<Events.ObjectMoved> DeferredZoneMoves { get; init; } = [];
+    /// <summary>Inherited replacement keys per deferred source object; never per-card consumed keys.</summary>
+    public ImmutableDictionary<int, ImmutableHashSet<string>> DeferredMoveHistory { get; init; }
+        = ImmutableDictionary<int, ImmutableHashSet<string>>.Empty;
+
+    /// <summary>Private evaluation board for an interrupted simultaneous zone move.</summary>
+    public string? ZoneMoveSnapshot { get; init; }
+
+    /// <summary>Private events awaiting trigger collection after the current operation's choices finish.</summary>
+    public ImmutableList<Events.GameEvent> DeferredTriggerEvents { get; init; } = [];
+
+    /// <summary>Abilities already detected, waiting for the current operation to finish.</summary>
+    public ImmutableList<Triggers.PendingTrigger> DeferredTriggers { get; init; } = [];
+
+    public bool AdvanceAfterZoneBatch { get; init; }
+}
 
 /// <summary>
 /// The facts about this turn that conditions ask for: morbid, revolt, raid, "entered this
@@ -248,7 +338,7 @@ public sealed record TurnHistory(
 /// </para>
 /// </summary>
 [RuleRef("116.2a")]
-public sealed record SpellCastRecord(ObjectId Spell, PlayerId By, Zone From, int? Permission = null);
+public sealed record SpellCastRecord(ObjectId Spell, PlayerId By, Zone From, int? Permission = null, StaticPlayPermission? StaticPermission = null);
 
 /// <summary>
 /// A land played this turn, CR 305.1 with 116.2a. A land play is not a cast, so it is recorded
@@ -258,7 +348,7 @@ public sealed record SpellCastRecord(ObjectId Spell, PlayerId By, Zone From, int
 /// that allowed the play, none for the ordinary one-per-turn land drop of CR 305.2.
 /// </summary>
 [RuleRef("116.2a")]
-public sealed record LandPlayRecord(ObjectId Land, PlayerId By, Zone From, int? Permission = null);
+public sealed record LandPlayRecord(ObjectId Land, PlayerId By, Zone From, int? Permission = null, StaticPlayPermission? StaticPermission = null);
 
 /// <summary>A deterministic generator. The seed is in the log; the counter advances with every draw.</summary>
 public readonly record struct RngState(ulong Seed, int Counter);

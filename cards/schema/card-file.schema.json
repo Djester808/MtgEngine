@@ -10742,6 +10742,26 @@
               "type": "null"
             }
           ]
+        },
+        "top": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Amount"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "libraryOf": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PlayerRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -10750,7 +10770,7 @@
         "for",
         "to"
       ],
-      "description": "\u0022Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.\u0022 One zone goes in From. A card that searches several at once \u2014 \u0022search your graveyard, hand, and library for a card named ...\u0022 \u2014 puts every zone in Zones in printed order and leaves From alone; the whole search is one action over the union, so a single card is found across all of them (CR 701.23a). Shuffling follows CR 701.23c: a library that was searched is shuffled afterwards and other zones are not, so a multi-zone search with ShuffleAfter set shuffles only the libraries among Zones. Set ShuffleOnlyIfFound for the printed rider \u0022if you do, shuffle\u0022 / \u0022shuffle only if you searched your library this way\u0022, where no shuffle happens when the search found nothing there. OthersTo is one search with two destinations: \u0022search your library for up to two basic land cards, reveal them, put one onto the battlefield tapped and the other into your hand\u0022. It is one search of up to UpTo cards (CR 701.23a \u2014 the whole search is one action), the first card found goes to To with Where and Tapped, and every other card found goes to OthersTo, tapped when OthersTapped is set. Never write it as two Searches: two searches see the library twice, so a player could find two cards that one search could not, and each would shuffle. Leave OthersTo null when every card found goes to the same zone, and leave OthersTapped false unless OthersTo is the battlefield, because nothing is tapped in another zone. Instead is one search whose destination depends on the card found: \u0022search your library for a creature or land card, reveal it, and put it into your hand. If it\u0027s a land card, put it onto the battlefield tapped instead\u0022. It is still one search of one card (CR 701.23a); the card found is read against each entry\u0027s Matching filter in order, the first entry that admits it sends it to that entry\u0027s To, tapped as that entry says, and a card no entry admits goes to To with Tapped. Never two Searches and never an If around the Search: the condition is the card found, which nothing outside the search can name. An entry equal to the plain destination says nothing and is refused (L023)."
+      "description": "\u0022Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.\u0022 One zone goes in From. A card that searches several at once \u2014 \u0022search your graveyard, hand, and library for a card named ...\u0022 \u2014 puts every zone in Zones in printed order and leaves From alone; the whole search is one action over the union, so a single card is found across all of them (CR 701.23a). Who performs the search and receives its private choices. LibraryOf optionally names a different library owner; when absent, the search uses the searcher\u0027s library. This override affects only the library, including its subsequent shuffle and top/bottom placement, not other searched zones. Shuffling follows CR 701.23c: a library that was searched is shuffled afterwards and other zones are not, so a multi-zone search with ShuffleAfter set shuffles only the libraries among Zones. Set ShuffleOnlyIfFound for the printed rider \u0022if you do, shuffle\u0022 / \u0022shuffle only if you searched your library this way\u0022, where no shuffle happens when the search found nothing there. OthersTo is one search with two destinations: \u0022search your library for up to two basic land cards, reveal them, put one onto the battlefield tapped and the other into your hand\u0022. It is one search of up to UpTo cards (CR 701.23a \u2014 the whole search is one action), the first card found goes to To with Where and Tapped, and every other card found goes to OthersTo, tapped when OthersTapped is set. Never write it as two Searches: two searches see the library twice, so a player could find two cards that one search could not, and each would shuffle. Leave OthersTo null when every card found goes to the same zone, and leave OthersTapped false unless OthersTo is the battlefield, because nothing is tapped in another zone. Instead is one search whose destination depends on the card found: \u0022search your library for a creature or land card, reveal it, and put it into your hand. If it\u0027s a land card, put it onto the battlefield tapped instead\u0022. It is still one search of one card (CR 701.23a); the card found is read against each entry\u0027s Matching filter in order, the first entry that admits it sends it to that entry\u0027s To, tapped as that entry says, and a card no entry admits goes to To with Tapped. Never two Searches and never an If around the Search: the condition is the card found, which nothing outside the search can name. An entry equal to the plain destination says nothing and is refused (L023)."
     },
     "Sequence": {
       "type": "object",

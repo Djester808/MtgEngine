@@ -21,18 +21,7 @@ public sealed partial class EffectInterpreter
         {
             // CR 400: the one zone-change verb. The object that arrives is a new object, CR 400.7.
             case Cards.Move move:
-                {
-                    var arrived = new List<ObjectId>();
-                    foreach (var id in Objects(run, move.What))
-                    {
-                        var controller = move.UnderControlOf is null ? (PlayerId?)null : FirstPlayer(run, move.UnderControlOf);
-                        (run, var landed) = Relocate(run, id, move.To, move.Where, move.Tapped, controller);
-                        if (landed is { } now)
-                            arrived.Add(now);
-                    }
-
-                    return Recall(run, move.RememberAs, arrived);
-                }
+                return MoveObjects(run, move);
 
             // CR 701.8b: a permanent with indestructible is not destroyed.
             case Destroy destroy:
@@ -48,10 +37,30 @@ public sealed partial class EffectInterpreter
 
             case Cards.Exile exile:
                 {
+                    // CR 701.13 with the plan's fourth rule: an exile this engine cannot perform
+                    // is refused rather than performed wrongly. Until has no reader anywhere, so
+                    // "exile until this leaves the battlefield" exiled the card for EVER - a card
+                    // silently destroyed - and no card in the corpus writes it, so refusing it costs
+                    // nothing that works today.
+                    if (exile.Until is not null)
+                        throw new RefusedException("An exile with a duration needs the return that ends it; see seam-requests.", "701.13");
+
+                    // ExiledWith is NOT refused, though it has no reader either. A refusal here is
+                    // not a quiet gap: Game.Apply turns a RefusedException into a Refused answer and
+                    // throws the whole command away, so The Darkness Crystal's "instead exile it and
+                    // you gain 2 life" would neither exile nor gain - the creature would simply die,
+                    // and the player's command would be rejected. The exile itself is exactly right;
+                    // only the link back is missing, and that is the third ability's problem, which
+                    // needs a selector that can read it AND a remembered key that outlives one
+                    // resolution (seam-requests/EINT7.md). Refusing would break the two thirds that
+                    // work to report the third that does not.
+
                     var ids = Objects(run, exile.What);
                     var before = run.State;
-                    run = Leave(run, ids, "exiled", Zone.Exile, skipIndestructible: false);
-                    return Recall(run, exile.RememberAs, Landed(before, run));
+                    run = Leave(run, ids, "exiled", Zone.Exile, skipIndestructible: false, faceDown: exile.FaceDown);
+                    var landed = Landed(before, run);
+
+                    return Recall(run, exile.RememberAs, landed);
                 }
 
             // CR 701.21a: sacrificing is the controller's own action and cannot be replaced.
@@ -175,35 +184,7 @@ public sealed partial class EffectInterpreter
 
             // CR 701.23a: searching shows the player what is there and asks which cards to take.
             case Cards.Search search:
-                {
-                    var searcher = FirstPlayer(run, search.Who);
-
-                    // CR 701.23a: the cards the player found go where the effect says, and then
-                    // CR 701.23c shuffles the library whether anything was found or not.
-                    if (Answered(run) is { } found)
-                        return Found(run, search, searcher, Named(run.State, found));
-
-                    // CR 701.23f: the search is the event a Searches trigger watches, once per library
-                    // and only when the search begins; the resumption above writes nothing (CR 701.23h),
-                    // and a search of a graveyard or exile is not a library search.
-                    foreach (var zone in Searched(search))
-                    {
-                        if (zone == Zone.Library)
-                            run = Emit(run, new LibrarySearched(searcher, searcher));
-                    }
-
-                    // CR 701.23a: a search over several zones is one action over their union, so a
-                    // single card is found across all of them. The zone being scanned is the
-                    // search's to say, so a filter that named none is read in that zone.
-                    var matching = Searched(search).SelectMany(zone =>
-                    {
-                        var filter = search.For.In is null ? search.For with { In = zone } : search.For;
-                        return run.State.In(ZoneSystem.KeyFor(zone, searcher))
-                            .Where(id => query.Matches(run.State, filter, id, run.Context));
-                    });
-                    var most = Math.Max(1, Number(run, search.UpTo));
-                    return Ask(run, searcher, "search", "Search for a card.", OptionsFor(run.State, matching), search.UpTo is null ? 0 : 0, most);
-                }
+                return Searching(run, search);
 
             case Cards.Shuffle shuffle:
                 return Shuffling(run, shuffle);
@@ -225,7 +206,7 @@ public sealed partial class EffectInterpreter
     /// The named-action shape: the rules say the object left by this action, then it changes
     /// zones. Both are events, so a trigger can watch either.
     /// </summary>
-    private EffectRun Leave(EffectRun run, IEnumerable<ObjectId> ids, string verb, Zone to, bool skipIndestructible, Placement where = Placement.Default)
+    private EffectRun Leave(EffectRun run, IEnumerable<ObjectId> ids, string verb, Zone to, bool skipIndestructible, Placement where = Placement.Default, bool faceDown = false)
     {
         foreach (var id in ids)
         {
@@ -245,7 +226,7 @@ public sealed partial class EffectInterpreter
             if (!run.Events.Skip(left).OfType<ObjectLeftBy>().Any(e => e.Object == id))
                 continue;
 
-            (run, _) = Relocate(run, id, to, where, tapped: false, controller: null);
+            (run, _) = Relocate(run, id, to, where, tapped: false, controller: null, faceDown: faceDown);
         }
 
         return run;
@@ -282,15 +263,24 @@ public sealed partial class EffectInterpreter
     [RuleRef("608.2m")]
     private EffectRun Shuffling(EffectRun run, Cards.Shuffle shuffle)
     {
-        var owners = new List<PlayerId>();
+        var ownerKey = ":shuffle-owners:" + run.Path;
+        var owners = run.Answer?.Context.Extra.TryGetValue(ownerKey, out var saved) == true
+            ? Numbers(saved).Select(value => new PlayerId(value)).ToList()
+            : new List<PlayerId>();
         if (shuffle.IntoLibrary is { } what)
         {
-            foreach (var id in Objects(run, what))
+            foreach (var id in MovementObjects(ref run, what))
             {
-                if (!run.State.Objects.TryGetValue(id, out var obj))
-                    continue;
-                owners.Add(obj.Owner);
+                if (run.State.Objects.TryGetValue(id, out var obj) && !owners.Contains(obj.Owner))
+                    owners.Add(obj.Owner);
+                run = run with
+                {
+                    Marks = (run.Marks ?? ImmutableDictionary<string, string>.Empty)
+                        .SetItem(ownerKey, Joined(owners.Select(owner => owner.Value))),
+                };
                 (run, _) = Relocate(run, id, Zone.Library, Placement.Default, tapped: false, controller: null);
+                if (run.Halted)
+                    return run;
             }
         }
 
@@ -300,8 +290,13 @@ public sealed partial class EffectInterpreter
             ? owners.Concat(PlayersOrYou(run, shuffle.Who))
             : owners;
         foreach (var player in players.Distinct())
-            run = Merge(run, zones.Shuffle(run.State, player));
-        return run;
+        {
+            run = ProposeThrough(run, current => zones.Shuffle(current.State, player, current.Context.UsedReplacements));
+            if (run.Halted)
+                return run;
+        }
+        run = ForgetMovement(run);
+        return run with { Marks = run.Marks?.Remove(ownerKey) };
     }
 
     /// <summary>One zone change through the zone system, and the id the object came back with, CR 400.7.</summary>
@@ -312,84 +307,44 @@ public sealed partial class EffectInterpreter
         Placement where,
         bool tapped,
         PlayerId? controller,
-        bool faceDown = false)
+        bool faceDown = false,
+        string? batchBoard = null)
     {
         if (!run.State.Objects.TryGetValue(id, out var obj))
-            return (run, null);
+            return (Ordered(run) is not null ? ProposeThrough(run, current => Outcome.Unchanged(current.State)) : run, null);
+        if (to == Zone.Library && obj.Zone == ZoneKey.Of(Zone.Library, obj.Owner))
+        {
+            var eventCount = run.Events.Count;
+            run = ProposeThrough(run, current =>
+            {
+                var cards = current.State.In(obj.Zone);
+                var order = Library.LibraryOrder.Arrange(cards, where == Placement.Bottom ? [] : [id], where == Placement.Bottom ? [id] : []);
+                if (cards.SequenceEqual(order))
+                    return Outcome.Unchanged(current.State);
+                var reordered = new ZoneReordered(obj.Zone, order);
+                return new Outcome(reordered.Apply(current.State), [reordered]);
+            });
+            var change = run.Events.Skip(eventCount).OfType<ZoneReordered>().LastOrDefault();
+            var positioned = change is null ? id : ReorderedIdentities(run, change).GetValueOrDefault(id, id);
+            return (change is null ? run : RefreshDisclosedLibraryIdentities(run, change), positioned);
+        }
         // CR 701.40a: a manifested card is turned face down before it is put onto the battlefield,
         // so the flag rides on the move itself; every other caller takes the plain road.
-        var outcome = faceDown
-            ? zones.Move(run.State, id, ZoneSystem.KeyFor(to, obj.Owner), where, tapped, controller, faceIndex: null, faceDown: true)
-            : zones.Move(run.State, id, ZoneSystem.KeyFor(to, obj.Owner), where, tapped, controller);
-        var landed = outcome.Events.OfType<ObjectMoved>().LastOrDefault(e => e.From == id)?.To.Id;
-        return (Merge(run, outcome), landed);
-    }
-
-    /// <summary>
-    /// What a search found, CR 701.23a: each card goes to the zone the effect names — or, when the
-    /// card names an "instead" destination it matches, there (<see cref="Destination"/>) — and then
-    /// CR 701.23c shuffles the libraries that were searched — and only those, so a search of a
-    /// graveyard shuffles nothing. The printed rider "if you do, shuffle" is
-    /// <c>ShuffleOnlyIfFound</c>: no shuffle when nothing came out of the library.
-    /// </summary>
-    [RuleRef("701.23")]
-    private EffectRun Found(EffectRun run, Cards.Search search, PlayerId searcher, ImmutableList<ObjectId> found)
-    {
-        var before = run.State;
-        var library = ZoneSystem.KeyFor(Zone.Library, searcher);
-        var fromLibrary = found.Any(id => before.Objects.TryGetValue(id, out var card) && card.Zone == library);
-        foreach (var id in found)
+        var before = run.Events.Count;
+        var moved = ProposeThrough(run, current =>
         {
-            var (to, where, tapped) = Destination(run, search, id);
-            (run, _) = Relocate(run, id, to, where, tapped, controller: null);
-        }
-
-        if (search.ShuffleAfter && Searched(search).Contains(Zone.Library) && (!search.ShuffleOnlyIfFound || fromLibrary))
-            run = Merge(run, zones.Shuffle(run.State, searcher));
-        return Recall(run, search.RememberAs, Landed(before, run));
+            return batchBoard is not null
+            ? zones.MoveInBatch(current.State, new MoveRequest(id, ZoneSystem.KeyFor(to, obj.Owner), where, tapped, controller), batchBoard,
+                current.Context.UsedReplacements)
+            : faceDown || current.Context.UsedReplacements?.Any() == true
+            ? zones.Move(current.State, id, ZoneSystem.KeyFor(to, obj.Owner), where, tapped, controller, faceIndex: null, faceDown: faceDown,
+                usedReplacements: current.Context.UsedReplacements)
+            : zones.Move(current.State, id, ZoneSystem.KeyFor(to, obj.Owner), where, tapped, controller);
+        });
+        var landed = moved.Events.Skip(before).OfType<ObjectMoved>().LastOrDefault(e => e.From == id)?.To.Id;
+        return (moved, landed);
     }
 
-    /// <summary>
-    /// Where one card a search found goes, CR 701.23a: "put it into your hand. If it's a land card,
-    /// put it onto the battlefield tapped instead". The card is read against each
-    /// <c>Instead</c> entry's <c>Matching</c> in the order the card printed them, and the first
-    /// entry that admits it wins, giving its <c>To</c> and <c>Tapped</c>; a card no entry admits
-    /// goes to the search's own <c>To</c> with its <c>Where</c> and <c>Tapped</c>. The filter
-    /// carries no zone (V10), so it is read against the card where it lies as it is found — the
-    /// library, before it moves — whatever zone the record named: a filter defaulting to the
-    /// battlefield would admit nothing. With several cards found each is read on its own, in the
-    /// state the earlier ones left, so a card not yet moved is still where the search found it.
-    /// </summary>
-    [RuleRef("701.23a")]
-    private (Zone To, Placement Where, bool Tapped) Destination(EffectRun run, Cards.Search search, ObjectId id)
-    {
-        if (search.Instead is { Count: > 0 } instead && run.State.Objects.TryGetValue(id, out var card))
-        {
-            foreach (var entry in instead)
-            {
-                var matching = entry.Matching with { In = card.Zone.Zone };
-                if (query.Matches(run.State, matching, id, run.Context))
-                    return (entry.To, Placement.Default, entry.Tapped);
-            }
-        }
-
-        return (search.To, search.Where, search.Tapped);
-    }
-
-    /// <summary>
-    /// The zones one search covers, CR 701.23a: the list the card printed, in printed order, or the
-    /// single zone when it names one.
-    /// </summary>
-    [RuleRef("701.23")]
-    private static ImmutableList<Zone> Searched(Cards.Search search) =>
-        search.Zones is { Count: > 0 } zones ? [.. zones] : [search.From];
-
-    /// <summary>
-    /// The cards a player looked at and then put somewhere, in the order they answered: the
-    /// bottom of the library after a scry (CR 701.22a) or the graveyard after a surveil
-    /// (CR 701.25a). The ones not named stay on top in the order they were.
-    /// </summary>
-    [RuleRef("701.22")]
     private EffectRun Sorted(EffectRun run, IEnumerable<ObjectId> chosen, Zone to, Placement where)
     {
         foreach (var id in chosen)

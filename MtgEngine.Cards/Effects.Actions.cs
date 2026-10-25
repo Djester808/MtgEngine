@@ -124,6 +124,10 @@ public sealed record Scry(Amount N, PlayerRef? Who = null) : Effect;
 /// graveyard, hand, and library for a card named ..." — puts every zone in <paramref name="Zones"/>
 /// in printed order and leaves <paramref name="From"/> alone; the whole search is one action over
 /// the union, so a single card is found across all of them (CR 701.23a).
+/// <paramref name="Who"/> performs the search and receives its private choices.
+/// <paramref name="LibraryOf"/> optionally names a different library owner; when absent,
+/// the search uses the searcher's library. This override affects only the library,
+/// including its subsequent shuffle and top/bottom placement, not other searched zones.
 /// Shuffling follows CR 701.23c: a library that was searched is shuffled afterwards and other zones
 /// are not, so a multi-zone search with <paramref name="ShuffleAfter"/> set shuffles only the
 /// libraries among <paramref name="Zones"/>. Set <paramref name="ShuffleOnlyIfFound"/> for the
@@ -168,7 +172,9 @@ public sealed record Search(
     bool ShuffleOnlyIfFound = false,
     Zone? OthersTo = null,
     bool OthersTapped = false,
-    IReadOnlyList<SearchDestination>? Instead = null) : Effect;
+    IReadOnlyList<SearchDestination>? Instead = null,
+    Amount? Top = null,
+    PlayerRef? LibraryOf = null) : Effect;
 
 /// <summary>
 /// One "instead" destination of a Search, CR 701.23a: a card found that <paramref name="Matching"/>

@@ -62,6 +62,18 @@ internal static class FaceCastingFaces
             cost,
             Abilities: [new KeywordAbility(KeywordKind.Flashback, Cost: flashback)]));
 
+    /// <summary>
+    /// A targeted sorcery with buyback, CR 702.26: pay more and the card returns to its owner's
+    /// hand AS IT RESOLVES. It targets, so it can be made to fizzle (CR 608.2b).
+    /// </summary>
+    public static CardDefinition Buyback(string cost = "{1}{R}", string buyback = "{2}") =>
+        Single(new Face(
+            "Test Returning Bolt",
+            FaceRole.Main,
+            new TypeLine(CardType.Sorcery),
+            cost,
+            Abilities: [new KeywordAbility(KeywordKind.Buyback, Cost: buyback)]));
+
     /// <summary>A creature with kicker, CR 702.32: an additional cost chosen as it is cast.</summary>
     public static CardDefinition Kicker(string cost = "{1}{G}", string kicker = "{2}") =>
         Single(Creature("Test Kicked Beast", FaceRole.Main, cost, [new KeywordAbility(KeywordKind.Kicker, Cost: kicker)]));
@@ -107,7 +119,12 @@ internal sealed class FaceCastingQuery : IQuery
     public bool Matches(GameState state, ObjectFilter filter, ObjectId candidate, EffectContext context)
     {
         ArgumentNullException.ThrowIfNull(filter);
+        ArgumentNullException.ThrowIfNull(context);
         var obj = state.Objects[candidate];
+        // CR 613.1b: the "you control" half. Without it a filter naming a controller matched
+        // everything, and a cost could be paid with an opponent's permanent.
+        if (filter.ControlledBy is not null && state.Objects[candidate].InitialController != context.Controller)
+            return false;
         return filter.Types is not { } types || (obj.Face.Types.Types & types) == types;
     }
 
@@ -151,7 +168,7 @@ internal sealed class FaceCastingZones : IZoneSystem
         return new Outcome(moved.Apply(state), [moved]);
     }
 
-    public Outcome Shuffle(GameState state, PlayerId player)
+    public Outcome Shuffle(GameState state, PlayerId player, IEnumerable<string>? usedReplacements = null)
     {
         var library = ZoneKey.Of(CardZone.Library, player);
         var reordered = new ZoneReordered(library, state.In(library), Shuffle: true);
@@ -160,7 +177,7 @@ internal sealed class FaceCastingZones : IZoneSystem
 
     public Outcome Create(GameSetup setup, IDefinitionStore store) => throw new NotSupportedException();
 
-    public Outcome Draw(GameState state, PlayerId player, int count) => throw new NotSupportedException();
+    public Outcome Draw(GameState state, PlayerId player, int count, IEnumerable<string>? usedReplacements = null) => throw new NotSupportedException();
 
     public Outcome CreateToken(GameState state, TokenSpec token, PlayerId controller, bool tapped, bool attacking) => throw new NotSupportedException();
 }

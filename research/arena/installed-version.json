@@ -1,0 +1,13 @@
+{
+    "VersionURL":  "https://mtgarena.downloads.wizards.com/Live/Windows64/version",
+    "Versions":  {
+                     "0.1.14517.1329972":  "10/6/26"
+                 },
+    "CurrentPatchURL":  "",
+    "Flavor":  "Live",
+    "ProductCode":  "{49254D8A-51EB-4380-B570-FBCC90CC5CAE}",
+    "CurrentInstallerURL":  "https://mtgarena.downloads.wizards.com/Live/Windows64/versions/14517.1329972/MTGAInstaller_0.1.14517.1329972.msi",
+    "Name":  "MTG Arena",
+    "BinaryURL":  "https://mtgarena.downloads.wizards.com/Live/Windows64/versions/",
+    "FileCount":  "483"
+}

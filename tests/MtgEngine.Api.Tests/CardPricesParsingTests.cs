@@ -13,6 +13,18 @@ namespace MtgEngine.Api.Tests;
 /// </summary>
 public class CardPricesParsingTests
 {
+    [Fact]
+    public void PreservesCollectorNumberColorsAndStructuredManaProduction()
+    {
+        var card = CardParser.Parse(Json("""{"oracle_id":"o","name":"Guildgate","type_line":"Land — Gate","collector_number":"42a","colors":[],"color_identity":["R","G"],"produced_mana":["R","G"]}"""))!;
+        Assert.Equal("42a", card.CollectorNumber);
+        Assert.Equal(new[] { "R", "G" }, card.ProducedMana);
+        var dto = DomainMapper.ToDto(card);
+        Assert.Equal("42a", dto.CollectorNumber);
+        Assert.Equal(new[] { "R", "G" }, dto.ProducedMana);
+        Assert.Empty(dto.Colors!);
+    }
+
     private static JsonElement Json(string json) => JsonDocument.Parse(json).RootElement;
 
     [Fact]

@@ -10,7 +10,7 @@ namespace MtgEngine.Rules.State;
 /// controller now is a computed characteristic too.
 /// </summary>
 [RuleRef("109")]
-public sealed record GameObject(
+public sealed partial record GameObject(
     ObjectId Id,
     CardDefinition Definition,
     int FaceIndex,
@@ -19,6 +19,12 @@ public sealed record GameObject(
     ZoneKey Zone,
     int Timestamp)
 {
+    /// <summary>Persistent deck-card identity. Null for tokens, copies and pre-migration logs.</summary>
+    public CardInstanceId? CardInstanceId { get; init; }
+
+    /// <summary>The saved deck selection for this card. Copies and tokens do not inherit it.</summary>
+    public StartingCard? DeckSelection { get; init; }
+
     public bool Tapped { get; init; }
 
     public bool FaceDown { get; init; }
@@ -62,7 +68,7 @@ public sealed record GameObject(
     /// <summary>For a spell or ability on the stack: the ability being resolved, its source and the choices made on casting.</summary>
     public StackEntry? Stack { get; init; }
 
-    public Face Face => Definition.Faces[FaceIndex];
+    public Face Face => Definition.GetFace(FaceIndex);
 }
 
 /// <summary>What sits on the stack besides the object itself: which ability, from which source, with which choices, CR 601.2.</summary>

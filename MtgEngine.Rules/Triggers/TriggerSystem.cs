@@ -25,14 +25,19 @@ public sealed partial class TriggerSystem(IQuery query, ICharacteristics charact
     /// <summary>The kind a pending choice carries when a player has more than one trigger to order, CR 603.3b.</summary>
     public const string OrderChoice = "trigger-order";
 
-    public Outcome Collect(GameState state, IReadOnlyList<GameEvent> since)
+    public Outcome Collect(GameState state, IReadOnlyList<GameEvent> since) => Collect(state, since, []);
+
+    public Outcome Collect(GameState state, IReadOnlyList<GameEvent> since, ImmutableList<PendingTrigger> pending)
+    {
+        var kept = OncePerTurn(state, pending.AddRange(Detect(state, since)));
+        return kept.Count == 0 ? Outcome.Unchanged(state) : PutOnStack(state, Apnap(state, kept));
+    }
+
+    public ImmutableList<PendingTrigger> Detect(GameState state, IReadOnlyList<GameEvent> since)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(since);
-        if (since.Count == 0)
-            return Outcome.Unchanged(state);
-
-        var fired = ImmutableList.CreateBuilder<Firing>();
+        var fired = ImmutableList.CreateBuilder<PendingTrigger>();
         for (var i = 0; i < since.Count; i++)
         {
             var lookback = LookBack(state, since[i]);
@@ -40,9 +45,7 @@ public sealed partial class TriggerSystem(IQuery query, ICharacteristics charact
             fired.AddRange(FromObjects(lookback, since[i], window));
             fired.AddRange(FromDelayed(lookback, since[i], window));
         }
-
-        var kept = OncePerTurn(state, fired.ToImmutable());
-        return kept.Count == 0 ? Outcome.Unchanged(state) : PutOnStack(state, Apnap(state, kept));
+        return fired.ToImmutable();
     }
 
     /// <summary>
@@ -62,9 +65,9 @@ public sealed partial class TriggerSystem(IQuery query, ICharacteristics charact
     /// subsystem does not own; the two readings it does have are exact for every other case.
     /// </summary>
     [RuleRef("603.2h")]
-    private static ImmutableList<Firing> OncePerTurn(GameState state, ImmutableList<Firing> fired)
+    private static ImmutableList<PendingTrigger> OncePerTurn(GameState state, ImmutableList<PendingTrigger> fired)
     {
-        var kept = ImmutableList.CreateBuilder<Firing>();
+        var kept = ImmutableList.CreateBuilder<PendingTrigger>();
         var already = new HashSet<(ObjectId? Source, int Index)>();
         foreach (var firing in fired)
         {
@@ -108,16 +111,6 @@ public sealed partial class TriggerSystem(IQuery query, ICharacteristics charact
         return false;
     }
 
-    /// <summary>What triggered, and everything needed to make its stack object.</summary>
-    private sealed record Firing(
-        ObjectId? Source,
-        int AbilityIndex,
-        PlayerId Controller,
-        TriggeredAbility Ability,
-        TriggerSubject Subject,
-        int? Delayed,
-        ImmutableDictionary<string, string> Chosen);
-
     /// <summary>
     /// CR 603.10: a leaves-the-battlefield trigger looks back at the game as it was before the
     /// object left. The batch says what left — <see cref="TurnHistory.LeftBattlefield"/> is folded
@@ -150,11 +143,12 @@ public sealed partial class TriggerSystem(IQuery query, ICharacteristics charact
 
     /// <summary>CR 603.6d: an ability triggers only while its object is in the zone the ability functions in.</summary>
     [RuleRef("603.6d")]
-    private IEnumerable<Firing> FromObjects(GameState state, GameEvent happened, TriggerWindow window)
+    private IEnumerable<PendingTrigger> FromObjects(GameState state, GameEvent happened, TriggerWindow window)
     {
         foreach (var id in state.Objects.Keys.OrderBy(k => k.Value).ToList())
         {
-            if (!state.Objects.TryGetValue(id, out var obj))
+            // CR 702.26b: a phased-out permanent cannot supply triggered abilities.
+            if (!state.Objects.TryGetValue(id, out var obj) || obj.PhasedOut)
                 continue;
             var abilities = _layers.Of(state, id).Abilities;
             for (var index = 0; index < abilities.Count; index++)
@@ -170,7 +164,7 @@ public sealed partial class TriggerSystem(IQuery query, ICharacteristics charact
 
     /// <summary>CR 603.7: a delayed trigger waits for its event, then fires the same way and is spent if it fires once.</summary>
     [RuleRef("603.7")]
-    private IEnumerable<Firing> FromDelayed(GameState state, GameEvent happened, TriggerWindow window)
+    private IEnumerable<PendingTrigger> FromDelayed(GameState state, GameEvent happened, TriggerWindow window)
     {
         foreach (var delayed in state.DelayedTriggers)
         {
@@ -180,7 +174,7 @@ public sealed partial class TriggerSystem(IQuery query, ICharacteristics charact
         }
     }
 
-    private IEnumerable<Firing> Fire(
+    private IEnumerable<PendingTrigger> Fire(
         GameState state,
         TriggeredAbility ability,
         ObjectId? source,
@@ -200,7 +194,12 @@ public sealed partial class TriggerSystem(IQuery query, ICharacteristics charact
             // the ability simply does not go there when it is false.
             if (ability.If is { } condition && !_query.Holds(state, condition, fired))
                 continue;
-            yield return new Firing(source, index, controller, ability, subject, delayed, fired.Chosen);
+            yield return new PendingTrigger(source, index, controller, ability, subject, delayed, fired.Chosen)
+            {
+                SourceObject = source is { } id && state.Objects.TryGetValue(id, out var obj) ? obj : null,
+                Cause = happened,
+                CauseIndex = window.Index,
+            };
         }
     }
 
@@ -296,7 +295,7 @@ public sealed partial class TriggerSystem(IQuery query, ICharacteristics charact
     /// stands and a choice is raised when there is actually something to decide.
     /// </summary>
     [RuleRef("603.3b")]
-    private static ImmutableList<Firing> Apnap(GameState state, ImmutableList<Firing> fired)
+    private static ImmutableList<PendingTrigger> Apnap(GameState state, ImmutableList<PendingTrigger> fired)
     {
         var seats = state.Players.Count;
         var active = state.Turn.ActivePlayer.Value;
@@ -304,7 +303,7 @@ public sealed partial class TriggerSystem(IQuery query, ICharacteristics charact
         return [.. fired.OrderBy(f => Order(f.Controller))];
     }
 
-    private Outcome PutOnStack(GameState state, ImmutableList<Firing> fired)
+    private Outcome PutOnStack(GameState state, ImmutableList<PendingTrigger> fired)
     {
         var events = ImmutableList.CreateBuilder<GameEvent>();
         var stacked = new List<(PlayerId Controller, ObjectId Id)>();
@@ -336,9 +335,9 @@ public sealed partial class TriggerSystem(IQuery query, ICharacteristics charact
     /// from the state's own bookkeeping rather than from a permanent.
     /// </summary>
     [RuleRef("603.3")]
-    private Ev.ObjectCreated Create(GameState state, Firing firing)
+    private Ev.ObjectCreated Create(GameState state, PendingTrigger firing)
     {
-        var source = firing.Source is { } id && state.Objects.TryGetValue(id, out var found) ? found : null;
+        var source = firing.SourceObject ?? (firing.Source is { } id && state.Objects.TryGetValue(id, out var found) ? found : null);
         var definition = source?.Definition ?? EmptyDefinition;
         var faceIndex = source?.FaceIndex ?? 0;
         var index = firing.AbilityIndex;

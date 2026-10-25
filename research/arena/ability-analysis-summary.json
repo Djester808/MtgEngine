@@ -1,0 +1,100 @@
+{
+  "parsedStatus": [
+    {
+      "FullyParsed": 1,
+      "Records": 21624
+    }
+  ],
+  "relationshipCoverage": [
+    {
+      "Total": 21624,
+      "WithBase": 1664,
+      "WithReferences": 3535,
+      "WithHidden": 1937,
+      "WithModalChildren": 532
+    }
+  ],
+  "sharedBaseFamilies": [
+    {
+      "BaseId": 166,
+      "Records": 511,
+      "DistinctNumerals": 6
+    },
+    {
+      "BaseId": 35,
+      "Records": 78,
+      "DistinctNumerals": 2
+    },
+    {
+      "BaseId": 5,
+      "Records": 64,
+      "DistinctNumerals": 1
+    },
+    {
+      "BaseId": 30,
+      "Records": 51,
+      "DistinctNumerals": 1
+    }
+  ],
+  "parameterExamples": [
+    {
+      "Id": 177,
+      "BaseId": 42,
+      "BaseIdNumeral": 0,
+      "Category": 3,
+      "SubCategory": 0,
+      "TextId": 355,
+      "CostTypes": null,
+      "Tags": null
+    },
+    {
+      "Id": 184,
+      "BaseId": 21,
+      "BaseIdNumeral": 0,
+      "Category": 3,
+      "SubCategory": 0,
+      "TextId": 2721,
+      "CostTypes": null,
+      "Tags": null
+    },
+    {
+      "Id": 185,
+      "BaseId": 21,
+      "BaseIdNumeral": 0,
+      "Category": 3,
+      "SubCategory": 0,
+      "TextId": 944,
+      "CostTypes": null,
+      "Tags": "-1441209765"
+    }
+  ],
+  "modalExamples": [
+    {
+      "Id": 1013,
+      "BaseId": 0,
+      "ModalChildIds": "117144,23606",
+      "ModalParentIds": null,
+      "ReferencedAbilityIds": null,
+      "CostTypes": null,
+      "Tags": null
+    },
+    {
+      "Id": 1206,
+      "BaseId": 0,
+      "ModalChildIds": "29759,23606",
+      "ModalParentIds": null,
+      "ReferencedAbilityIds": null,
+      "CostTypes": null,
+      "Tags": null
+    },
+    {
+      "Id": 87382,
+      "BaseId": 0,
+      "ModalChildIds": "24392,24393,24394,24395",
+      "ModalParentIds": null,
+      "ReferencedAbilityIds": null,
+      "CostTypes": null,
+      "Tags": "-573831449,-1313840626,2121435115,-1493377720"
+    }
+  ]
+}

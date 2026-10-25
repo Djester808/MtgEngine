@@ -1,5 +1,4 @@
 using MtgEngine.Cards;
-using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.State;
 using MtgEngine.Rules.Zones;
 using LegalActionsSubsystem = MtgEngine.Rules.Legal.LegalActions;

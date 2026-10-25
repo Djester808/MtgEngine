@@ -50,14 +50,17 @@ public sealed partial class CastingSystem
                 var last = i == selectors.Count - 1;
                 var target = selectors[i] as Cards.Target;
 
-                // CR 601.2b: a count the card does not write is one. The last selector takes what
-                // is left, which is the announcement itself, so its size is not read off Count.
-                var slot = last || target?.Count is null
-                    ? Math.Max(0, announced - at)
-                    : Math.Min(Math.Max(0, query.Evaluate(state, target.Count, context)), Math.Max(0, announced - at));
+                // CR 601.2b: a count the card does not write is ONE. Only the last selector takes
+                // what is left, which is the announcement itself, so its size is not read off
+                // Count. Giving a non-last countless selector the whole remainder - which this
+                // did, against its own rule here - left the last one with nothing and refused a
+                // legal announcement as "needs more targets than were announced".
+                var remaining = Math.Max(0, announced - at);
+                var wanted = target?.Count is null ? 1 : Math.Max(0, query.Evaluate(state, target.Count, context));
+                var slot = last ? remaining : Math.Min(wanted, remaining);
                 if (target?.Min is { } min)
                     RequireInRange(state, target, min, slot, context);
-                at += last || target?.Count is null ? slot : Math.Max(0, query.Evaluate(state, target.Count, context));
+                at += last ? slot : wanted;
             }
         }
     }

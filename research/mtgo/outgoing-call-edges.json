@@ -1,0 +1,122 @@
+[
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.PlayerEventManager.IsConnectedChangedHandler",
+    "target_declaring_type": "FlsClient.Interface.IClientSession",
+    "target_name": "Send"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.PlayService.Session_IsConnectedChanged",
+    "target_declaring_type": "FlsClient.Interface.IClientSession",
+    "target_name": "Send"
+  },
+  {
+    "caller": "ReplayConnectedState..ctor",
+    "target_declaring_type": "ReplayConnectedState",
+    "target_name": "SendGameMessageHandler"
+  },
+  {
+    "caller": "ReplayConnectedState.SendGameMessageHandler",
+    "target_declaring_type": "FlsClient.Interface.IClientSession",
+    "target_name": "Send"
+  },
+  {
+    "caller": "ReplayConnectedState.DisconnectHandler",
+    "target_declaring_type": "FlsClient.Interface.IClientSession",
+    "target_name": "Send"
+  },
+  {
+    "caller": "ReplayConnectedState.GshReplayCompleteHandler",
+    "target_declaring_type": "FlsClient.Interface.IClientSession",
+    "target_name": "Send"
+  },
+  {
+    "caller": "ReplayConnectedState.RefreshGameStateHandler",
+    "target_declaring_type": "FlsClient.Interface.IClientSession",
+    "target_name": "Send"
+  },
+  {
+    "caller": "InProgressGameConnectedBaseState..ctor",
+    "target_declaring_type": "InProgressGameConnectedBaseState",
+    "target_name": "SendGameMessageHandler"
+  },
+  {
+    "caller": "InProgressGameConnectedBaseState.UpdatePlayerStopsHandler",
+    "target_declaring_type": "FlsClient.Interface.IClientSession",
+    "target_name": "Send"
+  },
+  {
+    "caller": "InProgressGameConnectedBaseState.SendGameMessageHandler",
+    "target_declaring_type": "FlsClient.Interface.IClientSession",
+    "target_name": "Send"
+  },
+  {
+    "caller": "InProgressGameConnectedBaseState.RefreshGameStateHandler",
+    "target_declaring_type": "InProgressGameBaseState",
+    "target_name": "SendGameServerMessage"
+  },
+  {
+    "caller": "InProgressGameConnectedBaseState.FlsLostConnectionToGsHandler",
+    "target_declaring_type": "FlsClient.Interface.IClientSession",
+    "target_name": "Send"
+  },
+  {
+    "caller": "InProgressGameConnectingState.AttemptToConnectHandler",
+    "target_declaring_type": "FlsClient.Interface.IClientSession",
+    "target_name": "Send"
+  },
+  {
+    "caller": "InProgressGameConnectingState.FlsLostConnectionToGsHandler",
+    "target_declaring_type": "FlsClient.Interface.IClientSession",
+    "target_name": "Send"
+  },
+  {
+    "caller": "InProgressGameEventNotSetState.AttemptToConnectHandler",
+    "target_declaring_type": "FlsClient.Interface.IClientSession",
+    "target_name": "Send"
+  },
+  {
+    "caller": "InProgressGameEventNotSetState.AttemptToConnectWatcherHandler",
+    "target_declaring_type": "FlsClient.Interface.IClientSession",
+    "target_name": "Send"
+  },
+  {
+    "caller": "InProgressGameGameStartedState.AttemptToConnectWatcherHandler",
+    "target_declaring_type": "FlsClient.Interface.IClientSession",
+    "target_name": "Send"
+  },
+  {
+    "caller": "InProgressGameGameStartedState.AttemptToConnectHandler",
+    "target_declaring_type": "FlsClient.Interface.IClientSession",
+    "target_name": "Send"
+  },
+  {
+    "caller": "InProgressGameBaseState.SendGameServerMessage",
+    "target_declaring_type": "FlsClient.Interface.IClientSession",
+    "target_name": "Send"
+  },
+  {
+    "caller": "InProgressGameWatcherBaseState.RefreshGameStateHandler",
+    "target_declaring_type": "InProgressGameBaseState",
+    "target_name": "SendGameServerMessage"
+  },
+  {
+    "caller": "InProgressGameWatcherConnectingState.FlsLostConnectionToGsHandler",
+    "target_declaring_type": "FlsClient.Interface.IClientSession",
+    "target_name": "Send"
+  },
+  {
+    "caller": "InProgressGameWatcherState..ctor",
+    "target_declaring_type": "InProgressGameWatcherState",
+    "target_name": "SendGameMessageHandler"
+  },
+  {
+    "caller": "InProgressGameWatcherState.SendGameMessageHandler",
+    "target_declaring_type": "FlsClient.Interface.IClientSession",
+    "target_name": "Send"
+  },
+  {
+    "caller": "InProgressGameWatcherState.FlsLostConnectionToGsHandler",
+    "target_declaring_type": "FlsClient.Interface.IClientSession",
+    "target_name": "Send"
+  }
+]

@@ -1,0 +1,19 @@
+{
+  "date": "2026-10-21",
+  "branch": "card-engine",
+  "rulesEffective": "2026-08-07",
+  "rulesSha256": "047f8944fc1c1d18d9c2a3daa28bac99531e95b9133c066a6cfb05718775b85a",
+  "ruleClauses": 3161,
+  "primaryGroups": 147,
+  "keywordAndActionSections": 265,
+  "sourceRuleReferences": 1489,
+  "testRuleReferences": 1004,
+  "declaredTestMethods": 2407,
+  "cardFiles": 632,
+  "statusCounts": {
+    "Translated": 83,
+    "Verified": 500,
+    "Disputed": 49
+  },
+  "storedScenarios": 637
+}

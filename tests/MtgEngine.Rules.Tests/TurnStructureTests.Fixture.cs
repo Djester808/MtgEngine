@@ -160,13 +160,13 @@ internal static class TurnFixture
         public Outcome Move(GameState state, ObjectId what, ZoneKey to, Placement where = Placement.Default, bool tapped = false, PlayerId? controller = null) =>
             throw new NotSupportedException();
 
-        public Outcome Draw(GameState state, PlayerId player, int count)
+        public Outcome Draw(GameState state, PlayerId player, int count, IEnumerable<string>? usedReplacements = null)
         {
             Draws.Add((player, count));
             return Outcome.Unchanged(state);
         }
 
-        public Outcome Shuffle(GameState state, PlayerId player) => throw new NotSupportedException();
+        public Outcome Shuffle(GameState state, PlayerId player, IEnumerable<string>? usedReplacements = null) => throw new NotSupportedException();
 
         public Outcome CreateToken(GameState state, TokenSpec token, PlayerId controller, bool tapped, bool attacking) =>
             throw new NotSupportedException();

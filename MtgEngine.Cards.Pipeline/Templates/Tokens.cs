@@ -19,7 +19,7 @@ public static partial class Templates
     public static TokenResult? Token(CorpusToken token)
     {
         ArgumentNullException.ThrowIfNull(token);
-        if (ParseTypeLine(token.TypeLine) is not { } types)
+        if (PrintedCardMapping.ParseTypeLine(token.TypeLine) is not { } types)
             return null;
 
         IReadOnlyList<Ability>? abilities = null;

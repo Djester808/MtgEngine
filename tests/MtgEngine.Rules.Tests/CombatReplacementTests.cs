@@ -156,7 +156,7 @@ public sealed partial class CombatReplacementTests
 
         Assert.True(Assert.IsType<DamageDealt>(fake.Offered[0]).Deathtouch);
         Assert.True(t.State.Objects[blocker].DealtDeathtouchDamage);
-        Assert.Equal(6, t.State.Player(t.B).CommanderDamage[loose]);
+        Assert.Equal(6, t.State.Player(t.B).CommanderDamage[CommanderKeys.Commander(t.State, loose)]);
         Assert.Equal(14, t.Life(t.B));
     }
 

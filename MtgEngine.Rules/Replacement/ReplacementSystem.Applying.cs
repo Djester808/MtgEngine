@@ -11,10 +11,12 @@ namespace MtgEngine.Rules.Replacement;
 /// </summary>
 public sealed partial class ReplacementSystem
 {
-    private Applied Apply(GameState state, GameEvent current, Candidate candidate) =>
-        candidate.Active is { Effect: PreventDamage shield } active
+    private Applied Apply(GameState state, GameEvent current, Candidate candidate, HashSet<string> used) =>
+        candidate.Key == CommanderReplacementKey
+            ? AskCommander(state, current, used)
+            : candidate.Active is { Effect: PreventDamage shield } active
             ? Spend(state, current, active, shield, candidate)
-            : Perform(state, current, candidate.Ability!.With, candidate);
+            : Perform(state, current, candidate.Ability!.With, candidate, used);
 
     /// <summary>
     /// CR 615.7: a shield for a specific amount is spent by what it prevents — each 1 damage
@@ -52,7 +54,7 @@ public sealed partial class ReplacementSystem
         return Recorded(applied, damage, prevented, candidate);
     }
 
-    private Applied Perform(GameState state, GameEvent current, Effect effect, Candidate candidate, int? prevented = null)
+    private Applied Perform(GameState state, GameEvent current, Effect effect, Candidate candidate, IEnumerable<string> used, int? prevented = null)
     {
         switch (effect)
         {
@@ -86,7 +88,7 @@ public sealed partial class ReplacementSystem
             // entering, not a replacement of it, so the event still happens; reading it as
             // CR 614.1a's "instead" drops the move and the permanent never arrives at all.
             case ChooseValue or Sequence when Arriving(current) && Chooses(effect):
-                return Choosing(state, effect, candidate, current, prevented);
+                return Choosing(state, effect, candidate, current, used, prevented);
 
             case Sequence sequence:
                 {
@@ -104,12 +106,12 @@ public sealed partial class ReplacementSystem
                             if (carried is null)
                                 return applied;
 
-                            var rest = Instead(applied.State, step, candidate, current, carried);
+                            var rest = Instead(applied.State, step, candidate, current, used, carried);
                             applied = new Applied(null, rest.State, applied.Extra.AddRange(rest.Extra), carried);
                             continue;
                         }
 
-                        var next = Perform(applied.State, applied.Event, step, candidate, carried);
+                        var next = Perform(applied.State, applied.Event, step, candidate, used, carried);
                         carried = next.Prevented ?? carried;
                         applied = new Applied(next.Event, next.State, applied.Extra.AddRange(next.Extra), carried);
                     }
@@ -119,10 +121,10 @@ public sealed partial class ReplacementSystem
 
             // CR 614.1a: the event does not happen, and what the effect says happens instead.
             case ReplaceWith replacement:
-                return Instead(state, replacement.Do, candidate, current, prevented);
+                return Instead(state, replacement.Do, candidate, current, used, prevented);
 
             default:
-                return Instead(state, effect, candidate, current, prevented);
+                return Instead(state, effect, candidate, current, used, prevented);
         }
     }
 
@@ -134,13 +136,15 @@ public sealed partial class ReplacementSystem
     /// until it is answered: the loop sees no event left and stops with the question raised.
     /// </summary>
     [RuleRef("614.1a")]
-    private Applied Instead(GameState state, Effect effect, Candidate candidate, GameEvent current, int? prevented = null)
+    private Applied Instead(GameState state, Effect effect, Candidate candidate, GameEvent current, IEnumerable<string> used, int? prevented = null)
     {
         // CR 614.1a with 400.7: the event does not happen, so the object that was entering never
         // exists outside the probe; a question this walk raises has to travel under the card as it
         // still is, or no answer could find the effect that asked (CR 101.4).
         var source = Leaving(state, current, candidate);
-        var outcome = _interpreter.Run(state, effect, Context(source, candidate.Controller, current, prevented), IndexOf(state, current, candidate, source));
+        var context = Context(source, candidate.Controller, current, prevented) with
+        { UsedReplacements = used.ToImmutableHashSet(StringComparer.Ordinal) };
+        var outcome = _interpreter.Run(state, effect, context, IndexOf(state, current, candidate, source));
         return new Applied(null, outcome.State, outcome.Events, prevented);
     }
 
@@ -152,11 +156,13 @@ public sealed partial class ReplacementSystem
     /// ability of that permanent reads it there.
     /// </summary>
     [RuleRef("614.1c")]
-    private Applied Choosing(GameState state, Effect effect, Candidate candidate, GameEvent current, int? prevented = null)
+    private Applied Choosing(GameState state, Effect effect, Candidate candidate, GameEvent current, IEnumerable<string> used, int? prevented = null)
     {
         // The entering happens, so by the time an answer arrives the object exists under the id it
         // was probed with; that id is what the question carries and what CR 608.2d writes on.
-        var outcome = _interpreter.Run(state, effect, Context(candidate.Source, candidate.Controller, current, prevented), IndexOf(state, current, candidate, candidate.Source));
+        var context = Context(candidate.Source, candidate.Controller, current, prevented) with
+        { UsedReplacements = used.ToImmutableHashSet(StringComparer.Ordinal) };
+        var outcome = _interpreter.Run(state, effect, context, IndexOf(state, current, candidate, candidate.Source));
         return new Applied(current, outcome.State, outcome.Events, prevented);
     }
 

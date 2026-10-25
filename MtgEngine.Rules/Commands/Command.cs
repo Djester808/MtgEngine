@@ -69,3 +69,14 @@ public sealed record ManualTap(PlayerId Player, ObjectId Object, bool Tapped) : 
 public sealed record ManualCounters(PlayerId Player, ObjectId Object, string Kind, int Delta) : Command(Player);
 
 public sealed record ManualLife(PlayerId Player, PlayerId Target, int Delta) : Command(Player);
+
+public abstract record ManualLibraryCommand(PlayerId Player, Guid RequestId) : Command(Player);
+public sealed record ManualLibraryDraw(PlayerId Player, Guid RequestId) : ManualLibraryCommand(Player, RequestId);
+public sealed record ManualLibraryShuffle(PlayerId Player, Guid RequestId) : ManualLibraryCommand(Player, RequestId);
+public sealed record ManualLibraryLook(PlayerId Player, Guid RequestId) : ManualLibraryCommand(Player, RequestId);
+public sealed record ManualLibraryStopLooking(PlayerId Player, Guid RequestId) : ManualLibraryCommand(Player, RequestId);
+public sealed record ManualLibraryReposition(PlayerId Player, Guid RequestId, ObjectId Card, int Position) : ManualLibraryCommand(Player, RequestId);
+public sealed record ManualLibraryArrange(PlayerId Player, Guid RequestId, ImmutableList<ObjectId>? Order) : ManualLibraryCommand(Player, RequestId);
+public sealed record ManualLibrarySearch(PlayerId Player, Guid RequestId, int Count, Zone Destination,
+    ObjectFilter? Filter = null, bool Reveal = false, bool ShuffleAfter = true, bool Tapped = false,
+    Placement Where = Placement.Default) : ManualLibraryCommand(Player, RequestId);

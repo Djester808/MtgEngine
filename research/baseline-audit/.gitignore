@@ -1,0 +1,4 @@
+card-snapshot/
+probes/bin/
+probes/obj/
+results/*.dmp

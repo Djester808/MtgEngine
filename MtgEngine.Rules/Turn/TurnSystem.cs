@@ -68,7 +68,10 @@ public sealed partial class TurnSystem(IZoneSystem zones, ICastingSystem casting
 
         // CR 103.8: the starting player was decided when the game was created, CR 103.1, and the
         // state carries the answer.
-        BeginTurn(log, state.Turn.ActivePlayer, 1, extra: false);
+        var startingPlayer = state.Player(state.Turn.ActivePlayer).HasLost
+            ? NextInTurnOrder(state, state.Turn.ActivePlayer)
+            : state.Turn.ActivePlayer;
+        BeginTurn(log, startingPlayer, 1, extra: false);
         return log.Done();
     }
 
@@ -118,7 +121,7 @@ public sealed partial class TurnSystem(IZoneSystem zones, ICastingSystem casting
     public Outcome Advance(GameState state)
     {
         ArgumentNullException.ThrowIfNull(state);
-        if (state.Outcome is not null)
+        if (state.Outcome is not null || state.Pending is not null)
             return Outcome.Unchanged(state);
 
         var log = new Log(state);
@@ -170,7 +173,7 @@ public sealed partial class TurnSystem(IZoneSystem zones, ICastingSystem casting
 
         // CR 117.3a: the active player receives priority at the beginning of every step and
         // phase but the untap step and, normally, the cleanup step.
-        if (log.State.Pending is null)
+        if (log.State.Pending is null && !(combat is not null && next is Step.DeclareAttackers or Step.DeclareBlockers))
             GrantPriority(log, log.State.Turn.ActivePlayer);
         return log.Done();
     }
@@ -194,6 +197,10 @@ public sealed partial class TurnSystem(IZoneSystem zones, ICastingSystem casting
     {
         ArgumentNullException.ThrowIfNull(state);
         if (state.Pending is not null || state.Outcome is not null || state.Priority.Holder is not null)
+            return Outcome.Unchanged(state);
+        if (combat is not null &&
+            ((state.Turn.Step == Step.DeclareAttackers && state.Combat is not { AttackersDeclared: true })
+            || (state.Turn.Step == Step.DeclareBlockers && state.Combat is not { BlockersDeclared: true })))
             return Outcome.Unchanged(state);
 
         var log = new Log(state);
@@ -229,12 +236,36 @@ public sealed partial class TurnSystem(IZoneSystem zones, ICastingSystem casting
     private void UntapStep(Log log)
     {
         var active = log.State.Turn.ActivePlayer;
+
+        // CR 702.26d: phasing in and out happens first, before anything untaps - a permanent
+        // that phases in this step is one of the permanents that then untaps. Nothing brought
+        // one back before this, so a phased-out permanent stayed out for the rest of the game.
+        PhaseIn(log, active);
+
         foreach (var permanent in Permanents(log.State, active))
         {
             bool? untap = permanent.Tapped ? false : null;
             bool? ready = permanent.SummoningSick ? false : null;
             if (untap is not null || ready is not null)
                 log.Add(new ObjectChanged(permanent.Id, Tapped: untap, SummoningSick: ready));
+        }
+    }
+
+    /// <summary>
+    /// CR 702.26d: "at the beginning of each player's untap step, that player's phased-out
+    /// permanents phase in". Read from the state rather than through a filter, because a
+    /// phased-out permanent is exactly what no filter will admit (CR 702.26b).
+    /// </summary>
+    [RuleRef("702.26d")]
+    private static void PhaseIn(Log log, PlayerId active)
+    {
+        foreach (var id in log.State.Objects.Values
+            .Where(o => o.PhasedOut && o.Zone.Zone == Cards.Zone.Battlefield && o.InitialController == active)
+            .Select(o => o.Id)
+            .OrderBy(id => id.Value)
+            .ToList())
+        {
+            log.Add(new ObjectChanged(id, PhasedOut: false));
         }
     }
 
@@ -262,6 +293,11 @@ public sealed partial class TurnSystem(IZoneSystem zones, ICastingSystem casting
     private Step NextStep(GameState state)
     {
         var next = Order[Order.IndexOf(state.Turn.Step) + 1];
+        if (next == Step.Draw && state.Turn.Number == 1 && !state.Turn.IsExtraTurn && state.Players.Count == 2)
+            return Step.PrecombatMain;
+        if (combat is not null && next == Step.DeclareBlockers && state.Combat is { AttackersDeclared: true } fight
+            && fight.Attackers.IsEmpty && fight.DefendingPlayers.IsEmpty)
+            return Step.EndOfCombat;
         return next == Step.FirstStrikeCombatDamage && !HasFirstStrikeInCombat(state) ? Step.CombatDamage : next;
     }
 
@@ -400,17 +436,7 @@ public sealed partial class TurnSystem(IZoneSystem zones, ICastingSystem casting
     /// <summary>The next player in turn order who is still in the game, CR 103.8 and CR 104.3.</summary>
     [RuleRef("104.3")]
     private static PlayerId NextInTurnOrder(GameState state, PlayerId from)
-    {
-        var count = state.Players.Count;
-        for (var i = 1; i <= count; i++)
-        {
-            var candidate = new PlayerId((from.Value + i) % count);
-            if (!state.Player(candidate).HasLost)
-                return candidate;
-        }
-
-        return from;
-    }
+        => PlayerTurnOrder.NextLiving(state, from) ?? from;
 
     /// <summary>
     /// The permanents a player controls, CR 110.1. Control is a characteristic the layer system
@@ -443,24 +469,21 @@ public sealed partial class TurnSystem(IZoneSystem zones, ICastingSystem casting
     /// </summary>
     private sealed class Log(GameState state)
     {
-        private GameState _state = state;
-        private ImmutableList<GameEvent> _events = [];
+        private Outcome _outcome = Outcome.Unchanged(state);
 
-        public GameState State => _state;
+        public GameState State => _outcome.State;
 
         public void Add(GameEvent e)
         {
-            _events = _events.Add(e);
-            _state = e.Apply(_state);
+            _outcome = _outcome with { State = e.Apply(State), Events = _outcome.Events.Add(e) };
         }
 
         /// <summary>Take another subsystem's outcome: its events, and the state it folded them into.</summary>
         public void Merge(Outcome outcome)
         {
-            _events = _events.AddRange(outcome.Events);
-            _state = outcome.State;
+            _outcome = _outcome.Then(_ => outcome);
         }
 
-        public Outcome Done() => new(_state, _events);
+        public Outcome Done() => _outcome;
     }
 }

@@ -23,6 +23,7 @@ public sealed partial class ZoneChangeTests
     private static readonly IDefinitionStore Store = new Definitions();
 
     [Fact]
+    [Trait("Scope", "Deck")]
     public void A_game_starts_with_a_library_per_player_and_the_log_folds_to_the_state()
     {
         var outcome = Zones.Create(Setup(), Store);
@@ -59,6 +60,7 @@ public sealed partial class ZoneChangeTests
     }
 
     [Fact]
+    [Trait("Scope", "Deck")]
     public void Opening_hands_are_dealt_to_each_player_from_their_own_library()
     {
         var outcome = Zones.Create(Setup(), Store);
@@ -90,6 +92,7 @@ public sealed partial class ZoneChangeTests
     }
 
     [Fact]
+    [Trait("Scope", "Deck")]
     public void A_draw_takes_the_top_card_of_the_library_into_the_hand()
     {
         // CR 121.1: to draw a card, put the top card of your library into your hand.
@@ -119,6 +122,7 @@ public sealed partial class ZoneChangeTests
     }
 
     [Fact]
+    [Trait("Scope", "Deck")]
     public void A_draw_from_an_empty_library_sets_the_flag_and_moves_nothing()
     {
         // CR 121.4: a player who attempts to draw from an empty library loses the game the next
@@ -138,6 +142,7 @@ public sealed partial class ZoneChangeTests
     }
 
     [Fact]
+    [Trait("Scope", "Deck")]
     public void A_multi_card_draw_that_outruns_the_library_draws_what_is_there_and_then_attempts()
     {
         var state = Zones.Create(Setup(), Store).State;
@@ -268,6 +273,7 @@ public sealed partial class ZoneChangeTests
     }
 
     [Fact]
+    [Trait("Scope", "Deck")]
     public void Placement_puts_a_card_on_the_top_or_the_bottom_of_the_library()
     {
         // CR 400.5: the order of a library can only be changed when a rule or effect allows it, so
@@ -305,6 +311,7 @@ public sealed partial class ZoneChangeTests
     }
 
     [Fact]
+    [Trait("Scope", "Deck")]
     public void A_shuffle_with_the_same_seed_is_the_same_shuffle_and_a_different_seed_is_not()
     {
         // CR 701.24a: shuffling randomizes the library. The generator is seeded from the log, so a
@@ -332,6 +339,7 @@ public sealed partial class ZoneChangeTests
     }
 
     [Fact]
+    [Trait("Scope", "Deck")]
     public void A_shuffle_keeps_the_same_cards_and_only_reorders_the_shuffling_players_library()
     {
         var state = Zones.Create(Setup(), Store).State;
@@ -458,7 +466,7 @@ public sealed partial class ZoneChangeTests
     private static GameSetup Setup()
     {
         ImmutableList<string> deck = [.. Enumerable.Repeat(Bear, 5), .. Enumerable.Repeat(Bolt, 5)];
-        return new GameSetup([new PlayerStart("One", deck, [Legend]), new PlayerStart("Two", deck, [Legend])], Seed: 7);
+        return new GameSetup([new PlayerStart("One", [.. deck], [Legend]), new PlayerStart("Two", [.. deck], [Legend])], Seed: 7);
     }
 
     /// <summary>

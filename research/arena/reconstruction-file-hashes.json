@@ -1,0 +1,142 @@
+[
+  {
+    "file": "AbilityCategory.cs",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "file": "AbilityPrintingData.cs",
+    "bytes": 10307,
+    "sha256": "4f60e487e12ed91ed79d4b8696cf6ac27c73c94bd4810107133c1aea2b3db401"
+  },
+  {
+    "file": "ActionsAvailableGoldfishHandler.cs",
+    "bytes": 410,
+    "sha256": "cb826ec0d592cf8f0ff1b7653975b422bd5fed5a8a22a9a5d08513ae739d719b"
+  },
+  {
+    "file": "ActionsAvailableRequest.cs",
+    "bytes": 2449,
+    "sha256": "a507ebbc2f4c1b7b413fe043dc41800a0590fa5ed643c4e1a92649fa9185612b"
+  },
+  {
+    "file": "ActionsAvailableRequestTranslator.cs",
+    "bytes": 3185,
+    "sha256": "1110a608a35abd689be3bdfd82013fb837782988f3392e79dc07fb4b5740f6e2"
+  },
+  {
+    "file": "AffordableActionFilter.cs",
+    "bytes": 368,
+    "sha256": "2f06c3271132f79ce2c3e7cad017ea9ea12159ca6aeb2f26744d35c67d495bd6"
+  },
+  {
+    "file": "AwsBotMatchServiceWrapper.cs",
+    "bytes": 988,
+    "sha256": "43b6fc28b97a1c95a4c4bd6b9afab006d99aeb4d5e19efdbab4030a52051582f"
+  },
+  {
+    "file": "BaseUserRequest.cs",
+    "bytes": 2486,
+    "sha256": "904ca39cc88705b4b776dd698d9c4d11cad0d30df81b02c8060330b34d30cd1c"
+  },
+  {
+    "file": "F1_NPEGame1_Combined.cs",
+    "bytes": 12069,
+    "sha256": "0f4f86c233360c773a7333c8b3e5397ecbe577714c77f5e721bc87ea1ec6c5de"
+  },
+  {
+    "file": "GREConnection.cs",
+    "bytes": 14840,
+    "sha256": "b065daad6401e71fefddd0352f2c613a3a629064b4765b116abd3a760d9cdf35"
+  },
+  {
+    "file": "GreInterface.cs",
+    "bytes": 93782,
+    "sha256": "9caad39b83478dbcc34a9a8825b0ee09ecc049b743610ccfb10082e9104879ba"
+  },
+  {
+    "file": "GreInterfaceFactory.cs",
+    "bytes": 581,
+    "sha256": "53cdf99166fded10994db761c8d7f59d7d0867203da1d8ef4d0e9d4fd2f2ef97"
+  },
+  {
+    "file": "GrpdXmlImporter.cs",
+    "bytes": 44851,
+    "sha256": "a5e73c3b19a7b0d753421d15ab04ca9332a061b239e349d1a160449a5a0d97af"
+  },
+  {
+    "file": "HeadlessClient.cs",
+    "bytes": 4883,
+    "sha256": "bd8f0a173559667971b0c401794a4e7f053d1ca422b068029597f3c681033f73"
+  },
+  {
+    "file": "HeuristicStrategy.cs",
+    "bytes": 23036,
+    "sha256": "563a3700e2175e361de6bc2ae33ac2075366329efa927d411865bdd0172d7b65"
+  },
+  {
+    "file": "MatchConnection.cs",
+    "bytes": 829,
+    "sha256": "6e3b2e7e1d73c9a6ee46fd0eb98ad449bb220900004ccaded89f19e5a7d90f27"
+  },
+  {
+    "file": "Matchmaking.cs",
+    "bytes": 18786,
+    "sha256": "c84f5dc6230e47437385e12d8bf12631f3ba53b384b377fb624dcf02cbc3ddc3"
+  },
+  {
+    "file": "MatchManager.cs",
+    "bytes": 16793,
+    "sha256": "cfd367d8f84a95cfb075efe6f9e81554fd328f2ea61c6ebe11cf8101c6c0ec12"
+  },
+  {
+    "file": "MatchTcpConnection.cs",
+    "bytes": 5026,
+    "sha256": "275f9ea176154918baf6e7b98449bbfc8133a841e18166c6c9acd1e01b96d5be"
+  },
+  {
+    "file": "NodeNpeStrategy.cs",
+    "bytes": 7370,
+    "sha256": "9cca8997093998b1537f5c9385cd79eec065639d8b69b42fa8b7c7639d53a630"
+  },
+  {
+    "file": "NPE_Game.cs",
+    "bytes": 19742,
+    "sha256": "2f29f82c0134a2a82569b5624ea1b84c89e78e8efaeadd9671c1ed9f77fa16cf"
+  },
+  {
+    "file": "NPEDirector.cs",
+    "bytes": 34220,
+    "sha256": "5db629727a8fae24e94a8fd4f2c479f52923f09782386f93029149c81807d821"
+  },
+  {
+    "file": "PayCostsRequestTranslator.cs",
+    "bytes": 1955,
+    "sha256": "7c5223047311413b3344cce2f7b876aa2f491de3e57a248df4c6c5592ff17d35"
+  },
+  {
+    "file": "ReplacementEffectAppliedEventParser.cs",
+    "bytes": 830,
+    "sha256": "be90e5ef9b7f2d8d4aa4034a34eb69a82d69a8991acbf45158d28ead860f7894"
+  },
+  {
+    "file": "RequestHandlerFactory_NPE_Game1.cs",
+    "bytes": 4225,
+    "sha256": "30de472f60eb0c62c181da18e21ffe2bac428f9ac28fea07bcc9607259220ff8"
+  },
+  {
+    "file": "RequestTranslatorBase.cs",
+    "bytes": 2315,
+    "sha256": "18fb3b74bb92290022b24bfca6c73357b0dffb62f74a17d05a7b153a9490ca89"
+  },
+  {
+    "file": "SelectTargetsRequest.cs",
+    "bytes": 928,
+    "sha256": "be4e3c4a928bde4a6efee24305cf4da0b8f290985e5eb3b61d590b9baddfd61f"
+  },
+  {
+    "file": "TutorialLauncher.cs",
+    "bytes": 2635,
+    "sha256": "ae4af6a22867c9f25191cc686ee61bb0b9452f352f4cb803ac1ac83639290336"
+  }
+]

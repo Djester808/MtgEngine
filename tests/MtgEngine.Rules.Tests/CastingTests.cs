@@ -22,7 +22,9 @@ public sealed partial class CastingTests
     private readonly RecordingInterpreter interpreter = new();
     private readonly CastingSystem casting;
 
-    public CastingTests() => casting = new CastingSystem(new CastingFakeZones(), new FixedAmounts(), new PrintedCharacteristics(), interpreter);
+    private readonly PrintedCharacteristics characteristics = new();
+
+    public CastingTests() => casting = new CastingSystem(new CastingFakeZones(), new FixedAmounts(), characteristics, interpreter);
 
     [Fact]
     public void A_land_is_played_to_the_battlefield_and_a_second_one_is_refused()

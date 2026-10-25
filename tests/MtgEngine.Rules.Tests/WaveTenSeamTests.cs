@@ -1,7 +1,6 @@
 using System.Text.Json;
 using MtgEngine.Cards;
 using MtgEngine.Rules.Commands;
-using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.State;
 
@@ -46,38 +45,6 @@ public sealed class WaveTenSeamTests
         var entry = new StackEntry(spell, 0, [], [], [], null, false, Chosen: ImmutableDictionary<string, string>.Empty.Add("tapped-for-mana-color", "Green"));
         Assert.Equal("Green", entry.Chosen!["tapped-for-mana-color"]);
         Assert.Null(entry.ManaProvenanceSpent);
-    }
-
-    [Fact]
-    [RuleRef("702.5b")]
-    public void The_seams_without_an_implementation_say_which_wave_builds_them()
-    {
-        var board = new Board();
-        var some = board.Put(Board.Creature(1, 1, "seam any"));
-        IQuery query = new Stubs.Query();
-        ICharacteristics layers = new Stubs.Layers();
-        IZoneSystem zones = new Stubs.Zones();
-        var context = new EffectContext(null, P0, [], [], null, ImmutableDictionary<string, ImmutableList<ObjectId>>.Empty, ImmutableDictionary<string, string>.Empty, ImmutableDictionary<string, int>.Empty, [], null);
-
-        Assert.Contains("E0e", Assert.Throws<NotImplementedException>(() => query.PlayerMatches(board.State, new PlayerFilter(), P0, context)).Message, StringComparison.Ordinal);
-        Assert.Contains("E0e", Assert.Throws<NotImplementedException>(() => layers.PrintedOf(board.State.Objects[some])).Message, StringComparison.Ordinal);
-        Assert.Contains("wave 10", Assert.Throws<NotImplementedException>(() => zones.CopyInPlace(board.State, some, P0)).Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    [RuleRef("608.2g")]
-    public void An_instructed_cast_defaults_to_the_ordinary_cast()
-    {
-        var board = new Board();
-        var card = board.Put(Board.Creature(1, 1, "seam card"));
-        ICastingSystem casting = new Stubs.Casting();
-        var command = new CastSpell(P0, card);
-
-        var plain = Record.Exception(() => casting.Cast(board.State, command));
-        var instructed = Record.Exception(() => casting.CastInstructed(board.State, command));
-
-        Assert.NotNull(plain);
-        Assert.Equal(plain!.GetType(), instructed!.GetType());
     }
 
     [Fact]

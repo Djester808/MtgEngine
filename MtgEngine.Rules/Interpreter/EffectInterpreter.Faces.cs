@@ -1,3 +1,4 @@
+using System.Globalization;
 using MtgEngine.Cards;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
@@ -146,8 +147,82 @@ public sealed partial class EffectInterpreter
             }
         }
 
+        // CR 707.10: "the controller of the copy may choose new targets for it." The flag has
+        // been on the record since wave 0 and KeywordExpander sets it explicitly; nothing read
+        // it, so a Fork could never be pointed anywhere else and a storm copy was locked to the
+        // original's target.
+        if (copy.MayChooseNewTargets)
+        {
+            run = ChooseCopyTargets(run, [.. created]);
+            if (run.Halted)
+                return run;
+        }
+
         return Recall(run, copy.RememberAs, created);
     }
+
+    /// <summary>
+    /// CR 707.10: each copy's controller may choose new targets for it. One question a copy,
+    /// asked in the order the copies were made; the copy being asked about rides on the question
+    /// (<see cref="CopyKey"/>) so a resumed walk retargets the one that was asked and moves on to
+    /// the next rather than starting the row again.
+    /// </summary>
+    [RuleRef("707.10")]
+    private EffectRun ChooseCopyTargets(EffectRun run, ImmutableList<ObjectId> copies)
+    {
+        var pending = copies;
+
+        // An answer in hand belongs to the copy the question named; retarget it and drop it from
+        // the row, so the walk asks about the next one and not this one again.
+        if (Answered(run) is { } answered
+            && run.Answer?.Context.Extra.TryGetValue(CopyKey, out var asked) == true
+            && int.TryParse(asked, NumberStyles.Integer, CultureInfo.InvariantCulture, out var askedId))
+        {
+            var about = new ObjectId(askedId);
+            if (run.State.Objects.TryGetValue(about, out var made) && made.Stack is { } madeEntry)
+            {
+                run = Retarget(run, about, madeEntry, Named(run.State, answered), NamedPlayers(run.State, answered));
+            }
+
+            pending = [.. copies.SkipWhile(id => id != about).Skip(1)];
+        }
+
+        foreach (var id in pending)
+        {
+            if (!run.State.Objects.TryGetValue(id, out var made) || made.Stack is not { } entry)
+                continue;
+
+            var effect = EffectOf(made, entry);
+            var filters = effect is null ? [] : EffectWalk.TargetsIn(effect);
+            var controller = characteristics.ControllerOf(run.State, id);
+            var context = ContextFor(run.State, made, entry, controller, effect);
+            var candidates = Candidates(run.State, filters, context);
+            var players = PlayerCandidates(run.State, filters, controller);
+            var count = entry.Targets.Count + Targeted(entry.TargetPlayers, entry).Count;
+
+            // A copy that targets nothing has nothing to re-aim, and CR 707.10 asks nobody.
+            if (count == 0 || candidates.Count + players.Count == 0)
+                continue;
+
+            return Ask(
+                run,
+                controller,
+                "target",
+                "Choose new targets for the copy.",
+                OptionsFor(run.State, candidates).AddRange(PlayerOptions(run.State, players)),
+                count,
+                count,
+                shape: context => context with
+                {
+                    Extra = context.Extra.SetItem(CopyKey, id.Value.ToString(CultureInfo.InvariantCulture)),
+                });
+        }
+
+        return run;
+    }
+
+    /// <summary>Which copy a "choose new targets" question is about, CR 707.10.</summary>
+    private const string CopyKey = "copy";
 
     /// <summary>
     /// CR 707.2 and 111.4: a token that is a copy of a permanent. It takes the copiable values —

@@ -251,6 +251,9 @@ internal static class ObjectCosts
     }
 
     /// <summary>Ordered by object id so a forced payment is the same on every replay.</summary>
+    /// <summary>"A permanent you control", asked of the layer system (CR 613.1b).</summary>
+    private static readonly ObjectFilter ControlledByCaster = new(ControlledBy: new You());
+
     private static ImmutableList<ObjectId> Candidates(
         GameState state,
         CostContext context,
@@ -269,7 +272,14 @@ internal static class ObjectCosts
 
             // A permanent is sacrificed or tapped by the player who controls it, CR 701.17a; a
             // card in a hidden or an owned zone is used by the player who owns it, CR 108.3.
-            if (byControl ? obj.InitialController != context.Player : obj.Owner != context.Player)
+            //
+            // Control is asked of the layer system (CR 613.1b), not of InitialController, which
+            // is only where control STARTED: a creature gained from an opponent could not pay a
+            // "sacrifice a creature" cost, and the opponent who no longer controlled it was
+            // still offered it.
+            if (byControl
+                ? !context.Query.Matches(state, ControlledByCaster, obj.Id, effect)
+                : obj.Owner != context.Player)
                 continue;
             if (untappedOnly && obj.Tapped)
                 continue;

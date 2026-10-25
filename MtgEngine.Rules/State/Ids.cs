@@ -1,5 +1,8 @@
 namespace MtgEngine.Rules.State;
 
+/// <summary>A particular deck card for this game. Server-only; survives changes of rules object.</summary>
+public readonly record struct CardInstanceId(int Value);
+
 /// <summary>An object in the game, CR 109.1. Stable for the object's life in a zone; a zone change makes a new object, CR 400.7.</summary>
 public readonly record struct ObjectId(int Value)
 {

@@ -1,5 +1,6 @@
 using System.Globalization;
 using MtgEngine.Cards;
+using MtgEngine.Rules.Choices;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.State;
@@ -46,15 +47,15 @@ public sealed partial class EffectInterpreter(
         // become illegal is dropped like an object, and a spell that named nothing else fizzles.
         var named = entry.Targets.Count + Targeted(entry.TargetPlayers, entry).Count;
         if (named > 0 && context.Targets.Count == 0 && Targeted(context.TargetPlayers, entry).Count == 0)
-            return new Outcome(state, [new StackObjectResolved(stackObject)]);
+            return new Outcome(state, [new StackObjectResolved(stackObject)]) { Fizzled = true };
 
         if (effect is null)
             return new Outcome(state, [new StackObjectResolved(stackObject)]);
 
-        var run = Execute(new EffectRun(state, context, [], false, "0", entry.AbilityIndex), effect);
+        var run = Execute(new EffectRun(state, context, [], false, "0", entry.AbilityIndex, StackObject: stackObject), effect);
         return run.Halted
-            ? new Outcome(run.State, run.Events)
-            : new Outcome(run.State, run.Events.Add(new StackObjectResolved(stackObject)));
+            ? Result(run)
+            : Result(run with { Events = run.Events.Add(new StackObjectResolved(stackObject)) });
     }
 
     /// <summary>Run an effect outside the stack: a replacement's With, a scenario step, a delayed trigger.</summary>
@@ -73,8 +74,11 @@ public sealed partial class EffectInterpreter(
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(effect);
         ArgumentNullException.ThrowIfNull(context);
-        var run = Execute(new EffectRun(state, Seeded(state, context, abilityIndex), [], false, "0", abilityIndex, OffStack: true), effect);
-        return new Outcome(run.State, run.Events);
+        var marks = context.Source is null && effect is Search search
+            ? Library.StandaloneLibrarySearch.Save(search) : null;
+        var run = Execute(new EffectRun(state, Seeded(state, context, abilityIndex), [], false, "0", abilityIndex,
+            Marks: marks, OffStack: true, OffStackEffect: abilityIndex is not null ? effect : null), effect);
+        return Result(run);
     }
 
     /// <summary>
@@ -212,12 +216,34 @@ public sealed partial class EffectInterpreter(
         string? AnswerPath = null,
         ImmutableDictionary<string, string>? Marks = null,
         bool OffStack = false,
-        string? PayKey = null);
+        Effect? OffStackEffect = null,
+        string? PayKey = null,
+
+        /// <summary>
+        /// The stack object this walk is resolving, so a question it raises can say which one
+        /// asked. Two copies of one ability of one permanent are otherwise indistinguishable:
+        /// the resumption located the asker by source and ability index, and the stack is held
+        /// bottom-first, so the BOTTOM copy always answered.
+        /// </summary>
+        ObjectId? StackObject = null,
+
+        /// <summary>
+        /// How many events the node at <see cref="ProposalsAt"/> has offered to the replacement
+        /// layer. A resumed walk re-runs the node that stopped from its start (CR 608.2), so a
+        /// node that proposes once per player would propose the earlier players' events a second
+        /// time; the count says which of them already happened.
+        /// </summary>
+        int Proposals = 0,
+
+        /// <summary>The path <see cref="Proposals"/> counts for; a different node starts again at zero.</summary>
+        string? ProposalsAt = null);
 
     private EffectRun Execute(EffectRun run, Effect effect)
     {
         if (run.Halted)
             return run;
+
+        run = Merge(run, new Library.LibraryRevealCoordinator(characteristics).Reconcile(run.State));
 
         // The node that asked runs again with the answer bound; everything under it is work that
         // has not happened yet, so the walk stops skipping here.
@@ -231,9 +257,10 @@ public sealed partial class EffectInterpreter(
 
         // CR 608.2: a resolution the engine cannot carry out is refused by name, never crashed
         // through. The name is the vocabulary record's, which is engine data and never a card's.
-        return Structure(run, effect) ?? Verb(run, effect) ?? Action(run, effect) ?? FaceVerb(run, effect)
+        var completed = Structure(run, effect) ?? Verb(run, effect) ?? Action(run, effect) ?? FaceVerb(run, effect)
             ?? Backlog(run, effect)
             ?? throw new RefusedException($"There is no interpreter arm for {effect.GetType().Name}.", "608.2");
+        return FinishDisclosures(Merge(completed, new Library.LibraryRevealCoordinator(characteristics).Reconcile(completed.State)));
     }
 
     /// <summary>
@@ -264,7 +291,12 @@ public sealed partial class EffectInterpreter(
     /// of asking the same question twice.
     /// </summary>
     private static ImmutableList<ChoiceOption>? Answered(EffectRun run) =>
-        run.Answer is { } answer && string.Equals(run.AnswerPath, run.Path, StringComparison.Ordinal)
+        run.Answer is { } answer
+        && string.Equals(run.AnswerPath, run.Path, StringComparison.Ordinal)
+        // CR 616.1: an answer saying which replacement applies first belongs to the proposal that
+        // asked it, and Propose is its only reader. A node that asks a question of its own and
+        // also proposes an event would otherwise read the wrong answer as its own.
+        && !string.Equals(answer.Kind, ChoiceKinds.ReplacementOrder, StringComparison.Ordinal)
             ? answer.Chosen
             : null;
 
@@ -285,16 +317,13 @@ public sealed partial class EffectInterpreter(
     }
 
     private static EffectRun Merge(EffectRun run, Outcome outcome) =>
-        run with { State = outcome.State, Events = run.Events.AddRange(outcome.Events) };
+        run with
+        {
+            State = outcome.State,
+            Events = run.Events.AddRange(outcome.Events),
+        };
 
-    /// <summary>
-    /// Offer an event to the replacement layer, CR 616.1, saying which effects have already applied
-    /// to it. A walk that is itself a replacement's "instead" carries its own key (CR 614.5), so the
-    /// event it makes is never replaced by the effect that made it.
-    /// </summary>
-    [RuleRef("614.5")]
-    private EffectRun Propose(EffectRun run, GameEvent proposed, PlayerId affected) =>
-        Merge(run, replacements.Replace(run.State, proposed, affected, run.Context.UsedReplacements));
+    private static Outcome Result(EffectRun run) => new(run.State, run.Events);
 
     private EffectRun Ask(
         EffectRun run,
@@ -340,6 +369,13 @@ public sealed partial class EffectInterpreter(
                 extra = extra.SetItem("triggeringPlayer", triggeringPlayer.Value.ToString(CultureInfo.InvariantCulture));
         }
 
+        // CR 101.4: which stack object asked. Source and ability index do not separate two
+        // copies of one triggered ability from one permanent, and the stack is bottom-first, so
+        // the resumption used to resolve the wrong copy - removing a trigger that never asked
+        // and leaving the one that did to ask again.
+        if (run.StackObject is { } asking)
+            extra = extra.SetItem(AskingKey, asking.Value.ToString(CultureInfo.InvariantCulture));
+
         var choice = new PendingChoice(
             new ChoiceId(run.State.NextChoiceId),
             player,
@@ -348,7 +384,8 @@ public sealed partial class EffectInterpreter(
             options,
             min,
             max,
-            Shaped(new ChoiceContext(run.Context.Source, run.AbilityIndex, run.Path, extra), shape));
+            Shaped(new ChoiceContext(run.Context.Source, run.AbilityIndex, run.Path, extra)
+            { OffStackEffect = run.OffStackEffect }, shape));
         return Emit(run, new ChoiceRequested(choice)) with { Halted = true };
     }
 
@@ -414,6 +451,9 @@ public sealed partial class EffectInterpreter(
     /// <summary>A finished loop's mark is dropped, so a later question in the same walk does not carry it.</summary>
     private static EffectRun Unmark(EffectRun run) =>
         run.Marks is null ? run : run with { Marks = run.Marks.Remove(LoopKey(run.Path)) };
+
+    /// <summary>Where a question records the stack object that raised it.</summary>
+    internal const string AskingKey = "asking";
 
     private static string LoopKey(string path) => "loop:" + path;
 

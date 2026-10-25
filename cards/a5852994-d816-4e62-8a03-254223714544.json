@@ -298,7 +298,7 @@
         {
           "kind": "InZone",
           "card": "find-2",
-          "zone": "Hand"
+          "zone": "Graveyard"
         },
         {
           "kind": "Shuffled",
@@ -313,7 +313,7 @@
           "kind": "ZoneCount",
           "player": "A",
           "zone": "Hand",
-          "count": 5
+          "count": 4
         },
         {
           "kind": "ZoneCount",
@@ -325,7 +325,7 @@
           "kind": "ZoneCount",
           "player": "A",
           "zone": "Graveyard",
-          "count": 1
+          "count": 2
         },
         {
           "kind": "StackEmpty"
@@ -334,11 +334,11 @@
     }
   ],
   "verification": {
-    "engineHash": "engine:0f74a03de66e7d38",
-    "runId": "verify-20260908T093014-776be3",
+    "engineHash": "engine:c7d1a471661256a2",
+    "runId": "verify-20260912T214859-52d053",
     "passed": 1,
     "total": 1,
-    "at": "2026-09-08T09:30:14.5878185+00:00"
+    "at": "2026-09-12T21:48:59.3913982+00:00"
   },
   "keywordList": [],
   "scenarioList": [
@@ -559,7 +559,7 @@
         {
           "kind": "InZone",
           "card": "find-2",
-          "zone": "Hand"
+          "zone": "Graveyard"
         },
         {
           "kind": "Shuffled",
@@ -574,7 +574,7 @@
           "kind": "ZoneCount",
           "player": "A",
           "zone": "Hand",
-          "count": 5
+          "count": 4
         },
         {
           "kind": "ZoneCount",
@@ -586,7 +586,7 @@
           "kind": "ZoneCount",
           "player": "A",
           "zone": "Graveyard",
-          "count": 1
+          "count": 2
         },
         {
           "kind": "StackEmpty"

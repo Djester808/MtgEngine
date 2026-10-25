@@ -156,71 +156,42 @@ public sealed partial class ChoiceResumptionTests
         Assert.Empty(zones.Moves);
     }
 
-    [Fact]
+    [Theory]
+    [InlineData(ChoiceKinds.Keep, false)]
+    [InlineData(ChoiceKinds.Mulligan, true)]
     [RuleRef("103.5")]
-    public void A_mulligan_shuffles_the_hand_back_redraws_and_asks_again()
+    public void A_declaration_updates_the_round_without_dealing_before_other_players_answer(string answer, bool redraw)
     {
         var board = Opening(handSize: 3, inLibrary: 5);
-        var hand = board.In(Zone.Hand);
-        var choice = board.Ask(ChoiceKinds.Mulligan, Declaration(), context: ChoiceSystem.MulliganContext(0, 3));
+        var choice = board.Ask(ChoiceKinds.Mulligan, Declaration());
+        var state = board.State with
+        {
+            OpeningHands = new OpeningHandsState([new OpeningHandSeat(First, 3, 0), new OpeningHandSeat(Second, 3, 0)]),
+        };
 
-        var outcome = choices.Answer(board.State, new AnswerChoice(First, choice.Id, [ChoiceKinds.Mulligan]));
+        var outcome = choices.Answer(state, new AnswerChoice(First, choice.Id, [answer]));
 
-        Assert.Equal(hand.ToArray(), zones.Moves.Select(m => m.What).ToArray());
-        Assert.All(zones.Moves, m => Assert.Equal(ZoneKey.Of(Zone.Library, First), m.To));
-        Assert.Equal(First, Assert.Single(zones.Shuffles));
-        Assert.Equal((First, 3), Assert.Single(zones.Draws));
-
-        var next = Assert.IsType<PendingChoice>(outcome.State.Pending);
-        Assert.Equal(ChoiceKinds.Mulligan, next.Kind);
-        Assert.Equal("1", next.Context.Extra["mulligans"]);
-        Assert.Equal(3, outcome.State.In(ZoneKey.Of(Zone.Hand, First)).Count);
-    }
-
-    [Fact]
-    [RuleRef("103.5")]
-    public void Keeping_after_a_mulligan_asks_which_card_goes_on_the_bottom()
-    {
-        var board = Opening(handSize: 3, inLibrary: 2);
-        var choice = board.Ask(ChoiceKinds.Mulligan, Declaration(), context: ChoiceSystem.MulliganContext(1, 3));
-
-        var outcome = choices.Answer(board.State, new AnswerChoice(First, choice.Id, [ChoiceKinds.Keep]));
-
-        var next = Assert.IsType<PendingChoice>(outcome.State.Pending);
-        Assert.Equal(ChoiceKinds.MulliganBottom, next.Kind);
-        Assert.Equal(1, next.Min);
-        Assert.Equal(1, next.Max);
-        Assert.Equal(3, next.Options.Count);
-        Assert.Empty(zones.Moves);
-    }
-
-    [Fact]
-    [RuleRef("103.5")]
-    public void Keeping_the_first_hand_asks_nothing_more()
-    {
-        var board = Opening(handSize: 3, inLibrary: 2);
-        var choice = board.Ask(ChoiceKinds.Mulligan, Declaration(), context: ChoiceSystem.MulliganContext(0, 3));
-
-        var outcome = choices.Answer(board.State, new AnswerChoice(First, choice.Id, [ChoiceKinds.Keep]));
-
-        Assert.Null(outcome.State.Pending);
+        var seat = outcome.State.OpeningHands!.Seats[0];
+        Assert.Equal(redraw, seat.Redraw);
+        Assert.Equal(!redraw, seat.Kept);
+        Assert.Null(outcome.State.OpeningHands.Seats[1].Redraw);
         Assert.Empty(zones.Moves);
         Assert.Empty(zones.Draws);
+        Assert.Empty(zones.Shuffles);
     }
 
-    [Fact]
+    [Theory]
+    [InlineData(ChoiceKinds.Keep)]
+    [InlineData(ChoiceKinds.Mulligan)]
     [RuleRef("103.5")]
-    public void Mulligans_stop_when_the_opening_hand_would_be_empty()
+    public void A_declaration_without_an_opening_round_is_refused(string answer)
     {
-        // CR 103.5: a player may take mulligans until their opening hand would be zero cards.
-        var board = Opening(handSize: 1, inLibrary: 3);
-        var choice = board.Ask(ChoiceKinds.Mulligan, Declaration(), context: ChoiceSystem.MulliganContext(0, 1));
+        var board = Opening(handSize: 3, inLibrary: 5);
+        var choice = board.Ask(ChoiceKinds.Mulligan, Declaration());
 
-        var outcome = choices.Answer(board.State, new AnswerChoice(First, choice.Id, [ChoiceKinds.Mulligan]));
-
-        var next = Assert.IsType<PendingChoice>(outcome.State.Pending);
-        Assert.Equal(ChoiceKinds.MulliganBottom, next.Kind);
-        Assert.Equal(1, next.Min);
+        Assert.Throws<RefusedException>(() => choices.Answer(board.State, new AnswerChoice(First, choice.Id, [answer])));
+        Assert.Empty(zones.Moves);
+        Assert.Empty(zones.Draws);
     }
 
     [Fact]
@@ -228,7 +199,7 @@ public sealed partial class ChoiceResumptionTests
     public void A_mulligan_declaration_that_is_neither_option_is_refused()
     {
         var board = Opening(handSize: 3, inLibrary: 2);
-        var choice = board.Ask(ChoiceKinds.Mulligan, Declaration(), context: ChoiceSystem.MulliganContext(0, 3));
+        var choice = board.Ask(ChoiceKinds.Mulligan, Declaration(), context: MtgEngine.Rules.OpeningHands.OpeningHandPrompts.Context(0, 3));
 
         var refused = Assert.Throws<RefusedException>(() =>
             choices.Answer(board.State, new AnswerChoice(First, choice.Id, ["shuffle-and-see"])));
@@ -248,7 +219,7 @@ public sealed partial class ChoiceResumptionTests
             ChoiceResumptionBoard.Options([.. hand]),
             min: 2,
             max: 2,
-            context: ChoiceSystem.MulliganContext(2, 3));
+            context: MtgEngine.Rules.OpeningHands.OpeningHandPrompts.Context(2, 3));
 
         var outcome = choices.Answer(board.State, new AnswerChoice(First, choice.Id, ChoiceResumptionBoard.Answer(hand[2], hand[0])));
 

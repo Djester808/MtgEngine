@@ -76,6 +76,12 @@ public sealed partial class EffectInterpreter
             case BecomeMonarch monarch:
                 return Emit(run, new MonarchChanged(FirstPlayer(run, monarch.Who)));
 
+            // CR 726.2: the named player takes the initiative, and it leaves whoever held it.
+            // The vocabulary has carried TakeInitiative and TakesInitiative since wave 23; only
+            // this arm and the event were missing, so the effect fell through unread.
+            case TakeInitiative initiative:
+                return Emit(run, new InitiativeChanged(FirstPlayer(run, initiative.Who)));
+
             // CR 702.180: prepared is a designation, put on and taken off by these two.
             case Cards.Prepare prepare:
                 return Designated(run, Objects(run, prepare.What), Designations.Prepared, true);
@@ -357,14 +363,22 @@ public sealed partial class EffectInterpreter
     private EffectRun Reordered(EffectRun run, Reorder reorder)
     {
         var named = Objects(run, reorder.What).Where(run.State.Objects.ContainsKey).ToList();
+        if (reorder.Where == Placement.AnyOrder && named.Count > 1)
+        {
+            var answer = Answered(run);
+            if (answer is null)
+                return Ask(run, FirstPlayer(run, reorder.By), ChoiceKinds.LibraryTopOrder,
+                    "Order the cards, top card first.", OptionsFor(run.State, named), named.Count, named.Count);
+            named = Named(run.State, answer).ToList();
+        }
         foreach (var zone in named.Select(id => run.State.Objects[id].Zone).Distinct().ToList())
         {
-            var here = named.Where(id => run.State.Objects[id].Zone == zone).ToList();
-            var rest = run.State.In(zone).Where(id => !here.Contains(id));
-            ImmutableList<ObjectId> order = reorder.Where == Placement.Bottom
-                ? [.. rest, .. here]
-                : [.. here, .. rest];
-            run = Emit(run, new ZoneReordered(zone, order));
+            var here = named.Where(id => run.State.Objects[id].Zone == zone).ToImmutableList();
+            var order = Library.LibraryOrder.Arrange(run.State.In(zone),
+                reorder.Where == Placement.Bottom ? [] : here,
+                reorder.Where == Placement.Bottom ? here : []);
+            var reordered = new ZoneReordered(zone, order);
+            run = RefreshDisclosedLibraryIdentities(Emit(run, reordered), reordered);
         }
 
         return run;

@@ -11,7 +11,7 @@ using LegalActionsSubsystem = MtgEngine.Rules.Legal.LegalActions;
 namespace MtgEngine.Rules.Tests;
 
 /// <summary>
-/// What a player may do now, CR 117. Every game is a real one through <c>Subsystems.Wave1()</c>,
+/// What a player may do now, CR 117. Every game is a real one through <c>LegacySubsystems.Create()</c>,
 /// so an offer here is one the casting system would accept as a command; the tests that matter
 /// most are the ones where the answer is nothing at all.
 /// </summary>
@@ -25,6 +25,28 @@ public sealed class LegalActionsTests
     private static PlayerId Me => new(0);
 
     private static PlayerId Them => new(1);
+
+    [Fact]
+    public void Command_zone_offers_use_actual_commander_payment_and_priority_checks()
+    {
+        var (game, upkeep) = Start(BearOracle);
+        var main = AtStep(game, upkeep, Step.PrecombatMain);
+        var handCard = main.In(ZoneKey.Of(Zone.Hand, Me))[0];
+        var moved = new ZoneSystem().Move(main, handCard, ZoneKey.Of(Zone.Command, Me));
+        var commander = moved.State.Objects.Values.Single(card => card.Zone.Zone == Zone.Command) with { IsCommander = true };
+        var state = moved.State with { Objects = moved.State.Objects.SetItem(commander.Id, commander) };
+        Assert.Contains(commander.Id, Actions(state, Me).Castable);
+        Assert.DoesNotContain(commander.Id, Actions(state with { Priority = new PriorityState(Them, []) }, Me).Castable);
+        var key = (CommanderIdentity.Of(commander), Me);
+        var taxed = state with { CommanderCasts = state.CommanderCasts.SetItem(key, 1) };
+        Assert.DoesNotContain(commander.Id, Actions(taxed, Me).Castable);
+        var paid = new ManaChanged(Me, new ManaPool(0, 0, 0, 0, 0, 2), "test").Apply(taxed);
+        Assert.Contains(commander.Id, Actions(paid, Me).Castable);
+        Assert.DoesNotContain(commander.Id, Actions(state with
+        {
+            Objects = state.Objects.SetItem(commander.Id, commander with { IsCommander = false }),
+        }, Me).Castable);
+    }
 
     [Fact]
     [RuleRef("305.1")]
@@ -317,13 +339,21 @@ public sealed class LegalActionsTests
         public bool CouldAttack(GameState state, ObjectId creature) => creature != refused && inner.CouldAttack(state, creature);
 
         public bool CouldBlock(GameState state, ObjectId creature) => creature != refused && inner.CouldBlock(state, creature);
+
+        // Both resumption overloads, forwarded: a wrapper that misses a member inherits the
+        // seam's throwing default rather than failing to compile (SeamDecoratorTests).
+        public Outcome ResumeCombatDamage(GameState state, bool firstStrike, int from) =>
+            inner.ResumeCombatDamage(state, firstStrike, from);
+
+        public Outcome ResumeCombatDamage(GameState state, bool firstStrike, int from, ImmutableList<GameEvent> dealt) =>
+            inner.ResumeCombatDamage(state, firstStrike, from, dealt);
     }
 
     private static (Game Game, GameState State) Start(string oracleId)
     {
-        var game = new Game(Subsystems.Wave1(), new LegalActionsDefinitions());
+        var game = new Game(LegacySubsystems.Create(), new LegalActionsDefinitions());
         var setup = new GameSetup(
-            [new PlayerStart("One", Deck(oracleId), []), new PlayerStart("Two", Deck(oracleId), [])],
+            [new PlayerStart("One", [.. Deck(oracleId)], []), new PlayerStart("Two", [.. Deck(oracleId)], [])],
             Seed: 3);
         return (game, game.Create(setup).State);
     }

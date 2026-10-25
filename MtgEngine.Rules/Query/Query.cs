@@ -67,8 +67,14 @@ public sealed partial class Query(ICharacteristics characteristics) : IQuery
         if (!state.Objects.TryGetValue(candidate, out var obj) || !ZoneAdmits(filter, obj.Zone.Zone))
             return false;
 
+        // CR 702.26b: "a permanent that's phased out is treated as though it doesn't exist",
+        // so no filter matches it - not a target, not a blocker, not a thing counted. The flag
+        // was written by the interpreter and read by nothing at all before this.
+        if (obj.PhasedOut)
+            return false;
+
         return MatchesAs(state, filter, obj, _layers.Of(state, candidate), context)
-            && (filter.Also is null || Holds(state, filter.Also, candidate, context));
+            && (filter.Also is null || Holds(state, filter.Also, obj.Id, context));
     }
 
     /// <summary>

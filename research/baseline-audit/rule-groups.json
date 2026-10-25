@@ -1,0 +1,1178 @@
+[
+  {
+    "id": "100",
+    "title": "General",
+    "line": 184,
+    "clauseCount": 19,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "101",
+    "title": "The Magic Golden Rules",
+    "line": 224,
+    "clauseCount": 10,
+    "sourceReferenceCount": 24,
+    "testReferenceCount": 50
+  },
+  {
+    "id": "102",
+    "title": "Players",
+    "line": 248,
+    "clauseCount": 4,
+    "sourceReferenceCount": 6,
+    "testReferenceCount": 4
+  },
+  {
+    "id": "103",
+    "title": "Starting the Game",
+    "line": 258,
+    "clauseCount": 32,
+    "sourceReferenceCount": 21,
+    "testReferenceCount": 9
+  },
+  {
+    "id": "104",
+    "title": "Ending the Game",
+    "line": 324,
+    "clauseCount": 30,
+    "sourceReferenceCount": 12,
+    "testReferenceCount": 16
+  },
+  {
+    "id": "105",
+    "title": "Colors",
+    "line": 386,
+    "clauseCount": 8,
+    "sourceReferenceCount": 3,
+    "testReferenceCount": 1
+  },
+  {
+    "id": "106",
+    "title": "Mana",
+    "line": 404,
+    "clauseCount": 20,
+    "sourceReferenceCount": 49,
+    "testReferenceCount": 33
+  },
+  {
+    "id": "107",
+    "title": "Numbers and Symbols",
+    "line": 449,
+    "clauseCount": 49,
+    "sourceReferenceCount": 12,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "108",
+    "title": "Cards",
+    "line": 554,
+    "clauseCount": 11,
+    "sourceReferenceCount": 2,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "109",
+    "title": "Objects",
+    "line": 578,
+    "clauseCount": 16,
+    "sourceReferenceCount": 11,
+    "testReferenceCount": 3
+  },
+  {
+    "id": "110",
+    "title": "Permanents",
+    "line": 612,
+    "clauseCount": 14,
+    "sourceReferenceCount": 7,
+    "testReferenceCount": 9
+  },
+  {
+    "id": "111",
+    "title": "Tokens",
+    "line": 643,
+    "clauseCount": 34,
+    "sourceReferenceCount": 11,
+    "testReferenceCount": 11
+  },
+  {
+    "id": "112",
+    "title": "Spells",
+    "line": 719,
+    "clauseCount": 7,
+    "sourceReferenceCount": 1,
+    "testReferenceCount": 1
+  },
+  {
+    "id": "113",
+    "title": "Abilities",
+    "line": 736,
+    "clauseCount": 41,
+    "sourceReferenceCount": 2,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "114",
+    "title": "Emblems",
+    "line": 824,
+    "clauseCount": 5,
+    "sourceReferenceCount": 1,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "115",
+    "title": "Targets",
+    "line": 836,
+    "clauseCount": 26,
+    "sourceReferenceCount": 18,
+    "testReferenceCount": 19
+  },
+  {
+    "id": "116",
+    "title": "Special Actions",
+    "line": 892,
+    "clauseCount": 15,
+    "sourceReferenceCount": 4,
+    "testReferenceCount": 8
+  },
+  {
+    "id": "117",
+    "title": "Timing and Priority",
+    "line": 924,
+    "clauseCount": 20,
+    "sourceReferenceCount": 13,
+    "testReferenceCount": 8
+  },
+  {
+    "id": "118",
+    "title": "Costs",
+    "line": 966,
+    "clauseCount": 39,
+    "sourceReferenceCount": 32,
+    "testReferenceCount": 30
+  },
+  {
+    "id": "119",
+    "title": "Life",
+    "line": 1049,
+    "clauseCount": 17,
+    "sourceReferenceCount": 16,
+    "testReferenceCount": 9
+  },
+  {
+    "id": "120",
+    "title": "Damage",
+    "line": 1085,
+    "clauseCount": 25,
+    "sourceReferenceCount": 16,
+    "testReferenceCount": 9
+  },
+  {
+    "id": "121",
+    "title": "Drawing a Card",
+    "line": 1140,
+    "clauseCount": 17,
+    "sourceReferenceCount": 19,
+    "testReferenceCount": 16
+  },
+  {
+    "id": "122",
+    "title": "Counters",
+    "line": 1176,
+    "clauseCount": 20,
+    "sourceReferenceCount": 13,
+    "testReferenceCount": 3
+  },
+  {
+    "id": "123",
+    "title": "Stickers",
+    "line": 1218,
+    "clauseCount": 26,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "200",
+    "title": "General",
+    "line": 1278,
+    "clauseCount": 3,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "201",
+    "title": "Name",
+    "line": 1286,
+    "clauseCount": 22,
+    "sourceReferenceCount": 6,
+    "testReferenceCount": 5
+  },
+  {
+    "id": "202",
+    "title": "Mana Cost and Color",
+    "line": 1338,
+    "clauseCount": 19,
+    "sourceReferenceCount": 13,
+    "testReferenceCount": 10
+  },
+  {
+    "id": "203",
+    "title": "Illustration",
+    "line": 1386,
+    "clauseCount": 1,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "204",
+    "title": "Color Indicator",
+    "line": 1390,
+    "clauseCount": 2,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "205",
+    "title": "Type Line",
+    "line": 1396,
+    "clauseCount": 33,
+    "sourceReferenceCount": 22,
+    "testReferenceCount": 8
+  },
+  {
+    "id": "206",
+    "title": "Expansion Symbol",
+    "line": 1471,
+    "clauseCount": 8,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "207",
+    "title": "Text Box",
+    "line": 1489,
+    "clauseCount": 9,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "208",
+    "title": "Power/Toughness",
+    "line": 1509,
+    "clauseCount": 10,
+    "sourceReferenceCount": 3,
+    "testReferenceCount": 2
+  },
+  {
+    "id": "209",
+    "title": "Loyalty",
+    "line": 1533,
+    "clauseCount": 2,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "210",
+    "title": "Defense",
+    "line": 1539,
+    "clauseCount": 1,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "211",
+    "title": "Hand Modifier",
+    "line": 1543,
+    "clauseCount": 1,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "212",
+    "title": "Life Modifier",
+    "line": 1547,
+    "clauseCount": 1,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "213",
+    "title": "Information Below the Text Box",
+    "line": 1551,
+    "clauseCount": 8,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "300",
+    "title": "General",
+    "line": 1571,
+    "clauseCount": 4,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "301",
+    "title": "Artifacts",
+    "line": 1581,
+    "clauseCount": 15,
+    "sourceReferenceCount": 6,
+    "testReferenceCount": 8
+  },
+  {
+    "id": "302",
+    "title": "Creatures",
+    "line": 1613,
+    "clauseCount": 10,
+    "sourceReferenceCount": 2,
+    "testReferenceCount": 2
+  },
+  {
+    "id": "303",
+    "title": "Enchantments",
+    "line": 1636,
+    "clauseCount": 20,
+    "sourceReferenceCount": 7,
+    "testReferenceCount": 7
+  },
+  {
+    "id": "304",
+    "title": "Instants",
+    "line": 1678,
+    "clauseCount": 5,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "305",
+    "title": "Lands",
+    "line": 1690,
+    "clauseCount": 11,
+    "sourceReferenceCount": 13,
+    "testReferenceCount": 17
+  },
+  {
+    "id": "306",
+    "title": "Planeswalkers",
+    "line": 1715,
+    "clauseCount": 13,
+    "sourceReferenceCount": 2,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "307",
+    "title": "Sorceries",
+    "line": 1743,
+    "clauseCount": 6,
+    "sourceReferenceCount": 1,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "308",
+    "title": "Kindreds",
+    "line": 1757,
+    "clauseCount": 3,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "309",
+    "title": "Dungeons",
+    "line": 1765,
+    "clauseCount": 16,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "310",
+    "title": "Battles",
+    "line": 1799,
+    "clauseCount": 24,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "311",
+    "title": "Planes",
+    "line": 1849,
+    "clauseCount": 7,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "312",
+    "title": "Phenomena",
+    "line": 1865,
+    "clauseCount": 7,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "313",
+    "title": "Vanguards",
+    "line": 1881,
+    "clauseCount": 7,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "314",
+    "title": "Schemes",
+    "line": 1897,
+    "clauseCount": 7,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "315",
+    "title": "Conspiracies",
+    "line": 1913,
+    "clauseCount": 9,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "400",
+    "title": "General",
+    "line": 1935,
+    "clauseCount": 29,
+    "sourceReferenceCount": 32,
+    "testReferenceCount": 17
+  },
+  {
+    "id": "401",
+    "title": "Library",
+    "line": 1996,
+    "clauseCount": 7,
+    "sourceReferenceCount": 4,
+    "testReferenceCount": 9
+  },
+  {
+    "id": "402",
+    "title": "Hand",
+    "line": 2012,
+    "clauseCount": 3,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "403",
+    "title": "Battlefield",
+    "line": 2020,
+    "clauseCount": 5,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "404",
+    "title": "Graveyard",
+    "line": 2032,
+    "clauseCount": 3,
+    "sourceReferenceCount": 2,
+    "testReferenceCount": 2
+  },
+  {
+    "id": "405",
+    "title": "Stack",
+    "line": 2040,
+    "clauseCount": 14,
+    "sourceReferenceCount": 1,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "406",
+    "title": "Exile",
+    "line": 2070,
+    "clauseCount": 10,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "407",
+    "title": "Ante",
+    "line": 2092,
+    "clauseCount": 4,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "408",
+    "title": "Command",
+    "line": 2102,
+    "clauseCount": 3,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "500",
+    "title": "General",
+    "line": 2113,
+    "clauseCount": 15,
+    "sourceReferenceCount": 17,
+    "testReferenceCount": 4
+  },
+  {
+    "id": "501",
+    "title": "Beginning Phase",
+    "line": 2146,
+    "clauseCount": 1,
+    "sourceReferenceCount": 1,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "502",
+    "title": "Untap Step",
+    "line": 2150,
+    "clauseCount": 5,
+    "sourceReferenceCount": 1,
+    "testReferenceCount": 1
+  },
+  {
+    "id": "503",
+    "title": "Upkeep Step",
+    "line": 2162,
+    "clauseCount": 3,
+    "sourceReferenceCount": 1,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "504",
+    "title": "Draw Step",
+    "line": 2170,
+    "clauseCount": 2,
+    "sourceReferenceCount": 2,
+    "testReferenceCount": 1
+  },
+  {
+    "id": "505",
+    "title": "Main Phase",
+    "line": 2176,
+    "clauseCount": 10,
+    "sourceReferenceCount": 1,
+    "testReferenceCount": 6
+  },
+  {
+    "id": "506",
+    "title": "Combat Phase",
+    "line": 2198,
+    "clauseCount": 28,
+    "sourceReferenceCount": 10,
+    "testReferenceCount": 3
+  },
+  {
+    "id": "507",
+    "title": "Beginning of Combat Step",
+    "line": 2256,
+    "clauseCount": 2,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "508",
+    "title": "Declare Attackers Step",
+    "line": 2262,
+    "clauseCount": 38,
+    "sourceReferenceCount": 37,
+    "testReferenceCount": 22
+  },
+  {
+    "id": "509",
+    "title": "Declare Blockers Step",
+    "line": 2343,
+    "clauseCount": 23,
+    "sourceReferenceCount": 14,
+    "testReferenceCount": 3
+  },
+  {
+    "id": "510",
+    "title": "Combat Damage Step",
+    "line": 2395,
+    "clauseCount": 10,
+    "sourceReferenceCount": 12,
+    "testReferenceCount": 13
+  },
+  {
+    "id": "511",
+    "title": "End of Combat Step",
+    "line": 2418,
+    "clauseCount": 3,
+    "sourceReferenceCount": 2,
+    "testReferenceCount": 1
+  },
+  {
+    "id": "512",
+    "title": "Ending Phase",
+    "line": 2426,
+    "clauseCount": 1,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "513",
+    "title": "End Step",
+    "line": 2430,
+    "clauseCount": 3,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "514",
+    "title": "Cleanup Step",
+    "line": 2438,
+    "clauseCount": 4,
+    "sourceReferenceCount": 4,
+    "testReferenceCount": 3
+  },
+  {
+    "id": "600",
+    "title": "General",
+    "line": 2451,
+    "clauseCount": 0,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "601",
+    "title": "Casting Spells",
+    "line": 2453,
+    "clauseCount": 27,
+    "sourceReferenceCount": 94,
+    "testReferenceCount": 89
+  },
+  {
+    "id": "602",
+    "title": "Activating Activated Abilities",
+    "line": 2516,
+    "clauseCount": 19,
+    "sourceReferenceCount": 13,
+    "testReferenceCount": 10
+  },
+  {
+    "id": "603",
+    "title": "Handling Triggered Abilities",
+    "line": 2557,
+    "clauseCount": 47,
+    "sourceReferenceCount": 66,
+    "testReferenceCount": 60
+  },
+  {
+    "id": "604",
+    "title": "Handling Static Abilities",
+    "line": 2665,
+    "clauseCount": 8,
+    "sourceReferenceCount": 4,
+    "testReferenceCount": 4
+  },
+  {
+    "id": "605",
+    "title": "Mana Abilities",
+    "line": 2683,
+    "clauseCount": 13,
+    "sourceReferenceCount": 10,
+    "testReferenceCount": 29
+  },
+  {
+    "id": "606",
+    "title": "Loyalty Abilities",
+    "line": 2713,
+    "clauseCount": 6,
+    "sourceReferenceCount": 2,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "607",
+    "title": "Linked Abilities",
+    "line": 2728,
+    "clauseCount": 25,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "608",
+    "title": "Resolving Spells and Abilities",
+    "line": 2785,
+    "clauseCount": 24,
+    "sourceReferenceCount": 49,
+    "testReferenceCount": 66
+  },
+  {
+    "id": "609",
+    "title": "Effects",
+    "line": 2844,
+    "clauseCount": 12,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "610",
+    "title": "One-Shot Effects",
+    "line": 2873,
+    "clauseCount": 13,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "611",
+    "title": "Continuous Effects",
+    "line": 2902,
+    "clauseCount": 13,
+    "sourceReferenceCount": 12,
+    "testReferenceCount": 16
+  },
+  {
+    "id": "612",
+    "title": "Text-Changing Effects",
+    "line": 2936,
+    "clauseCount": 11,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "613",
+    "title": "Interaction of Continuous Effects",
+    "line": 2960,
+    "clauseCount": 41,
+    "sourceReferenceCount": 42,
+    "testReferenceCount": 13
+  },
+  {
+    "id": "614",
+    "title": "Replacement Effects",
+    "line": 3056,
+    "clauseCount": 37,
+    "sourceReferenceCount": 32,
+    "testReferenceCount": 11
+  },
+  {
+    "id": "615",
+    "title": "Prevention Effects",
+    "line": 3140,
+    "clauseCount": 15,
+    "sourceReferenceCount": 22,
+    "testReferenceCount": 21
+  },
+  {
+    "id": "616",
+    "title": "Interaction of Replacement and/or Prevention Effects",
+    "line": 3175,
+    "clauseCount": 9,
+    "sourceReferenceCount": 15,
+    "testReferenceCount": 10
+  },
+  {
+    "id": "700",
+    "title": "General",
+    "line": 3202,
+    "clauseCount": 35,
+    "sourceReferenceCount": 34,
+    "testReferenceCount": 27
+  },
+  {
+    "id": "701",
+    "title": "Keyword Actions",
+    "line": 3279,
+    "clauseCount": 294,
+    "sourceReferenceCount": 226,
+    "testReferenceCount": 80
+  },
+  {
+    "id": "702",
+    "title": "Keyword Abilities",
+    "line": 3881,
+    "clauseCount": 771,
+    "sourceReferenceCount": 261,
+    "testReferenceCount": 61
+  },
+  {
+    "id": "703",
+    "title": "Turn-Based Actions",
+    "line": 5451,
+    "clauseCount": 20,
+    "sourceReferenceCount": 1,
+    "testReferenceCount": 1
+  },
+  {
+    "id": "704",
+    "title": "State-Based Actions",
+    "line": 5493,
+    "clauseCount": 39,
+    "sourceReferenceCount": 15,
+    "testReferenceCount": 61
+  },
+  {
+    "id": "705",
+    "title": "Flipping a Coin",
+    "line": 5578,
+    "clauseCount": 3,
+    "sourceReferenceCount": 1,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "706",
+    "title": "Rolling a Die",
+    "line": 5586,
+    "clauseCount": 18,
+    "sourceReferenceCount": 1,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "707",
+    "title": "Copying Objects",
+    "line": 5624,
+    "clauseCount": 33,
+    "sourceReferenceCount": 19,
+    "testReferenceCount": 9
+  },
+  {
+    "id": "708",
+    "title": "Face-Down Spells and Permanents",
+    "line": 5715,
+    "clauseCount": 14,
+    "sourceReferenceCount": 7,
+    "testReferenceCount": 6
+  },
+  {
+    "id": "709",
+    "title": "Split Cards",
+    "line": 5745,
+    "clauseCount": 22,
+    "sourceReferenceCount": 2,
+    "testReferenceCount": 2
+  },
+  {
+    "id": "710",
+    "title": "Flip Cards",
+    "line": 5793,
+    "clauseCount": 8,
+    "sourceReferenceCount": 3,
+    "testReferenceCount": 2
+  },
+  {
+    "id": "711",
+    "title": "Leveler Cards",
+    "line": 5812,
+    "clauseCount": 9,
+    "sourceReferenceCount": 1,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "712",
+    "title": "Double-Faced Cards",
+    "line": 5832,
+    "clauseCount": 58,
+    "sourceReferenceCount": 8,
+    "testReferenceCount": 6
+  },
+  {
+    "id": "713",
+    "title": "Substitute Cards",
+    "line": 5960,
+    "clauseCount": 8,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "714",
+    "title": "Saga Cards",
+    "line": 5978,
+    "clauseCount": 13,
+    "sourceReferenceCount": 1,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "715",
+    "title": "Adventurer Cards",
+    "line": 6006,
+    "clauseCount": 12,
+    "sourceReferenceCount": 3,
+    "testReferenceCount": 1
+  },
+  {
+    "id": "716",
+    "title": "Class Cards",
+    "line": 6032,
+    "clauseCount": 8,
+    "sourceReferenceCount": 1,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "717",
+    "title": "Attraction Cards",
+    "line": 6050,
+    "clauseCount": 9,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "718",
+    "title": "Prototype Cards",
+    "line": 6070,
+    "clauseCount": 10,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "719",
+    "title": "Case Cards",
+    "line": 6092,
+    "clauseCount": 6,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "720",
+    "title": "Omen Cards",
+    "line": 6106,
+    "clauseCount": 12,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 1
+  },
+  {
+    "id": "721",
+    "title": "Station Cards",
+    "line": 6132,
+    "clauseCount": 7,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "722",
+    "title": "Preparation Cards",
+    "line": 6148,
+    "clauseCount": 12,
+    "sourceReferenceCount": 3,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "723",
+    "title": "Controlling Another Player",
+    "line": 6175,
+    "clauseCount": 13,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "724",
+    "title": "Ending Turns and Phases",
+    "line": 6208,
+    "clauseCount": 15,
+    "sourceReferenceCount": 1,
+    "testReferenceCount": 5
+  },
+  {
+    "id": "725",
+    "title": "The Monarch",
+    "line": 6240,
+    "clauseCount": 5,
+    "sourceReferenceCount": 9,
+    "testReferenceCount": 3
+  },
+  {
+    "id": "726",
+    "title": "The Initiative",
+    "line": 6252,
+    "clauseCount": 5,
+    "sourceReferenceCount": 6,
+    "testReferenceCount": 4
+  },
+  {
+    "id": "727",
+    "title": "Restarting the Game",
+    "line": 6264,
+    "clauseCount": 9,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "728",
+    "title": "Rad Counters",
+    "line": 6285,
+    "clauseCount": 2,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "729",
+    "title": "Subgames",
+    "line": 6291,
+    "clauseCount": 16,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "730",
+    "title": "Merging with Permanents",
+    "line": 6326,
+    "clauseCount": 18,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "731",
+    "title": "Day and Night",
+    "line": 6364,
+    "clauseCount": 6,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "732",
+    "title": "Taking Shortcuts",
+    "line": 6378,
+    "clauseCount": 12,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "733",
+    "title": "Handling Illegal Actions",
+    "line": 6408,
+    "clauseCount": 2,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "800",
+    "title": "General",
+    "line": 6416,
+    "clauseCount": 21,
+    "sourceReferenceCount": 2,
+    "testReferenceCount": 10
+  },
+  {
+    "id": "801",
+    "title": "Limited Range of Influence Option",
+    "line": 6465,
+    "clauseCount": 28,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "802",
+    "title": "Attack Multiple Players Option",
+    "line": 6538,
+    "clauseCount": 10,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "803",
+    "title": "Attack Left and Attack Right Options",
+    "line": 6561,
+    "clauseCount": 3,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "804",
+    "title": "Deploy Creatures Option",
+    "line": 6569,
+    "clauseCount": 2,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "805",
+    "title": "Shared Team Turns Option",
+    "line": 6575,
+    "clauseCount": 25,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "806",
+    "title": "Free-for-All Variant",
+    "line": 6627,
+    "clauseCount": 6,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "807",
+    "title": "Grand Melee Variant",
+    "line": 6641,
+    "clauseCount": 20,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "808",
+    "title": "Team vs. Team Variant",
+    "line": 6685,
+    "clauseCount": 7,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "809",
+    "title": "Emperor Variant",
+    "line": 6701,
+    "clauseCount": 14,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "810",
+    "title": "Two-Headed Giant Variant",
+    "line": 6733,
+    "clauseCount": 27,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "811",
+    "title": "Alternating Teams Variant",
+    "line": 6798,
+    "clauseCount": 8,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "900",
+    "title": "General",
+    "line": 6820,
+    "clauseCount": 2,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "901",
+    "title": "Planechase",
+    "line": 6826,
+    "clauseCount": 35,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "902",
+    "title": "Vanguard",
+    "line": 6898,
+    "clauseCount": 9,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "903",
+    "title": "Commander",
+    "line": 6921,
+    "clauseCount": 49,
+    "sourceReferenceCount": 14,
+    "testReferenceCount": 13
+  },
+  {
+    "id": "904",
+    "title": "Archenemy",
+    "line": 7026,
+    "clauseCount": 22,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  },
+  {
+    "id": "905",
+    "title": "Conspiracy Draft",
+    "line": 7072,
+    "clauseCount": 14,
+    "sourceReferenceCount": 0,
+    "testReferenceCount": 0
+  }
+]

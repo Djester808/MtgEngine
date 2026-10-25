@@ -6,8 +6,8 @@ namespace MtgEngine.Rules.Tests;
 
 /// <summary>
 /// Wave 30's readings: the plural zone rider every reader was silently refusing (CR 400.1), and the
-/// two V18 amounts — the names among a group counted once each (CR 201.2b) and the two numbers no
-/// folder keeps yet (CR 119.3, CR 903.8). The world is the one <see cref="QueryTests"/> declares.
+/// V18 amounts: distinct names, the unsupported life-loss total, and persistent commander casts.
+/// The world is the one <see cref="QueryTests"/> declares.
 /// </summary>
 public sealed partial class QueryTests
 {
@@ -157,18 +157,54 @@ public sealed partial class QueryTests
 
     [Fact]
     [RuleRef("903.8")]
-    public void The_commander_cast_count_is_refused_until_a_folder_keeps_it_per_game()
+    public void The_commander_cast_count_reads_per_game_history_and_defaults_to_self()
     {
-        // CR 903.8: the count the commander tax is built on is per game and never reset, so the
-        // turn's history — which is cleared each turn — cannot stand in for it. Refused, naming the
-        // count, rather than answered with the turn's casts or with zero.
+        // CR 903.8: resetting the turn's records must not reset this game's commander count.
         var world = World.New().Commander(1, Alice).As(1);
 
-        var own = Assert.Throws<RefusedException>(() => world.Value(new CommanderCastsThisGame()));
-        Assert.Contains(nameof(CommanderCastsThisGame), own.Message, StringComparison.Ordinal);
-        Assert.Equal("903.8", own.Rule);
+        Assert.Equal(0, world.Value(new CommanderCastsThisGame()));
+        var commander = world.State.Objects[new ObjectId(1)];
+        var key = (new CommanderIdentity(commander.Owner, commander.Definition.OracleId), Alice);
+        world = world with { State = world.State with { CommanderCasts = world.State.CommanderCasts.SetItem(key, 3) } };
+        Assert.Equal(3, world.Value(new CommanderCastsThisGame()));
+        Assert.Equal(3, world.Value(new CommanderCastsThisGame(new Self())));
+        world = world with { State = new MtgEngine.Rules.Events.TurnBegan(2, Bob, false).Apply(world.State) };
+        Assert.Equal(3, world.Value(new CommanderCastsThisGame()));
+    }
 
-        Assert.Throws<RefusedException>(() => world.Value(new CommanderCastsThisGame(new Self())));
+    [Fact]
+    public void Commander_count_uses_selected_identity_and_the_effect_controller()
+    {
+        var world = World.New().Commander(1, Alice).Commander(2, Alice).Commander(3, Bob).As(1);
+        var first = world.State.Objects[new ObjectId(1)];
+        var other = world.State.Objects[new ObjectId(2)];
+        var firstIdentity = new CommanderIdentity(first.Owner, first.Definition.OracleId);
+        var otherIdentity = new CommanderIdentity(other.Owner, other.Definition.OracleId);
+        world = world with
+        {
+            State = world.State with
+            {
+                CommanderCasts = world.State.CommanderCasts
+                    .SetItem((firstIdentity, Alice), 3)
+                    .SetItem((otherIdentity, Alice), 2)
+                    .SetItem((firstIdentity, Bob), 7),
+            },
+        };
+        Assert.Equal(3, world.Value(new CommanderCastsThisGame()));
+        Assert.Equal(2, world.As(2).Value(new CommanderCastsThisGame()));
+        var controlled = world with { Context = world.Context with { Controller = Bob } };
+        Assert.Equal(7, controlled.Value(new CommanderCastsThisGame()));
+        var departed = world with
+        {
+            State = world.State with
+            {
+                Objects = world.State.Objects.Remove(first.Id),
+                History = world.State.History with { LeftBattlefield = [first] },
+            },
+        };
+        Assert.Equal(3, departed.Value(new CommanderCastsThisGame()));
+        Assert.Equal(3, departed.Value(new CommanderCastsThisGame(new Self())));
+        Assert.Equal(0, World.New().Creature(1, Alice, 1, 1).As(1).Value(new CommanderCastsThisGame()));
     }
 
     /// <summary>The name the layer system reports for one object, which is the name every count reads (CR 613.1).</summary>

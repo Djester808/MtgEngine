@@ -15,8 +15,9 @@ namespace MtgEngine.Rules.Views;
 /// <para>
 /// Nothing here hides a field of the state — it builds a new object out of what may be seen,
 /// so a field added to <see cref="GameObject"/> is absent from the view until someone decides
-/// it is public. <see cref="Enforced"/> comes from the definition store the game was created
-/// with, as a lookup by oracle id, so the projector never holds the store itself.
+/// it is public. <see cref="Enforced"/> follows admitted oracle definitions or literal token
+/// rules embedded by the engine, through <see cref="RulesCoverage"/>. The projector never
+/// holds the definition store itself.
 /// </para>
 /// </summary>
 [RuleRef("400.2")]
@@ -32,19 +33,42 @@ public sealed class ViewProjector(ICharacteristics characteristics, Func<string,
     public GameView Project(GameState state, PlayerId viewer)
     {
         ArgumentNullException.ThrowIfNull(state);
-        return new GameView(
+        var view = new GameView(
             viewer,
             state.Turn.Number,
             state.Turn.Step,
             state.Turn.ActivePlayer,
             state.Priority.Holder,
-            [.. state.Players.Select(p => Seat(state, p))],
+            [.. state.Players.Select(p => Seat(state, p, viewer))],
             ViewsOf(state, InZone(state, CardZone.Battlefield)),
             ViewsOf(state, InZone(state, CardZone.Stack)),
             ViewsOf(state, InZone(state, CardZone.Hand, viewer)),
             ViewsOf(state, InZone(state, CardZone.Exile)),
             Redact(state.Pending, viewer),
-            state.Outcome);
+            state.Outcome)
+        {
+            ChoiceCards = ChoiceCards(state, viewer),
+            ManualLibraryLookActive = Library.ManualLibraryInspection.IsActive(state, viewer),
+            InspectedLibraryCards = ViewsOf(state, state.LibraryInspections.Values
+                .Where(inspection => inspection.Viewer == viewer)
+                .SelectMany(inspection => inspection.Cards.Where(id => state.Objects.TryGetValue(id, out var card)
+                    && card.Zone == ZoneKey.Of(CardZone.Library, inspection.Owner))).Distinct().ToImmutableList()),
+            LastReveal = state.LastReveal,
+            LastLook = state.LastLooks.GetValueOrDefault(viewer),
+            Combat = state.Combat is { } combat
+                ? new CombatView(
+                    [.. combat.Attackers.Select(a => new CombatAttackView(a.Key, a.Value.Player, a.Value.Permanent))],
+                    [.. combat.Blockers.Select(b => new CombatBlockView(b.Key, b.Value))],
+                    combat.AttackersDeclared, combat.BlockersDeclared)
+                {
+                    DefendingPlayers = combat.DefendingPlayers,
+                    BlockersDeclaredBy = combat.BlockersDeclaredBy,
+                }
+                : null,
+        };
+        return view.Players.Count is >= 2 and <= 4
+            ? view with { Table = TableView.From(view) }
+            : view;
     }
 
     /// <summary>
@@ -53,9 +77,10 @@ public sealed class ViewProjector(ICharacteristics characteristics, Func<string,
     /// pool is public too, CR 106.4.
     /// </summary>
     [RuleRef("400.2")]
-    private PlayerView Seat(GameState state, PlayerState player)
+    private PlayerView Seat(GameState state, PlayerState player, PlayerId viewer)
     {
         var graveyard = InZone(state, CardZone.Graveyard, player.Id);
+        var limits = _characteristics.PlayerRestrictions(state, player.Id);
         return new PlayerView(
             player.Id,
             player.Name,
@@ -71,34 +96,19 @@ public sealed class ViewProjector(ICharacteristics characteristics, Func<string,
             // CR 702.16j: computed, not stored, so it is asked of the characteristics seam here
             // rather than read off the seat. It is public information (CR 400.2) — every viewer
             // gets it, not only the protected player.
-            _characteristics.PlayerRestrictions(state, player.Id).ProtectionFromEverything)
+            limits.ProtectionFromEverything)
         {
+            HasLost = player.HasLost,
+            LandsPlayedThisTurn = player.LandsPlayedThisTurn,
             // CR 401.5: the one card a library shows, and it shows it to everybody.
-            RevealedTopCard = RevealedTop(state, player.Id),
+            RevealedTopCard = limits.TopCardRevealed && Library.LibraryDisclosurePolicy.TopAvailable(state, player.Id) ? Top(state, player.Id) : null,
+            LookableTopCard = viewer == player.Id && limits.MayLookAtTopCard && Library.LibraryDisclosurePolicy.TopAvailable(state, player.Id)
+                ? Top(state, player.Id) : null,
         };
     }
 
-    /// <summary>
-    /// CR 401.5: the top card of this player's library, if an effect has them playing with it
-    /// revealed, and null otherwise. The effect is <c>PlayWithTopCardRevealed</c>, created by the
-    /// interpreter against the player whose library it is; a library with nothing in it reveals
-    /// nothing. The card is projected through the ordinary <see cref="View"/>, so it carries its
-    /// computed characteristics like any other object a viewer may see (CR 613.5), and it is
-    /// built once per seat rather than per viewer because CR 401.5 reveals it to every player —
-    /// the viewer is not consulted, deliberately, and that is the difference from
-    /// <c>MayLookAtTopCard</c>, which shows one player their own card and has no arm here.
-    /// <para>
-    /// CR 401.6 needs no code: the card stops being revealed when the effect ends or the card
-    /// leaves, and becoming revealed again means a new object with a new id (CR 400.7), which is
-    /// the id this reads. Nothing is remembered between projections, so nothing can go stale.
-    /// </para>
-    /// </summary>
-    [RuleRef("401.5")]
-    private ObjectView? RevealedTop(GameState state, PlayerId owner)
+    private ObjectView? Top(GameState state, PlayerId owner)
     {
-        if (!state.ActiveEffects.Any(active => active.Effect is PlayWithTopCardRevealed && active.AppliesToPlayers.Contains(owner)))
-            return null;
-
         var library = InZone(state, CardZone.Library, owner);
         return !library.IsEmpty && state.Objects.TryGetValue(library[0], out var top) ? View(state, top) : null;
     }
@@ -128,6 +138,15 @@ public sealed class ViewProjector(ICharacteristics characteristics, Func<string,
     private ImmutableList<ObjectView> ViewsOf(GameState state, ImmutableList<ObjectId> ids) =>
         [.. ids.Where(state.Objects.ContainsKey).Select(id => View(state, state.Objects[id]))];
 
+    private ImmutableList<ObjectView> ChoiceCards(GameState state, PlayerId viewer)
+    {
+        if (state.Pending is not { } pending || pending.Player != viewer
+            || pending.Kind is not (ChoiceKinds.Search or ChoiceKinds.Scry or ChoiceKinds.Surveil or ChoiceKinds.MulliganBottom or ChoiceKinds.LibraryTopOrder or ChoiceKinds.LibraryBottomOrder))
+            return [];
+        return ViewsOf(state, [.. pending.Options.Where(option => option.Object.HasValue)
+            .Select(option => option.Object!.Value).Distinct()]);
+    }
+
     /// <summary>
     /// One object as it may be seen. Every characteristic is the computed one, CR 613.5, so a
     /// creature that was made a 1/1 is shown as a 1/1 and never as its printed self.
@@ -136,7 +155,7 @@ public sealed class ViewProjector(ICharacteristics characteristics, Func<string,
     private ObjectView View(GameState state, GameObject obj)
     {
         if (obj.FaceDown)
-            return FaceDown(state, obj);
+            return FaceDown(state, obj) with { StackKind = StackKind(obj) };
 
         var chars = _characteristics.Of(state, obj.Id);
         return new ObjectView(
@@ -157,7 +176,7 @@ public sealed class ViewProjector(ICharacteristics characteristics, Func<string,
             [.. chars.Abilities.OfType<KeywordAbility>().Select(k => k.Keyword.ToString())],
             TypeNames(chars.Types),
             chars.Subtypes,
-            _enforced(obj.Definition.OracleId),
+            RulesCoverage.IsEnforced(obj, _enforced),
 
             // CR 205.3d: a changeling on the table is every creature type, and none of those
             // names is in its subtype list, so the flag travels with the list or the view lies.
@@ -166,8 +185,36 @@ public sealed class ViewProjector(ICharacteristics characteristics, Func<string,
             // CR 707.10: a copy has the copied object's name and characteristics, so the view has
             // to say which one it is looking at: the stack entry marks a copied spell, and the
             // zone system's designation marks a copy of a card (CR 707.12).
-            obj.Stack is { IsCopy: true } || obj.Designations.Contains(Zones.ZoneSystem.CopyOfCard));
+            obj.Stack is { IsCopy: true } || obj.Designations.Contains(Zones.ZoneSystem.CopyOfCard))
+        {
+            ManaCost = chars.ManaCost,
+            StackKind = StackKind(obj),
+            PrintingId = obj.DeckSelection?.PrintingId,
+            Finish = obj.DeckSelection?.Finish,
+            OracleText = obj.Face.OracleText,
+            Colors = [.. Enum.GetValues<Color>().Where(c => c != 0 && chars.Colors.HasFlag(c)).Select(c => c.ToString())],
+            IsToken = obj.IsToken,
+            SummoningSick = obj.SummoningSick,
+            TargetCount = chars.Abilities.OfType<SpellAbility>().Sum(a => TargetCount(a.Do)),
+            Abilities = [.. chars.Abilities.Select((ability, index) => (ability, index))
+                .Where(a => a.ability is ActivatedAbility)
+                .Select(a => Ability((ActivatedAbility)a.ability, a.index))],
+            Targets = obj.Stack?.Targets ?? [],
+            TargetPlayers = obj.Stack?.TargetPlayers ?? [],
+        };
     }
+
+    private static string? StackKind(GameObject obj) => obj.Stack is not { } entry ? null
+        : entry.Triggering is not null ? "TriggeredAbility"
+        : entry.AbilityIndex is not null ? "ActivatedAbility" : "Spell";
+
+    private static int TargetCount(Effect effect) =>
+        Interpreter.EffectWalk.TargetsIn(effect).Count + Interpreter.EffectWalk.TargetPlayersIn(effect).Count;
+
+    private static ActivatedAbilityView Ability(ActivatedAbility ability, int index) =>
+        new(index, ability.Text ?? $"Activate ability {index + 1}", ability.Costs.OfType<TapSelf>().Any(),
+            Query.ManaAbilities.Is(ability), TargetCount(ability.Do),
+            ability.Costs.OfType<ManaCost>().Any(c => c.Mana.Contains('X', StringComparison.OrdinalIgnoreCase)));
 
     /// <summary>
     /// CR 708.2: a face-down permanent is a 2/2 creature with no name, no mana cost, no
@@ -206,7 +253,7 @@ public sealed class ViewProjector(ICharacteristics characteristics, Func<string,
             [],
             permanent ? [nameof(CardType.Creature)] : [],
             [],
-            _enforced(obj.Definition.OracleId));
+            RulesCoverage.IsEnforced(obj, _enforced));
     }
 
     /// <summary>The card types an object has now, CR 205.2a, named rather than numbered so the client reads them.</summary>

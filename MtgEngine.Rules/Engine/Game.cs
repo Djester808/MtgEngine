@@ -5,7 +5,7 @@ using MtgEngine.Rules.State;
 
 namespace MtgEngine.Rules.Engine;
 
-/// <summary>The subsystems composed. Wave-1 builders replace the stubs one seam at a time; only the coordinator edits the wiring.</summary>
+/// <summary>The production subsystems composed for a running game.</summary>
 public sealed record Subsystems(
     IQuery Query,
     IZoneSystem Zones,
@@ -21,36 +21,6 @@ public sealed record Subsystems(
     IViewProjector Views,
     ILegalActions Legal)
 {
-    /// <summary>Every seam stubbed: the engine as it stands before wave 1.</summary>
-    public static Subsystems AllStubs() => new(
-        new Stubs.Query(), new Stubs.Zones(), new Stubs.Turn(), new Stubs.Casting(), new Stubs.Combat(), new Stubs.Sba(),
-        new Stubs.Triggers(), new Stubs.Layers(), new Stubs.Replacement(), new Stubs.Interpreter(),
-        new Stubs.Choices(), new Stubs.Views(), new Stubs.Legal());
-
-    /// <summary>
-    /// What wave 1 built, composed: layers, query, zones, casting, turns, combat and state-based
-    /// actions are real; triggers, replacement, the interpreter, choices and views are still
-    /// stubs, which is enough for a game of lands and vanilla creatures.
-    /// </summary>
-    public static Subsystems Wave1(Func<string, bool>? enforced = null)
-    {
-        var layers = new Layers.LayerSystem();
-        var query = new Query.Query(layers);
-        var zones = new Zones.ZoneSystem();
-        var interpreter = new Stubs.Interpreter();
-        var casting = new Casting.CastingSystem(zones, query, layers, interpreter);
-        // CR 510.1 and 703.4m: combat damage is the turn system's action, so it needs the combat system.
-        // CR 508.1h with 118.6: a cost to attack that is not mana is paid through the casting
-        // system, which is the system built with the zone system a cost context needs.
-        var combat = new Combat.CombatSystem(layers, query) { Casting = casting };
-        var turn = new Turn.TurnSystem(zones, casting, combat, layers);
-        var sba = new Sba.StateBasedActions(zones, layers, query);
-        return new Subsystems(
-            query, zones, turn, casting, combat, sba, new Stubs.Triggers(), layers, new Stubs.Replacement(), interpreter, new Stubs.Choices(),
-            new MtgEngine.Rules.Views.ViewProjector(layers, enforced ?? (_ => true)),
-            new MtgEngine.Rules.Legal.LegalActions(casting, layers, combat, combat));
-    }
-
     /// <summary>
     /// What wave 2 built on top of wave 1: triggers, replacement, the interpreter, the choice
     /// system, views and legal actions are all real. Cards with abilities play through this one.
@@ -61,7 +31,7 @@ public sealed record Subsystems(
     {
         var layers = new Layers.LayerSystem();
         var query = new Query.Query(layers);
-        var zones = new Zones.ZoneSystem();
+        var zones = new Zones.ZoneSystem { Characteristics = layers };
 
         // The replacement system runs an "instead" effect through the interpreter, and the
         // interpreter offers its damage through the replacement system: a cycle, broken by a
@@ -152,6 +122,10 @@ public sealed class Game(Subsystems subsystems, IDefinitionStore store)
             return new Refused($"{state.Pending.Player} has a choice to make first: {state.Pending.Prompt}", "101.4");
         if (state.Pending is not null && command is AnswerChoice answer && answer.Player != state.Pending.Player)
             return new Refused("That choice is not yours to make.", "101.4");
+        if (command is DeclareAttackers && state.Turn.Step != Step.DeclareAttackers)
+            return new Refused("Declare attackers during the declare attackers step.", "508.1");
+        if (command is DeclareBlockers && state.Turn.Step != Step.DeclareBlockers)
+            return new Refused("Declare blockers during the declare blockers step.", "509.1");
 
         try
         {
@@ -169,9 +143,30 @@ public sealed class Game(Subsystems subsystems, IDefinitionStore store)
                 ManualTap m => Manual(state, m),
                 ManualCounters m => Manual(state, m),
                 ManualLife m => Manual(state, m),
+                ManualLibraryCommand m => new Library.ManualLibraryCoordinator(Engine.Zones,
+                    new Interpreter.ManualLibrarySearchAdapter(Engine.Interpreter)).Execute(state, m),
                 _ => throw new RefusedException($"Unknown command {command.GetType().Name}."),
             };
-            var settled = Settle(outcome.State, outcome.Events);
+            // An action breaks the succession of passes. Declarations finish before anyone
+            // gets priority; multiple defending players are one complete declaration.
+            PlayerId? grant = command switch
+            {
+                CastSpell c => c.Player,
+                ActivateAbility a => a.Player,
+                PlayLand p => p.Player,
+                DeclareAttackers => state.Turn.ActivePlayer,
+                DeclareBlockers when outcome.State.Combat is { BlockersDeclared: true } => state.Turn.ActivePlayer,
+                _ => null,
+            };
+            if (grant is { } holder && outcome.State.Pending is null && outcome.State.Outcome is null)
+            {
+                var priority = new PriorityGranted(holder);
+                outcome = outcome with { State = priority.Apply(outcome.State), Events = outcome.Events.Add(priority) };
+            }
+            var legacyEvents = state.Pending?.Context.DeferredTriggerEvents ?? [];
+            var pendingTriggers = state.Pending?.Context.DeferredTriggers ?? [];
+            var settled = Settle(outcome.State, legacyEvents.AddRange(outcome.Events), pendingTriggers,
+                legacyEvents.IsEmpty ? state : null);
             return new Applied(settled.State, outcome.Events.AddRange(settled.Events));
         }
         catch (RefusedException refused)
@@ -186,12 +181,37 @@ public sealed class Game(Subsystems subsystems, IDefinitionStore store)
     /// triggers of those, until a pass changes nothing. Stops at a pending choice.
     /// </summary>
     [RuleRef("704.3")]
-    public Outcome Settle(GameState state, IReadOnlyList<GameEvent>? since = null)
+    public Outcome Settle(GameState state, IReadOnlyList<GameEvent>? since = null,
+        ImmutableList<Triggers.PendingTrigger>? pendingTriggers = null,
+        GameState? before = null)
     {
         var all = ImmutableList<GameEvent>.Empty;
-        if (since is { Count: > 0 } && state.Pending is null && state.Outcome is null)
+        pendingTriggers ??= [];
+        if (before is not null && since is { Count: > 0 })
         {
-            var fired = Engine.Triggers.Collect(state, since);
+            var observed = Triggers.TriggerObservation.Capture(Engine.Triggers, before, since);
+            pendingTriggers = pendingTriggers.AddRange(observed.Triggers);
+            since = observed.Remaining;
+        }
+        if ((since is { Count: > 0 } || !pendingTriggers.IsEmpty) && state.Pending is { } pending && state.Outcome is null)
+        {
+            // Choice control events are not trigger occurrences and can recursively
+            // contain this continuation. Keep only the events of the operation itself.
+            var occurrences = (since ?? []).Where(e => e is not ChoiceRequested and not ChoiceAnswered).ToImmutableList();
+            var deferred = pendingTriggers.AddRange(Engine.Triggers.Detect(state, occurrences));
+            if (!deferred.IsEmpty)
+            {
+                var retained = new ChoiceRequested(pending with
+                {
+                    Context = pending.Context with { DeferredTriggerEvents = [], DeferredTriggers = deferred },
+                });
+                state = retained.Apply(state);
+                all = all.Add(retained);
+            }
+        }
+        if ((since is { Count: > 0 } || !pendingTriggers.IsEmpty) && state.Pending is null && state.Outcome is null)
+        {
+            var fired = Engine.Triggers.Collect(state, since ?? [], pendingTriggers);
             state = fired.State;
             all = all.AddRange(fired.Events);
         }
@@ -209,11 +229,12 @@ public sealed class Game(Subsystems subsystems, IDefinitionStore store)
                 break;
         }
 
-        return new Outcome(state, all);
+        var disclosures = new Library.LibraryRevealCoordinator(Engine.Characteristics).Reconcile(state);
+        return new Outcome(disclosures.State, all.AddRange(disclosures.Events));
     }
 
     [RuleRef("104.3a")]
-    private static Outcome ConcedeGame(GameState state, PlayerId player)
+    private Outcome ConcedeGame(GameState state, PlayerId player)
     {
         var events = ImmutableList.Create<GameEvent>(new PlayerLost(player, "conceded"));
         var next = GameReducer.Apply(state, events);
@@ -225,7 +246,7 @@ public sealed class Game(Subsystems subsystems, IDefinitionStore store)
             next = ended.Apply(next);
         }
 
-        return new Outcome(next, events);
+        return new Outcome(next, events).Then(after => Engine.Turn.AfterMulligans(after, player));
     }
 
     /// <summary>Honour-system actions. The table decides which objects may be handled this way; here they are only logged and applied.</summary>
@@ -233,6 +254,12 @@ public sealed class Game(Subsystems subsystems, IDefinitionStore store)
     {
         ImmutableList<GameEvent> events = command switch
         {
+            ManualMove m when state.Objects.TryGetValue(m.Object, out var existing)
+                && existing.Zone == m.To && m.To.Zone == Zone.Library =>
+            [
+                new ManualActionTaken(m.Player, "move", m.Object, "Library to Library"),
+                new ZoneReordered(m.To, Library.LibraryOrder.Place(state.In(m.To), m.Object, m.Position)),
+            ],
             ManualMove m when state.Objects.TryGetValue(m.Object, out var obj) =>
             [
                 new ManualActionTaken(m.Player, "move", m.Object, $"{obj.Zone.Zone} to {m.To.Zone}"),

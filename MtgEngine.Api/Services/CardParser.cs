@@ -146,6 +146,9 @@ internal static class CardParser
                 ImageUriArtCrop = imgArtCrop,
                 FlavorText = flavorText,
                 Artist = artist,
+                EdhrecRank = json.TryGetProperty("edhrec_rank", out var rank) && rank.ValueKind == JsonValueKind.Number && rank.TryGetInt32(out var rankValue) ? rankValue : null,
+                CollectorNumber = json.TryGetProperty("collector_number", out var number) ? number.GetString() : null,
+                ProducedMana = json.TryGetProperty("produced_mana", out var produced) && produced.ValueKind == JsonValueKind.Array ? produced.EnumerateArray().Select(p => p.GetString() ?? "").Where(p => p is "W" or "U" or "B" or "R" or "G" or "C").Distinct().ToArray() : null,
                 SetCode = setCode,
                 Rarity = rarity,
                 Legalities = legalities,
@@ -164,7 +167,7 @@ internal static class CardParser
     /// printing. Prices replace wholesale when given — falling back per-field would show
     /// another printing's price for a finish this printing does not have.
     /// </summary>
-    public static CardDefinition WithPrinting(CardDefinition oracle, string? imgNormal, string? imgLarge, string? imgSmall, string? imgArtCrop, string? setCode, string? imgNormalBack = null, CardPrices? prices = null) =>
+    public static CardDefinition WithPrinting(CardDefinition oracle, string? imgNormal, string? imgLarge, string? imgSmall, string? imgArtCrop, string? setCode, string? imgNormalBack = null, CardPrices? prices = null, string? collectorNumber = null) =>
         new()
         {
             OracleId = oracle.OracleId,
@@ -190,6 +193,9 @@ internal static class CardParser
             ImageUriNormalBack = imgNormalBack ?? oracle.ImageUriNormalBack,
             ImageUriSmall = imgSmall ?? oracle.ImageUriSmall,
             ImageUriArtCrop = imgArtCrop ?? oracle.ImageUriArtCrop,
+            CollectorNumber = collectorNumber,
+            ProducedMana = oracle.ProducedMana,
+            EdhrecRank = oracle.EdhrecRank,
             SetCode = setCode ?? oracle.SetCode,
             Legalities = oracle.Legalities,
             GameChanger = oracle.GameChanger,

@@ -36,7 +36,7 @@ internal sealed class InterpreterTestsEnteringTable
     {
         _game = new Game(Subsystems.Wave2(), new InterpreterTestsEnteringDefinitions());
         var created = _game.Create(new GameSetup(
-            [new PlayerStart("One", deckZero, []), new PlayerStart("Two", deckOne, [])],
+            [new PlayerStart("One", [.. deckZero], []), new PlayerStart("Two", [.. deckOne], [])],
             Seed: 7,
             StartingLife: 20,
             Format: "test"));
@@ -169,6 +169,19 @@ internal sealed class InterpreterTestsEnteringTable
                 throw new InvalidOperationException($"{pending.Player} was asked \"{pending.Prompt}\" ({pending.Kind}) in turn {State.Turn.Number} {State.Turn.Step}; nothing else happens until it is answered (CR 101.4).");
             if (State.Turn.Number == turn && State.Turn.Step == step)
                 return;
+
+            // Declarations are turn-based actions before priority, not passes that skip a step.
+            if (State.Priority.Holder is null && State.Turn.Step == Step.DeclareAttackers)
+            {
+                Do(new DeclareAttackers(State.Turn.ActivePlayer, []));
+                continue;
+            }
+            if (State.Priority.Holder is null && State.Turn.Step == Step.DeclareBlockers && State.Combat is { } fight)
+            {
+                var defender = fight.DefendingPlayers.First(p => !fight.BlockersDeclaredBy.Contains(p));
+                Do(new DeclareBlockers(defender, []));
+                continue;
+            }
 
             var holder = State.Priority.Holder ?? throw new InvalidOperationException($"Nobody holds priority in turn {State.Turn.Number} {State.Turn.Step}.");
             Do(new PassPriority(holder));

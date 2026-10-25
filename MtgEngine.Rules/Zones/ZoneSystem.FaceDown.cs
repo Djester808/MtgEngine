@@ -35,7 +35,7 @@ public sealed partial class ZoneSystem
     /// a face-down permanent is turned face up onto the face it was manifested or cast on.
     /// </summary>
     [RuleRef("701.40a")]
-    public Outcome Move(GameState state, ObjectId what, ZoneKey to, Placement where, bool tapped, PlayerId? controller, int? faceIndex, bool faceDown)
+    public Outcome Move(GameState state, ObjectId what, ZoneKey to, Placement where, bool tapped, PlayerId? controller, int? faceIndex, bool faceDown, IEnumerable<string>? usedReplacements = null)
     {
         ArgumentNullException.ThrowIfNull(state);
         if (Proposal(state, state, what, to, where, tapped, controller, faceIndex, faceDown) is not { } proposed)
@@ -47,7 +47,7 @@ public sealed partial class ZoneSystem
         // counters, a different zone, nothing at all, or a question that stops the game. CR 701.40f
         // is the same road: a face-down object a rule keeps off the battlefield is not manifested
         // at all, and a move nothing performed leaves the card exactly where it was.
-        tape.AddAll(Offer(state, proposed, AffectedBy(state, proposed)));
+        tape.AddAll(ApplyMove(state, state, proposed, usedReplacements));
         return tape.Done();
     }
 }

@@ -142,8 +142,8 @@ public sealed class SeamTests
     [RuleRef("103.1")]
     public void The_starting_player_is_decided_at_creation_and_takes_the_first_turn()
     {
-        var setup = new GameSetup([new PlayerStart("One", Deck(), []), new PlayerStart("Two", Deck(), [])], Seed: 7, StartingPlayer: 1);
-        var game = new Game(Subsystems.Wave1(), new Definitions());
+        var setup = new GameSetup([new PlayerStart("One", [.. Deck()], []), new PlayerStart("Two", [.. Deck()], [])], Seed: 7, StartingPlayer: 1);
+        var game = new Game(LegacySubsystems.Create(), new Definitions());
 
         var created = game.Create(setup);
 
@@ -167,7 +167,7 @@ public sealed class SeamTests
 
     private sealed class Definitions : IDefinitionStore
     {
-        private static readonly CardDefinition Vanilla = Board.Creature(2, 2, "vanilla bear");
+        private static readonly CardDefinition Vanilla = Board.Creature(2, 2, "vanilla bear") with { OracleId = "oracle-vanilla" };
 
         public CardDefinition? ByName(string name) => name == Vanilla.Name ? Vanilla : null;
 

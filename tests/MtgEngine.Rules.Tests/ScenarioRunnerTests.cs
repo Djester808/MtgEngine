@@ -14,6 +14,7 @@ namespace MtgEngine.Rules.Tests;
 /// </summary>
 public sealed class ScenarioRunnerTests
 {
+
     private const string Bolt = "runner-bolt";
     private const string Bear = "runner-bear";
 

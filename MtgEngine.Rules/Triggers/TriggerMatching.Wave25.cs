@@ -20,6 +20,7 @@ internal sealed partial class TriggerMatching
         {
             Searches searches => Searched(state, searches, happened, ctx),
             BecomesMonarch monarch => BecameMonarch(state, monarch, happened, ctx),
+            TakesInitiative initiative => TookInitiative(state, initiative, happened, ctx),
             _ => Wave27(state, trigger, happened, ctx),
         };
 
@@ -67,6 +68,17 @@ internal sealed partial class TriggerMatching
     private ImmutableList<TriggerSubject> BecameMonarch(GameState state, BecomesMonarch trigger, Ev.GameEvent happened, EffectContext ctx)
     {
         if (happened is not Ev.MonarchChanged changed)
+            return [];
+        return _query.Players(state, trigger.Who, ctx).Contains(changed.Player)
+            ? [TriggerSubject.OfPlayer(changed.Player)]
+            : [];
+    }
+
+    /// <summary>"Whenever you take the initiative", CR 726.2 - the monarch's twin.</summary>
+    [RuleRef("726.2")]
+    private ImmutableList<TriggerSubject> TookInitiative(GameState state, TakesInitiative trigger, Ev.GameEvent happened, EffectContext ctx)
+    {
+        if (happened is not Ev.InitiativeChanged changed)
             return [];
         return _query.Players(state, trigger.Who, ctx).Contains(changed.Player)
             ? [TriggerSubject.OfPlayer(changed.Player)]

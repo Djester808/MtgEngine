@@ -17,6 +17,86 @@ namespace MtgEngine.Api.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.10");
 
+            modelBuilder.Entity("MtgEngine.Domain.Models.AccountCode", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Hash")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("UsedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "Purpose");
+
+                    b.ToTable("AccountCodes");
+                });
+
+            modelBuilder.Entity("MtgEngine.Domain.Models.AccountSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DeviceLabel")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("FamilyId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("LastUsedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RefreshHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RefreshHash")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "FamilyId");
+
+                    b.ToTable("AccountSessions");
+                });
+
             modelBuilder.Entity("MtgEngine.Domain.Models.AiResponseCache", b =>
                 {
                     b.Property<Guid>("Id")
@@ -172,6 +252,9 @@ namespace MtgEngine.Api.Migrations
                     b.Property<string>("Notes")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("SecondaryCommanderOracleId")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Tags")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -211,6 +294,22 @@ namespace MtgEngine.Api.Migrations
                     b.Property<Guid>("CollectionId")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Condition")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FinishMetadataJson")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("{}");
+
+                    b.Property<string>("Language")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(8)
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("en");
+
                     b.Property<string>("Notes")
                         .HasMaxLength(1000)
                         .HasColumnType("TEXT");
@@ -223,11 +322,25 @@ namespace MtgEngine.Api.Migrations
                     b.Property<decimal?>("PriceUsdAtAdd")
                         .HasColumnType("TEXT");
 
+                    b.Property<decimal?>("PriceUsdEtchedAtAdd")
+                        .HasColumnType("TEXT");
+
                     b.Property<decimal?>("PriceUsdFoilAtAdd")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PurchaseCurrency")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal?>("PurchasePrice")
                         .HasColumnType("TEXT");
 
                     b.Property<int>("Quantity")
                         .HasColumnType("INTEGER");
+
+                    b.Property<int>("QuantityEtched")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
 
                     b.Property<int>("QuantityFoil")
                         .HasColumnType("INTEGER");
@@ -236,18 +349,24 @@ namespace MtgEngine.Api.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("TagsJson")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("[]");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CollectionId");
 
                     b.HasIndex("CollectionId", "OracleId");
 
-                    b.HasIndex("CollectionId", "OracleId", "Board")
+                    b.HasIndex("CollectionId", "OracleId", "Board", "Language")
                         .IsUnique()
                         .HasDatabaseName("IX_CollectionCards_Unpinned_Unique")
                         .HasFilter("\"ScryfallId\" IS NULL");
 
-                    b.HasIndex("CollectionId", "ScryfallId", "Board")
+                    b.HasIndex("CollectionId", "ScryfallId", "Board", "Language")
                         .IsUnique();
 
                     b.ToTable("CollectionCards");
@@ -305,6 +424,12 @@ namespace MtgEngine.Api.Migrations
                     b.Property<int>("QuantityDelta")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int>("QuantityEtchedAfter")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("QuantityEtchedDelta")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("QuantityFoilAfter")
                         .HasColumnType("INTEGER");
 
@@ -329,6 +454,40 @@ namespace MtgEngine.Api.Migrations
                     b.HasIndex("UserId", "OracleId", "CreatedAt");
 
                     b.ToTable("CollectionCardEvents");
+                });
+
+            modelBuilder.Entity("MtgEngine.Domain.Models.CollectionUndo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AfterHash")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BeforeJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("CollectionId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("UsedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "ExpiresAt");
+
+                    b.ToTable("CollectionUndos");
                 });
 
             modelBuilder.Entity("MtgEngine.Domain.Models.ForumComment", b =>
@@ -413,6 +572,22 @@ namespace MtgEngine.Api.Migrations
                     b.HasIndex("PublishedAt");
 
                     b.ToTable("ForumPosts");
+                });
+
+            modelBuilder.Entity("MtgEngine.Domain.Models.GameLobbyMember", b =>
+                {
+                    b.Property<Guid>("LobbyId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UserId")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("LobbyId", "UserId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("GameLobbyMembers");
                 });
 
             modelBuilder.Entity("MtgEngine.Domain.Models.GameReport", b =>
@@ -564,6 +739,30 @@ namespace MtgEngine.Api.Migrations
                     b.ToTable("PersistedGames");
                 });
 
+            modelBuilder.Entity("MtgEngine.Domain.Models.PersistedGameLobby", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("StateJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UpdatedAt");
+
+                    b.ToTable("GameLobbies");
+                });
+
             modelBuilder.Entity("MtgEngine.Domain.Models.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -580,6 +779,9 @@ namespace MtgEngine.Api.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("DisplayName")
                         .HasMaxLength(64)
                         .HasColumnType("TEXT");
@@ -589,6 +791,9 @@ namespace MtgEngine.Api.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTime?>("EmailVerifiedAt")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("FavoriteCommanderOracleId")
                         .HasMaxLength(64)
                         .HasColumnType("TEXT");
@@ -596,6 +801,9 @@ namespace MtgEngine.Api.Migrations
                     b.Property<string>("FavoriteFormat")
                         .HasMaxLength(32)
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("HideProfileDecks")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
@@ -607,13 +815,22 @@ namespace MtgEngine.Api.Migrations
                     b.Property<DateTime?>("ProfileUpdatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("PublicCollection")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Tagline")
                         .HasMaxLength(120)
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("TokenVersion")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Username")
                         .IsRequired()
                         .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("UsernameChangedAt")
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
@@ -660,6 +877,24 @@ namespace MtgEngine.Api.Migrations
                     b.ToTable("UserAvatars");
                 });
 
+            modelBuilder.Entity("MtgEngine.Domain.Models.AccountCode", b =>
+                {
+                    b.HasOne("MtgEngine.Domain.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("MtgEngine.Domain.Models.AccountSession", b =>
+                {
+                    b.HasOne("MtgEngine.Domain.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("MtgEngine.Domain.Models.CollectionCard", b =>
                 {
                     b.HasOne("MtgEngine.Domain.Models.Collection", "Collection")
@@ -680,6 +915,15 @@ namespace MtgEngine.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("ForumPost");
+                });
+
+            modelBuilder.Entity("MtgEngine.Domain.Models.GameLobbyMember", b =>
+                {
+                    b.HasOne("MtgEngine.Domain.Models.PersistedGameLobby", null)
+                        .WithMany("Members")
+                        .HasForeignKey("LobbyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("MtgEngine.Domain.Models.LifeMatchSeat", b =>
@@ -715,6 +959,11 @@ namespace MtgEngine.Api.Migrations
             modelBuilder.Entity("MtgEngine.Domain.Models.LifeMatch", b =>
                 {
                     b.Navigation("Seats");
+                });
+
+            modelBuilder.Entity("MtgEngine.Domain.Models.PersistedGameLobby", b =>
+                {
+                    b.Navigation("Members");
                 });
 #pragma warning restore 612, 618
         }

@@ -181,4 +181,131 @@ public sealed partial class InterpreterTests
     /// <summary>The id the open search question gave this card, which is what an answer names.</summary>
     private static string Option(InterpreterTable table, ObjectId id) =>
         table.Pending.Options.Single(o => o.Object == id).Id;
+
+    /* ---------------------------------------------------------------------------------------- *
+     * CR 701.23b — how much of the answer is compulsory, judged zone by zone.
+     * ---------------------------------------------------------------------------------------- */
+
+    /// <summary>
+    /// CR 101.4: a question whose minimum is higher than its options is a question nobody can
+    /// answer — the choice system refuses every answer below the minimum — and the game never moves
+    /// again. A mandatory search of a zone holding nothing that matches is exactly that shape.
+    /// </summary>
+    [Fact]
+    [RuleRef("101.4")]
+    public void A_mandatory_search_that_can_find_nothing_can_still_be_answered()
+    {
+        var table = new InterpreterTable();
+        table.Resolve(table.OnStack(table.A, new Search(new ObjectFilter(Types: CardType.Creature), Zone.Hand, From: Zone.Graveyard)));
+
+        Assert.Empty(table.Pending.Options);
+        Assert.Equal(0, table.Pending.Min);
+    }
+
+    /// <summary>CR 701.23b: a card matching in a PUBLIC zone has to be found.</summary>
+    [Fact]
+    [RuleRef("701.23b")]
+    public void A_search_of_a_public_zone_that_can_find_something_must_find_it()
+    {
+        var table = new InterpreterTable();
+        table.Card(table.A, Zone.Graveyard);
+        table.Resolve(table.OnStack(table.A, new Search(new ObjectFilter(Types: CardType.Creature), Zone.Hand, From: Zone.Graveyard)));
+
+        Assert.Single(table.Pending.Options);
+        Assert.Equal(1, table.Pending.Min);
+    }
+
+    /// <summary>CR 701.23b: a hidden zone never has to give the card up, however much it holds.</summary>
+    [Fact]
+    [RuleRef("701.23b")]
+    public void A_search_of_a_hidden_zone_need_not_find_anything()
+    {
+        var table = new InterpreterTable();
+        table.Card(table.A, Zone.Library);
+        table.Resolve(table.OnStack(table.A, new Search(new ObjectFilter(Types: CardType.Creature), Zone.Hand)));
+
+        Assert.Single(table.Pending.Options);
+        Assert.Equal(0, table.Pending.Min);
+    }
+
+    /// <summary>
+    /// CR 701.23b read over the whole search rather than zone by zone: one public zone among the
+    /// zones made the search compulsory, so a search of a graveyard and a library with a match in
+    /// neither asked for one card out of no options and stopped the game (CR 101.4).
+    /// </summary>
+    [Fact]
+    [RuleRef("701.23b")]
+    public void A_search_of_a_hidden_and_a_public_zone_asks_only_for_what_the_public_zone_holds()
+    {
+        var table = new InterpreterTable();
+        table.Card(table.A, Zone.Library);
+        var search = new Search(
+            new ObjectFilter(Types: CardType.Creature),
+            Zone.Hand,
+            Zones: [Zone.Library, Zone.Graveyard]);
+
+        table.Resolve(table.OnStack(table.A, search));
+
+        // The graveyard holds nothing that matches, so nothing is compulsory; the library's card
+        // is offered and may be left where it is.
+        Assert.Single(table.Pending.Options);
+        Assert.Equal(0, table.Pending.Min);
+    }
+
+    /// <summary>CR 701.23b: the same search, with the graveyard now holding one. That one must be found.</summary>
+    [Fact]
+    [RuleRef("701.23b")]
+    public void The_public_half_of_a_mixed_search_is_still_compulsory()
+    {
+        var table = new InterpreterTable();
+        table.Card(table.A, Zone.Library);
+        table.Card(table.A, Zone.Graveyard);
+        var search = new Search(
+            new ObjectFilter(Types: CardType.Creature),
+            Zone.Hand,
+            Zones: [Zone.Library, Zone.Graveyard]);
+
+        table.Resolve(table.OnStack(table.A, search));
+
+        Assert.Equal(2, table.Pending.Options.Count);
+        Assert.Equal(1, table.Pending.Min);
+    }
+
+    /// <summary>CR 701.23b: "up to" asks for nothing at all, in any zone.</summary>
+    [Fact]
+    [RuleRef("701.23b")]
+    public void An_up_to_search_of_a_public_zone_need_not_find_anything()
+    {
+        var table = new InterpreterTable();
+        table.Card(table.A, Zone.Graveyard);
+        var search = new Search(
+            new ObjectFilter(Types: CardType.Creature),
+            Zone.Hand,
+            new Fixed(2),
+            From: Zone.Graveyard);
+
+        table.Resolve(table.OnStack(table.A, search));
+
+        Assert.Equal(0, table.Pending.Min);
+        Assert.Equal(2, table.Pending.Max);
+    }
+
+    /// <summary>
+    /// CR 701.23b with 101.4: three cards in a graveyard and a search for one. The minimum is what
+    /// the search allows, never what the zone holds.
+    /// </summary>
+    [Fact]
+    [RuleRef("101.4")]
+    public void A_compulsory_search_never_asks_for_more_than_it_allows()
+    {
+        var table = new InterpreterTable();
+        table.Card(table.A, Zone.Graveyard);
+        table.Card(table.A, Zone.Graveyard);
+        table.Card(table.A, Zone.Graveyard);
+        table.Resolve(table.OnStack(table.A, new Search(new ObjectFilter(Types: CardType.Creature), Zone.Hand, From: Zone.Graveyard)));
+
+        Assert.Equal(3, table.Pending.Options.Count);
+        Assert.Equal(1, table.Pending.Min);
+        Assert.Equal(1, table.Pending.Max);
+    }
 }

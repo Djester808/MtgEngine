@@ -20,7 +20,24 @@ public sealed record GameView(
     ImmutableList<ObjectView> Hand,
     ImmutableList<ObjectView> Exile,
     PendingChoice? Pending,
-    GameOutcome? Outcome);
+    GameOutcome? Outcome)
+{
+    public bool ManualLibraryActionsAllowed { get; init; }
+    public bool ManualLibraryLookActive { get; init; }
+
+    /// <summary>Most recent public reveal; historical details, never live hidden-zone objects.</summary>
+    public CardReveal? LastReveal { get; init; }
+    public CardReveal? LastLook { get; init; }
+    public ImmutableList<ObjectView> InspectedLibraryCards { get; init; } = [];
+
+    /// <summary>Board references for supported table sizes; existing zone payloads remain authoritative.</summary>
+    public TableView? Table { get; init; }
+
+    public CombatView? Combat { get; init; }
+
+    /// <summary>Cards explicitly offered by the viewer's current library or opening-hand choice.</summary>
+    public ImmutableList<ObjectView> ChoiceCards { get; init; } = [];
+}
 
 /// <summary>
 /// What is known about one player, CR 400.2. Every field but the last is state read straight off
@@ -33,6 +50,9 @@ public sealed record GameView(
 [RuleRef("702.16j")]
 public sealed record PlayerView(PlayerId Id, string Name, int Life, int HandCount, int LibraryCount, int GraveyardCount, ImmutableDictionary<string, int> Counters, ManaPool Mana, ImmutableList<ObjectView> Graveyard, ImmutableList<ObjectView> Command, bool ProtectionFromEverything = false)
 {
+    public bool HasLost { get; init; }
+
+    public int LandsPlayedThisTurn { get; init; }
     /// <summary>
     /// CR 401.5: while an effect has this player playing with the top card of their library
     /// revealed, that card is revealed — to <em>every</em> player, which is the whole difference
@@ -40,15 +60,17 @@ public sealed record PlayerView(PlayerId Id, string Name, int Life, int HandCoun
     /// null for every other seat, and a library is otherwise <see cref="LibraryCount"/> and
     /// nothing else, so no viewer learns a card this rule does not show them.
     /// <para>
-    /// CR 401.6 rides on the id: the card is shown by the object it is, so a top card that stops
-    /// being revealed and is revealed again arrives here under whatever id the zone system gave
-    /// the new object, and a client that keyed on the old one sees it replaced rather than
-    /// updated. It is a body property rather than a positional one so that no existing
+    /// This projection uses the current object's id; it does not implement the reveal-history
+    /// identity transitions required by CR 401.6. Those belong to authoritative state.
+    /// It is a body property rather than a positional one so that no existing
     /// construction of a seat moves for a field most games never fill.
     /// </para>
     /// </summary>
     [RuleRef("401.5")]
     public ObjectView? RevealedTopCard { get; init; }
+
+    /// <summary>The top card this viewer may privately inspect; never sent to other seats.</summary>
+    public ObjectView? LookableTopCard { get; init; }
 }
 
 public sealed record ObjectView(
@@ -94,7 +116,46 @@ public sealed record ObjectView(
     /// It is public — the stack is a public zone (CR 400.2) — and it is what makes CR 704.5e
     /// legible at the table: this is the object that ceases to exist when it leaves.
     /// </summary>
-    bool IsCopy = false);
+    bool IsCopy = false)
+{
+    public string? PrintingId { get; init; }
+    public CardFinish? Finish { get; init; }
+    public string ArtworkKey => CardArtwork.Key(OracleId, PrintingId);
+
+    public string? ManaCost { get; init; }
+
+    /// <summary>Authoritative stack category; source card types do not classify abilities.</summary>
+    public string? StackKind { get; init; }
+
+    public string? OracleText { get; init; }
+
+    public ImmutableList<string> Colors { get; init; } = [];
+
+    public bool IsToken { get; init; }
+
+    public bool SummoningSick { get; init; }
+
+    public int TargetCount { get; init; }
+
+    public ImmutableList<ActivatedAbilityView> Abilities { get; init; } = [];
+
+    public ImmutableList<ObjectId> Targets { get; init; } = [];
+
+    public ImmutableList<PlayerId> TargetPlayers { get; init; } = [];
+}
+
+public sealed record ActivatedAbilityView(int Index, string Text, bool RequiresTap, bool IsManaAbility, int TargetCount, bool AnnouncesVariable);
+
+public sealed record CombatAttackView(ObjectId Attacker, PlayerId? DefendingPlayer, ObjectId? DefendingPermanent);
+
+public sealed record CombatBlockView(ObjectId Attacker, ImmutableList<ObjectId> Blockers);
+
+public sealed record CombatView(ImmutableList<CombatAttackView> Attackers, ImmutableList<CombatBlockView> Blocks, bool AttackersDeclared, bool BlockersDeclared)
+{
+    public ImmutableList<PlayerId> DefendingPlayers { get; init; } = [];
+
+    public ImmutableList<PlayerId> BlockersDeclaredBy { get; init; } = [];
+}
 
 /// <summary>What a player may do now. The client enables controls from this and reasons about nothing.</summary>
 public sealed record LegalActions(

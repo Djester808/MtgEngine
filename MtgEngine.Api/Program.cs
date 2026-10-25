@@ -19,7 +19,7 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new() { Title = "MTG Engine API", Version = "v1" });
+    c.SwaggerDoc("v1", new() { Title = "Compleat API", Version = "v1" });
 });
 
 // ---- HTTP clients ----------------------------------------
@@ -28,7 +28,7 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddHttpClient("ScryfallApi", client =>
 {
     client.BaseAddress = new Uri("https://api.scryfall.com/");
-    client.DefaultRequestHeaders.Add("User-Agent", "MtgEngine/0.1 (contact@example.com)");
+    client.DefaultRequestHeaders.Add("User-Agent", "Compleat/0.1 (contact@example.com)");
     client.DefaultRequestHeaders.Add("Accept", "application/json");
     client.Timeout = TimeSpan.FromSeconds(15);
 });
@@ -36,7 +36,7 @@ builder.Services.AddHttpClient("ScryfallApi", client =>
 // Bulk-data downloads — large files, longer timeout, auto-decompress
 builder.Services.AddHttpClient("ScryfallBulk", client =>
 {
-    client.DefaultRequestHeaders.Add("User-Agent", "MtgEngine/0.1 (contact@example.com)");
+    client.DefaultRequestHeaders.Add("User-Agent", "Compleat/0.1 (contact@example.com)");
     client.Timeout = TimeSpan.FromMinutes(20);
 }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
 {
@@ -56,6 +56,7 @@ builder.Services.AddSingleton<IScryfallService>(sp => sp.GetRequiredService<Bulk
 // Same instance behind the narrower interface, for the callers that only resolve cards
 // and never scan the corpus. They ask for less; they still get the bulk implementation.
 builder.Services.AddSingleton<ICardLookup>(sp => sp.GetRequiredService<BulkDataService>());
+builder.Services.AddSingleton<IPrintedCardLookup>(sp => sp.GetRequiredService<BulkDataService>());
 
 // Background worker: downloads/refreshes bulk files on startup and daily
 builder.Services.AddHostedService<BulkDataRefreshWorker>();
@@ -132,18 +133,27 @@ builder.Services.AddSingleton(new CardImplementationOptions(
 builder.Services.AddSingleton<CardImplementationService>();
 
 builder.Services.AddSingleton<IGameLogStore, GameLogStore>();
+builder.Services.AddSingleton<IGameLobbyStore, GameLobbyStore>();
+builder.Services.AddScoped<IGameLobbyDecks, GameLobbyDecks>();
+builder.Services.AddScoped<CommanderDeckAdmission>();
+builder.Services.AddScoped<GameLobbyService>();
+builder.Services.AddScoped<GameLobbyStartup>();
 
 // Singleton: it holds the live tables. Wave2() is the engine as it stands, composed per table
 // with the oracle ids that table enforces, so a view can say which cards the engine plays.
+builder.Services.AddSingleton<GameDefinitionResolver>();
 builder.Services.AddSingleton(sp => new GameSessionService(
     sp.GetRequiredService<IGameLogStore>(),
     sp.GetRequiredService<ICardFilePool>(),
     sp.GetRequiredService<DeckGate>(),
-    enforced => MtgEngine.Rules.Engine.Subsystems.Wave2(enforced.Contains)));
+    enforced => MtgEngine.Rules.Engine.Subsystems.Wave2(enforced.Contains),
+    sp.GetRequiredService<GameDefinitionResolver>()));
 
 builder.Services.AddScoped<GameReportService>();
+builder.Services.AddScoped<GameArtworkService>();
 
-builder.Services.AddSignalR();
+builder.Services.AddSignalR().AddJsonProtocol(options =>
+    options.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 builder.Services.AddScoped<IAiCacheService, AiCacheService>();
 
@@ -159,14 +169,27 @@ builder.Services.AddScoped<IManaFineTuneService, ManaFineTuneService>();
 builder.Services.AddScoped<IAiBuildService, AiBuildService>();
 builder.Services.AddScoped<ICommanderSuggestionService, CommanderSuggestionService>();
 
+builder.Services.AddSingleton<MtgEngine.Api.Services.Community.EdhrecRequestGate>();
+builder.Services.AddTransient<MtgEngine.Api.Services.Community.EdhrecRequestHandler>();
+builder.Services.AddScoped<MtgEngine.Api.Services.Community.ExploreService>();
+builder.Services.AddScoped<MtgEngine.Api.Services.Community.ExploreDirectoryService>();
+builder.Services.AddScoped<MtgEngine.Api.Services.Community.ExploreDeckCopyService>();
+builder.Services.AddHttpClient("CommunityEdhrec", client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["Community:Edhrec:BaseUrl"] ?? "https://json.edhrec.com/");
+    client.DefaultRequestHeaders.Add("User-Agent", "Compleat/0.1");
+    client.Timeout = TimeSpan.FromSeconds(20);
+    client.MaxResponseContentBufferSize = 4 * 1024 * 1024;
+}).AddHttpMessageHandler<MtgEngine.Api.Services.Community.EdhrecRequestHandler>();
+
 // EDHREC JSON — community deck card recommendations
 builder.Services.AddHttpClient("EdhrecApi", client =>
 {
     client.BaseAddress = new Uri("https://json.edhrec.com/");
-    client.DefaultRequestHeaders.Add("User-Agent", "MtgEngine/0.1 (contact@example.com)");
+    client.DefaultRequestHeaders.Add("User-Agent", "Compleat/0.1 (contact@example.com)");
     client.DefaultRequestHeaders.Add("Accept", "application/json");
     client.Timeout = TimeSpan.FromSeconds(20);
-});
+}).AddHttpMessageHandler<MtgEngine.Api.Services.Community.EdhrecRequestHandler>();
 
 // ---- Deck import -----------------------------------------
 builder.Services.AddHttpClient("DeckImport", client =>
@@ -180,11 +203,30 @@ builder.Services.AddScoped<CommanderDeckSeeder>();
 
 // ---- Auth ------------------------------------------------
 builder.Services.AddScoped<TokenService>();
+builder.Services.AddScoped<AccountManagementService>();
+builder.Services.AddScoped<CollectionMetadataService>();
+builder.Services.AddScoped<CollectionExportService>();
+builder.Services.AddScoped<CollectionReadService>();
+builder.Services.AddScoped<CollectionOwnershipService>();
+builder.Services.AddScoped<CollectionMutationUndoService>();
+builder.Services.AddScoped<PublicCollectionService>();
+builder.Services.AddHostedService<CollectionUndoCleanupWorker>();
+builder.Services.AddScoped<IAccountEmailSender, AccountEmailSender>();
+builder.Services.AddSingleton(TimeProvider.System);
 
 var jwtKey = Encoding.UTF8.GetBytes(SecretConfig.JwtSecret(builder.Configuration));
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(opts =>
     {
+        opts.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async context =>
+            {
+                var accounts = context.HttpContext.RequestServices.GetRequiredService<AccountManagementService>();
+                if (context.Principal is null || !await accounts.ValidateAsync(context.Principal, context.HttpContext.RequestAborted))
+                    context.Fail("That account session is no longer valid.");
+            },
+        };
         opts.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuerSigningKey = true,

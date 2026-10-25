@@ -1,0 +1,259 @@
+@import url("./components.css");
+/* Compleat tokens mirror mtg-client/src/styles/global.scss. */
+:root {
+  --bg: #0a0a0b;
+  --panel: #111113;
+  --raised: #1b1b1f;
+  --line: #323239;
+  --text: #f0e8d8;
+  --muted: #c4b8a8;
+  --accent: #b800e0;
+  --accent-text: #df80f5;
+  --gold: var(--accent-text);
+  --danger: #efb2ae;
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  color-scheme: dark;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+button,
+select {
+  font: inherit;
+  min-height: 32px;
+  color: inherit;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--raised);
+  padding: 6px 10px;
+}
+button {
+  cursor: pointer;
+}
+button:hover {
+  background: #32323a;
+  border-color: #6a6a76;
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+button:focus-visible,
+select:focus-visible,
+a:focus-visible,
+.play-area:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+select {
+  max-width: 100%;
+  min-width: 0;
+}
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+h1 {
+  font-size: 20px;
+  letter-spacing: 2px;
+}
+h2 {
+  font-size: 15px;
+}
+h3 {
+  font-size: 13px;
+}
+p {
+  line-height: 1.5;
+}
+.quiet {
+  background: transparent;
+}
+.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+.primary:hover {
+  background: #ca33e9;
+}
+.text-button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+.eyebrow {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 1px;
+  margin-bottom: 3px;
+}
+.skip {
+  position: fixed;
+  left: 10px;
+  top: -100px;
+  background: var(--panel);
+  color: var(--text);
+  padding: 10px;
+  z-index: 9;
+}
+.skip:focus {
+  top: 10px;
+}
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.brand-mark {
+  font-size: 30px;
+  color: var(--accent-text);
+}
+.brand p {
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+.setup {
+  display: flex;
+  gap: 8px;
+  align-items: end;
+}
+.setup label {
+  display: grid;
+  gap: 3px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.setup select,
+.setup button {
+  font-size: 11px;
+}
+.setup button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  padding: 0 16px;
+  gap: 8px;
+}
+.session-bar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--muted);
+  min-height: 30px;
+}
+.session-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+}
+.tag {
+  color: var(--accent-text);
+  font-size: 9px;
+  letter-spacing: 1px;
+  background: #b800e018;
+  border: 1px solid #b800e050;
+  border-radius: 4px;
+  padding: 3px 5px;
+}
+.live-dot,
+.legend-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent-text);
+}
+.session-bar .text-button {
+  margin-left: auto;
+  font-size: 11px;
+}
+.turn-bar {
+  flex-shrink: 0;
+  display: flex;
+  gap: 22px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 8px 12px;
+  background: var(--panel);
+}
+.turn-bar strong {
+  font-size: 12px;
+  font-weight: 500;
+}
+.turn-bar ol {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  flex-wrap: wrap;
+}
+.turn-bar li {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--muted);
+}
+.turn-bar li:not(:last-child):after {
+  content: "→";
+  color: #777;
+}
+.turn-bar li span {
+  width: 23px;
+  height: 23px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+}
+.turn-bar li.active span {
+  border-color: var(--accent-text);
+  color: var(--accent-text);
+}
+.turn-bar button {
+  font-size: 11px;
+}
+.mobile-focus {
+  display: none;
+}

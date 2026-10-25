@@ -2,6 +2,7 @@ using System.Reflection;
 using MtgEngine.Cards;
 using MtgEngine.Rules.Choices;
 using MtgEngine.Rules.Commands;
+using MtgEngine.Rules.State;
 
 namespace MtgEngine.Rules.Tests;
 
@@ -157,9 +158,13 @@ public sealed partial class ChoiceResumptionTests
     {
         var board = new ChoiceResumptionBoard();
         var card = board.Put("a");
-        var choice = board.Ask(kind, ChoiceResumptionBoard.Options(card));
+        var choice = board.Ask(kind, kind == ChoiceKinds.Mulligan ? Declaration() : ChoiceResumptionBoard.Options(card));
 
-        choices.Answer(board.State, new AnswerChoice(First, choice.Id, ChoiceResumptionBoard.Answer(card)));
+        var state = kind == ChoiceKinds.Mulligan
+            ? board.State with { OpeningHands = new OpeningHandsState([new OpeningHandSeat(First, 1, 0)]) }
+            : board.State;
+        choices.Answer(state, new AnswerChoice(First, choice.Id,
+            kind == ChoiceKinds.Mulligan ? [ChoiceKinds.Keep] : ChoiceResumptionBoard.Answer(card)));
 
         Assert.Empty(interpreter.Resumed);
     }

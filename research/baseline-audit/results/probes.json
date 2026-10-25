@@ -1,0 +1,74 @@
+[
+  {
+    "Id": "ordinary_spell_waits_for_both_players",
+    "Rules": "117.4;608.2",
+    "Passed": true,
+    "Observed": "Waited through first pass True; final stack 0; controller life 21"
+  },
+  {
+    "Id": "two_spells_resolve_last_in_first_out_without_response_pass_history",
+    "Rules": "405.2;117.4",
+    "Passed": true,
+    "Observed": "After both pass: stack 1; controller life 22; expected top spell only"
+  },
+  {
+    "Id": "stack_lifo_and_response_resets_passes",
+    "Rules": "117.4;405.2",
+    "Passed": false,
+    "Observed": "Before final pass: 1 objects; afterward 1; life 20/22"
+  },
+  {
+    "Id": "mana_ability_resets_previous_passes",
+    "Rules": "117.3c;117.4;605.3",
+    "Passed": false,
+    "Observed": "Stack empty True; step BeginningOfCombat; priority P0; green 0"
+  },
+  {
+    "Id": "modal_spell_requires_modes_before_stack",
+    "Rules": "601.2b;700.2",
+    "Passed": false,
+    "Observed": "Accepted; stack 1; pending none; announced modes 0"
+  },
+  {
+    "Id": "legal_offer_includes_required_target_spell",
+    "Rules": "601.2c;117.1a",
+    "Passed": true,
+    "Observed": "Explicit targeted command accepted True; offer lists spell True"
+  },
+  {
+    "Id": "trample_after_all_blockers_leave",
+    "Rules": "702.19;510.1c",
+    "Passed": false,
+    "Observed": "Defender life 20; expected 15 from unopposed trample"
+  },
+  {
+    "Id": "first_striker_losing_first_strike_does_not_hit_twice",
+    "Rules": "510.4",
+    "Passed": false,
+    "Observed": "Attacker assigned 5 damage in second step after losing first strike"
+  },
+  {
+    "Id": "once_per_turn_trigger_stays_spent_after_countering",
+    "Rules": "603.2h",
+    "Passed": false,
+    "Observed": "New firings after first trigger ceased without resolving: 1"
+  },
+  {
+    "Id": "cleanup_trigger_gets_priority_before_next_turn",
+    "Rules": "514.3a",
+    "Passed": false,
+    "Observed": "After end-step passes: turn 2, step Upkeep, stack 0"
+  },
+  {
+    "Id": "starting_player_skips_entire_first_draw_step",
+    "Rules": "103.8a",
+    "Passed": false,
+    "Observed": "After first upkeep: Draw; expected PrecombatMain without draw-step priority"
+  },
+  {
+    "Id": "empty_combat_skips_blockers_and_damage",
+    "Rules": "508.8;506.1",
+    "Passed": false,
+    "Observed": "After empty attacker declaration and passes: DeclareBlockers; expected EndOfCombat"
+  }
+]

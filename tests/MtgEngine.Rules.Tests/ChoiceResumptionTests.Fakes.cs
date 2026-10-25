@@ -82,7 +82,7 @@ internal sealed class ChoiceResumptionFakeZones : IZoneSystem
         return MoveCore(state, what, to, where);
     }
 
-    public Outcome Draw(GameState state, PlayerId player, int count)
+    public Outcome Draw(GameState state, PlayerId player, int count, IEnumerable<string>? usedReplacements = null)
     {
         Draws.Add((player, count));
         var outcome = Outcome.Unchanged(state);
@@ -98,7 +98,7 @@ internal sealed class ChoiceResumptionFakeZones : IZoneSystem
         return outcome;
     }
 
-    public Outcome Shuffle(GameState state, PlayerId player)
+    public Outcome Shuffle(GameState state, PlayerId player, IEnumerable<string>? usedReplacements = null)
     {
         Shuffles.Add(player);
         var zone = ZoneKey.Of(Zone.Library, player);

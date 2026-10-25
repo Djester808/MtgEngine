@@ -19,6 +19,16 @@ public sealed class AiExceptionHandler(ILogger<AiExceptionHandler> logger) : IEx
     {
         var (status, title, detail) = exception switch
         {
+            MtgEngine.Rules.State.UnsupportedGameLogException =>
+                (StatusCodes.Status409Conflict, "Unsupported saved game",
+                 MtgEngine.Rules.State.UnsupportedGameLogException.Detail),
+
+            Community.CommunityDataException =>
+                (StatusCodes.Status502BadGateway, "Community data unavailable", "EDHREC could not be read. Please retry."),
+
+            AccountAuthenticationException e =>
+                (StatusCodes.Status401Unauthorized, "Sign in required", e.Message),
+
             ResourceNotFoundException e =>
                 (StatusCodes.Status404NotFound, "Not found", e.Message),
 

@@ -1,6 +1,5 @@
 using System.Text.Json;
 using MtgEngine.Cards;
-using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.State;
 
@@ -43,17 +42,6 @@ public sealed class WaveEightSeamTests
 
         Assert.Equal(bear, onBear.Objects[aura].AttachedTo);
         Assert.Null(onBear.Objects[aura].AttachedToPlayer);
-    }
-
-    [Fact]
-    [RuleRef("510.2")]
-    public void A_combat_system_without_resumption_says_so()
-    {
-        ICombatSystem combat = new Stubs.Combat();
-        var board = new Board();
-
-        var error = Assert.Throws<NotImplementedException>(() => combat.ResumeCombatDamage(board.State, false, 1));
-        Assert.Contains("E4c", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

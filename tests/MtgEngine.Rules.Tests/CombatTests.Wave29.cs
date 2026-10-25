@@ -124,7 +124,7 @@ public sealed class CombatWave29Tests
     [Fact]
     public void The_composed_game_hands_combat_the_casting_system_it_pays_through()
     {
-        foreach (var subsystems in new[] { Subsystems.Wave1(), Subsystems.Wave2() })
+        foreach (var subsystems in new[] { LegacySubsystems.Create(), Subsystems.Wave2() })
         {
             var combat = Assert.IsType<CombatSystem>(subsystems.Combat);
             Assert.Same(subsystems.Casting, combat.Casting);

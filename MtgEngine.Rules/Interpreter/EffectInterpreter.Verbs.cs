@@ -71,12 +71,7 @@ public sealed partial class EffectInterpreter
 
             // CR 121.1: drawing is the zone system's move, named as a draw for what watches it.
             case Cards.Draw draw:
-                {
-                    var count = Number(run, draw.N);
-                    foreach (var player in PlayersOrYou(run, draw.Who))
-                        run = Merge(run, zones.Draw(run.State, player, count));
-                    return run;
-                }
+                return Drawing(run, draw);
 
             // CR 119.3: life gain and loss are separate events, so effects can watch for one.
             case GainLife gain:
@@ -221,13 +216,25 @@ public sealed partial class EffectInterpreter
                     return run;
                 }
 
-            // Looking and revealing change no public state in this slice; what they are for is the
-            // memory a later step reads, and the per-player view, which is E14's.
+            // Disclosures preserve historical details without exposing live hidden-zone objects.
             case Cards.LookAt look:
-                return Recall(run, look.RememberAs, Objects(run, look.What));
+                {
+                    var looked = Objects(run, look.What);
+                    run = InspectDisclosedLibraries(run, looked, PlayersOrYou(run, look.Who));
+                    var cards = DisclosedCards(run, looked);
+                    if (!cards.IsEmpty)
+                        run = Emit(run, new CardsLookedAt(PlayersOrYou(run, look.Who), cards));
+                    return Recall(run, look.RememberAs, looked);
+                }
 
             case Cards.Reveal reveal:
-                return Recall(run, reveal.RememberAs, Objects(run, reveal.What));
+                {
+                    var revealed = Objects(run, reveal.What);
+                    return Recall(RevealCards(run, revealed, FirstPlayer(run, reveal.Who)), reveal.RememberAs, revealed);
+                }
+
+            case RevealUntil reveal:
+                return RevealingUntil(run, reveal);
 
             default:
                 return null;

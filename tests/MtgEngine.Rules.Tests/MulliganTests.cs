@@ -13,8 +13,97 @@ namespace MtgEngine.Rules.Tests;
 /// (CR 103.5c), and none of it happens during turn 1, which begins only after the last keep
 /// (CR 103.8).
 /// </summary>
+[Trait("Scope", "Deck")]
 public sealed class MulliganTests
 {
+    [Theory]
+    [InlineData(0)]
+    [InlineData(2)]
+    public void A_player_leaving_during_declarations_does_not_block_the_remaining_seats(int departed)
+    {
+        var table = new MulliganTable(players: 4);
+        table.Concede(new PlayerId(departed));
+        Assert.DoesNotContain(table.State.OpeningHands!.Seats, seat => seat.Player.Value == departed);
+        for (var i = 0; i < 3; i++)
+        {
+            Assert.NotEqual(departed, table.Pending.Player.Value);
+            table.Keep();
+        }
+        Assert.Null(table.State.Pending);
+        Assert.Equal(1, table.State.Turn.Number);
+        Assert.Equal(departed == 0 ? 1 : 0, table.State.Turn.ActivePlayer.Value);
+        var replay = GameReducer.Replay(table.Log);
+        Assert.Equal(table.State.Turn, replay.Turn);
+        Assert.Null(replay.OpeningHands);
+    }
+
+    [Fact]
+    public void A_player_leaving_with_a_bottom_choice_does_not_block_kept_players()
+    {
+        var table = new MulliganTable(players: 4);
+        table.Mulligan();
+        table.Keep();
+        table.Keep();
+        table.Keep();
+        table.Mulligan();
+        Assert.Equal(ChoiceKinds.MulliganBottom, table.Pending.Kind);
+        table.Concede(MulliganTable.P0);
+        Assert.Null(table.State.Pending);
+        Assert.Null(table.State.OpeningHands);
+        Assert.Equal(1, table.State.Turn.Number);
+        Assert.Equal(MulliganTable.P1, table.State.Turn.ActivePlayer);
+        Assert.Null(GameReducer.Replay(table.Log).Pending);
+    }
+
+    [Fact]
+    public void Repeated_mulligans_finish_at_zero_cards_without_another_declaration()
+    {
+        var table = new MulliganTable(players: 2);
+        for (var count = 1; count <= 7; count++)
+        {
+            table.Mulligan();
+            if (count == 1)
+                table.Keep();
+            Assert.Equal(ChoiceKinds.MulliganBottom, table.Pending.Kind);
+            Assert.Equal(count, table.Pending.Min);
+            table.Answer(table.Pending.Options.Take(count).Select(option => option.Id).ToArray());
+            Assert.Equal(7 - count, table.Hand(MulliganTable.P0).Count);
+        }
+        Assert.Null(table.State.Pending);
+        Assert.Null(table.State.OpeningHands);
+        Assert.Equal(1, table.State.Turn.Number);
+    }
+
+    [Fact]
+    public void Four_player_rounds_redraw_together_and_replay_the_pending_bottom_choice()
+    {
+        var table = new MulliganTable(players: 4);
+        var original = Enumerable.Range(0, 4).Select(i => table.Hand(new PlayerId(i))).ToArray();
+        for (var i = 0; i < 3; i++)
+        {
+            table.Mulligan();
+            for (var p = 0; p < 4; p++)
+                Assert.Equal(original[p], table.Hand(new PlayerId(p)));
+        }
+        table.Mulligan();
+        Assert.Equal(MulliganTable.P0, table.Pending.Player);
+        Assert.All(table.State.OpeningHands!.Seats, seat => Assert.Equal(0, seat.Mulligans));
+        table.Mulligan();
+        table.Keep();
+        table.Keep();
+        table.Keep();
+        Assert.Equal(ChoiceKinds.MulliganBottom, table.Pending.Kind);
+        Assert.Equal(1, table.Pending.Min);
+        var replay = GameReducer.Replay(table.Log);
+        Assert.Equal(table.Pending.Id, replay.Pending!.Id);
+        Assert.Equal(table.State.OpeningHands, replay.OpeningHands);
+        table.Answer(table.Pending.Options[0].Id);
+        table.Keep();
+        Assert.Null(table.State.OpeningHands);
+        Assert.Equal(1, table.State.Turn.Number);
+        Assert.Equal(6, table.Hand(MulliganTable.P0).Count);
+    }
+
     [Fact]
     public void Creating_a_game_stops_at_the_starting_players_declaration_before_turn_one()
     {
@@ -73,12 +162,16 @@ public sealed class MulliganTests
     }
 
     [Fact]
-    public void A_mulligan_shuffles_the_hand_back_draws_a_new_one_and_asks_again()
+    public void A_mulligan_waits_for_every_declaration_before_dealing_replacement_hands()
     {
         var table = new MulliganTable();
         var first = table.Hand(MulliganTable.P0);
 
-        var events = table.Mulligan();
+        var declaration = table.Mulligan();
+        Assert.Empty(declaration.OfType<ZoneReordered>());
+        Assert.Equal(first, table.Hand(MulliganTable.P0));
+        Assert.Equal(MulliganTable.P1, table.Pending.Player);
+        var events = table.Keep();
 
         // CR 103.5: shuffle the hand back into the library, then draw a new hand of the same size.
         Assert.Contains(events.OfType<ZoneReordered>(), z => z.Shuffle);
@@ -87,14 +180,14 @@ public sealed class MulliganTests
         Assert.Empty(second.Intersect(first));
 
         // CR 103.5: "then, if any player took a mulligan, the process is repeated".
-        Assert.Equal(ChoiceKinds.Mulligan, table.Pending.Kind);
+        Assert.Equal(ChoiceKinds.MulliganBottom, table.Pending.Kind);
         Assert.Equal(MulliganTable.P0, table.Pending.Player);
         Assert.Equal("1", table.Pending.Context.Extra["mulligans"]);
         Assert.Equal(0, table.State.Turn.Number);
     }
 
     [Fact]
-    public void Keeping_after_one_mulligan_puts_one_card_on_the_bottom_before_the_next_player_declares()
+    public void Bottoming_after_a_redraw_precedes_the_next_round_and_preserves_kept_seats()
     {
         var table = new MulliganTable();
         table.Mulligan();
@@ -114,8 +207,10 @@ public sealed class MulliganTests
         Assert.Equal(bottomed.Label, table.State.Objects[table.State.In(library)[^1]].Face.Name);
 
         // Only then does the next player declare; turn 1 still has not begun.
-        Assert.Equal(MulliganTable.P1, table.Pending.Player);
+        Assert.Equal(MulliganTable.P0, table.Pending.Player);
         Assert.Equal(0, table.State.Turn.Number);
+        table.Keep();
+        Assert.Equal(1, table.State.Turn.Number);
     }
 
     [Fact]
@@ -125,12 +220,16 @@ public sealed class MulliganTests
 
         table.Mulligan();
         table.Keep();
+        table.Keep();
+        table.Keep();
 
         // CR 103.5c: the first mulligan in a multiplayer game puts no card on the bottom, so
         // there is nothing to ask and the next player declares straight away.
         Assert.Equal(ChoiceKinds.Mulligan, table.Pending.Kind);
-        Assert.Equal(MulliganTable.P1, table.Pending.Player);
+        Assert.Equal(MulliganTable.P0, table.Pending.Player);
         Assert.Equal(7, table.Hand(MulliganTable.P0).Count);
+        table.Keep();
+        Assert.Equal(1, table.State.Turn.Number);
     }
 
     [Fact]

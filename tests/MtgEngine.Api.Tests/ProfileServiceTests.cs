@@ -38,6 +38,7 @@ public sealed class ProfileServiceTests : IDisposable
             PasswordHash = "x",
             CreatedAt = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc),
         };
+        _user.PublicCollection = true;
         _db.Users.Add(_user);
         _db.SaveChanges();
 
@@ -62,6 +63,33 @@ public sealed class ProfileServiceTests : IDisposable
                 Cards.TryGetValue(scryfallId, out var card)
                     ? card
                     : new CardDefinition { OracleId = scryfallId, Name = scryfallId });
+    }
+
+    [Fact]
+    public async Task Hidden_decks_are_removed_from_every_public_profile_rail_but_remain_visible_to_owner()
+    {
+        var deck = AddDeck("Private profile deck", "commander");
+        AddCard(deck, "card");
+        Publish(deck);
+        _user.HideProfileDecks = true;
+        await _db.SaveChangesAsync();
+        var profile = await _sut.GetPublicProfileAsync(_user.Username);
+        Assert.Equal(0, (await _sut.GetPlayersAsync(100)).Single(p => p.Username == _user.Username).DeckCount);
+        Assert.Empty(profile.PublishedDecks);
+        Assert.Empty(profile.RecentlyActive);
+        Assert.Empty(profile.TopDecks);
+        Assert.Empty(profile.TopCommanders);
+        Assert.Empty(profile.MostPlayedCards);
+        Assert.Empty(profile.Stats.Formats);
+        Assert.Null(profile.FavoriteCommander);
+        Assert.Equal(0, profile.Stats.DecksBuilt);
+        Assert.Equal(0, profile.DeckCount);
+        var owner = await _sut.GetMyProfileAsync(_user.Id);
+        Assert.Single(owner.Profile.PublishedDecks);
+        Assert.Equal(1, owner.Profile.Stats.DecksBuilt);
+        _user.HideProfileDecks = false;
+        await _db.SaveChangesAsync();
+        Assert.Single((await _sut.GetPublicProfileAsync(_user.Username)).PublishedDecks);
     }
 
     // ---- Fixtures ---------------------------------------------------------
@@ -141,6 +169,7 @@ public sealed class ProfileServiceTests : IDisposable
 
         Assert.Equal("Nissa", profile.Username);
         Assert.Equal(0, profile.DeckCount);
+        Assert.Equal(0, (await _sut.GetPlayersAsync(100)).Single(p => p.Username == _user.Username).DeckCount);
         Assert.Empty(profile.PublishedDecks);
     }
 

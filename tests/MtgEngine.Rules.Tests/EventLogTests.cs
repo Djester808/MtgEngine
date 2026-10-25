@@ -115,7 +115,7 @@ public sealed partial class EventLogTests
     {
         var started = new GameStarted([new PlayerStart("A", [], []), new PlayerStart("B", [], [])], 1, 20, "test");
         var state = GameReducer.Replay([started]);
-        var game = new Game(Subsystems.AllStubs(), new EmptyStore());
+        var game = new Game(Subsystems.Wave2(), new EmptyStore());
 
         var result = Assert.IsType<Applied>(game.Apply(state, new Commands.Concede(new PlayerId(0))));
 
@@ -130,7 +130,7 @@ public sealed partial class EventLogTests
     {
         var started = new GameStarted([new PlayerStart("A", [], []), new PlayerStart("B", [], [])], 1, 20, "test");
         var state = GameReducer.Replay([started, new GameEnded(new GameOutcome([new PlayerId(0)], false, "test"))]);
-        var game = new Game(Subsystems.AllStubs(), new EmptyStore());
+        var game = new Game(Subsystems.Wave2(), new EmptyStore());
 
         var refused = Assert.IsType<Refused>(game.Apply(state, new Commands.PassPriority(new PlayerId(0))));
         Assert.Equal("104.1", refused.Rule);

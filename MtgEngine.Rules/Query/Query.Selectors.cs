@@ -296,9 +296,19 @@ public sealed partial class Query
         "the values an object keeps from a linked ability are strings, so a chosen player has " +
         "nowhere to live; see seam-requests/E0g.md";
 
-    /// <summary>Players still in the game, CR 800.4a: one who has lost is no longer a player.</summary>
+    /// <summary>
+    /// Players still in the game, CR 800.4a: one who has lost is no longer a player - IN TURN
+    /// ORDER, CR 101.4: "the active player makes any choices required, then each other player
+    /// in turn order does the same."
+    ///
+    /// This used to return seat order. Every caller here feeds players who then choose or act -
+    /// each player, each opponent, and the tie an extreme names - so at a table whose active
+    /// player is not seat 0, "each player sacrifices a creature" asked seat 0 first and the
+    /// active player last, which is the information order CR 101.4 exists to fix.
+    /// </summary>
+    [RuleRef("101.4")]
     private static ImmutableList<PlayerId> InGame(GameState state) =>
-        [.. state.Players.Where(p => !p.HasLost).Select(p => p.Id)];
+        [.. state.Players.Where(p => !p.HasLost).Select(p => p.Id).OrderBy(p => TurnOrderIndex(state, p))];
 
     /// <summary>The players being attacked, and the controllers of the permanents being attacked, CR 506.2.</summary>
     private static ImmutableList<PlayerId> Defending(GameState state)

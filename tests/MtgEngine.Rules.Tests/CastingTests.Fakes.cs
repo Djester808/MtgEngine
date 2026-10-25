@@ -37,9 +37,9 @@ internal sealed class CastingFakeZones : IZoneSystem
 
     public Outcome Create(GameSetup setup, IDefinitionStore store) => throw new NotSupportedException();
 
-    public Outcome Draw(GameState state, PlayerId player, int count) => throw new NotSupportedException();
+    public Outcome Draw(GameState state, PlayerId player, int count, IEnumerable<string>? usedReplacements = null) => throw new NotSupportedException();
 
-    public Outcome Shuffle(GameState state, PlayerId player) => throw new NotSupportedException();
+    public Outcome Shuffle(GameState state, PlayerId player, IEnumerable<string>? usedReplacements = null) => throw new NotSupportedException();
 
     public Outcome CreateToken(GameState state, TokenSpec token, PlayerId controller, bool tapped, bool attacking) => throw new NotSupportedException();
 }
@@ -93,8 +93,16 @@ internal sealed class RecordingInterpreter : IInterpreter
     public Outcome Resolve(GameState state, ObjectId stackObject)
     {
         Resolved.Add(stackObject);
-        Entries.Add(state.Objects[stackObject].Stack);
-        return Outcome.Unchanged(state);
+        var entry = state.Objects[stackObject].Stack;
+        Entries.Add(entry);
+
+        // CR 608.2b, as much of it as a fake needs: a spell that NAMED targets and has none left
+        // does not resolve. The real interpreter reports this so the casting system can send a
+        // fizzled buyback spell to the graveyard rather than back to its owner's hand
+        // (CR 702.26a); a fake that never reports it lets that test pass on nothing.
+        var named = entry?.Targets ?? [];
+        var fizzled = named.Count > 0 && named.All(t => !state.Objects.ContainsKey(t));
+        return Outcome.Unchanged(state) with { Fizzled = fizzled };
     }
 
     public Outcome Run(GameState state, Effect effect, EffectContext context) => Outcome.Unchanged(state);
@@ -151,7 +159,14 @@ internal sealed class CastingTable
         State = new StepBegan(step).Apply(State);
     }
 
-    public void MoveToStep(Step step) => State = new StepBegan(step).Apply(State);
+    public void MoveToStep(Step step)
+    {
+        var holder = State.Priority.Holder;
+        State = new StepBegan(step).Apply(State);
+        // This fixture places a caster into a chosen timing window, with priority supplied.
+        if (holder is { } player)
+            State = new PriorityGranted(player).Apply(State);
+    }
 
     public void Priority(PlayerId player) => State = new PriorityGranted(player).Apply(State);
 

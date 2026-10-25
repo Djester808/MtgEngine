@@ -1,0 +1,319 @@
+.game-card {
+  position: relative;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  padding: 5px;
+  background: #25372d;
+  border: 1px solid #80977a80;
+  border-radius: 6px;
+  width: 73px;
+  min-height: 98px;
+  color: #f2f0d9;
+  overflow: visible;
+  transition:
+    transform 0.15s,
+    background 0.15s;
+}
+.game-card:hover {
+  transform: translateY(-3px);
+  background: #344d3e;
+  border-color: var(--gold);
+}
+.game-card .card-name {
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1.35;
+  min-height: 23px;
+  overflow-wrap: anywhere;
+}
+.card-art {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  min-height: 39px;
+  margin: 4px 0;
+  border-radius: 2px;
+  background:
+    radial-gradient(ellipse at 70% 15%, #f1dca69c 0, transparent 37%),
+    linear-gradient(155deg, #688d77 0 35%, #335f4b 36% 60%, #183c2c 61%);
+}
+.card-art:after {
+  content: "";
+  position: absolute;
+  inset: 12% -10% -30% -10%;
+  background:
+    linear-gradient(
+      140deg,
+      transparent 45%,
+      #0e2927b0 46% 65%,
+      transparent 66%
+    ),
+    linear-gradient(35deg, transparent 35%, #c0cfa32e 36% 60%, transparent 61%);
+  transform: rotate(-8deg);
+}
+.island .card-art {
+  background:
+    radial-gradient(ellipse at 70% 15%, #d6f5ffb0, transparent 37%),
+    linear-gradient(155deg, #88b3c7 0 35%, #456a83 36% 60%, #284d68 61%);
+}
+.mountain .card-art {
+  background:
+    radial-gradient(ellipse at 65% 15%, #f9d599aa, transparent 37%),
+    linear-gradient(155deg, #a97464 0 35%, #704a45 36% 60%, #463235 61%);
+}
+.plains .card-art {
+  background:
+    radial-gradient(ellipse at 70% 15%, #fff2c1bb, transparent 37%),
+    linear-gradient(155deg, #c8b47c 0 35%, #8e8a5c 36% 60%, #5c6648 61%);
+}
+.relic .card-art {
+  background:
+    radial-gradient(ellipse at 50% 30%, #c4c9cb88, transparent 35%),
+    linear-gradient(135deg, #6b7978, #3a4546);
+}
+.game-card.island {
+  background: #243e4c;
+}
+.game-card.mountain {
+  background: #4a3030;
+}
+.game-card.plains {
+  background: #4a4833;
+}
+.game-card.relic {
+  background: #333c3d;
+}
+.card-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 3px;
+  font-size: 8px;
+  color: #d8e1d6;
+  line-height: 1.2;
+}
+.card-foot strong {
+  white-space: nowrap;
+  font-size: 9px;
+  color: #f1f1df;
+}
+.game-card.tapped {
+  transform: rotate(8deg);
+  border-style: dashed;
+  opacity: 0.8;
+}
+.tap-mark {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  padding: 2px 4px;
+  background: #e1c285;
+  color: #252a22;
+  font-size: 8px;
+  border-radius: 3px;
+}
+.counter-mark {
+  position: absolute;
+  left: -4px;
+  bottom: 15px;
+  background: var(--gold);
+  color: #222;
+  padding: 2px 4px;
+  font-size: 9px;
+  border-radius: 3px;
+}
+.attack-mark {
+  color: #edc89a;
+  font-size: 9px;
+  display: block;
+  margin-top: 5px;
+}
+.owner-mark {
+  font-size: 8px;
+  color: var(--gold);
+  margin-top: 4px;
+}
+.land-card {
+  width: 49px;
+  min-height: 62px;
+  padding: 4px;
+}
+.land-card .card-name {
+  min-height: 12px;
+  font-size: 8px;
+}
+.land-card .card-art {
+  min-height: 23px;
+  margin: 2px 0;
+}
+.land-card .card-foot {
+  font-size: 7px;
+}
+.add-token {
+  padding: 3px 5px;
+  min-height: 26px;
+  font-size: 9px;
+  border-style: dashed;
+  background: transparent;
+}
+.empty-row {
+  font-size: 10px;
+  color: var(--muted);
+  padding: 9px 0;
+}
+
+dialog {
+  width: min(600px, calc(100% - 24px));
+  max-height: 88dvh;
+  background: #1a2628;
+  color: var(--text);
+  border: 1px solid #5a7069;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 24px 100px #0009;
+}
+dialog::backdrop {
+  background: #07100ecc;
+  backdrop-filter: blur(5px);
+}
+.dialog-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+.dialog-head h2 {
+  font-size: 23px;
+  line-height: 1.3;
+}
+.close {
+  background: transparent;
+  flex-shrink: 0;
+  width: 44px;
+  padding: 0;
+  font-size: 25px;
+}
+#dialog-content p {
+  color: #bdcbc6;
+  font-size: 13px;
+  margin: 10px 0;
+}
+.detail-preview {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.detail-preview .game-card {
+  width: 120px;
+  min-height: 162px;
+  cursor: default;
+}
+.detail-preview .card-name {
+  font-size: 12px;
+  min-height: 32px;
+}
+.detail-preview .card-art {
+  min-height: 70px;
+}
+.facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 9px 15px;
+  font-size: 12px;
+  margin: 0;
+}
+.facts dt {
+  color: var(--muted);
+}
+.facts dd {
+  margin: 0;
+  text-align: right;
+}
+.inspector-section {
+  border-top: 1px solid var(--line);
+  padding-top: 17px;
+  margin-top: 18px;
+}
+.inspector-section h3 {
+  margin-bottom: 10px;
+}
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.actions button,
+.actions select {
+  font-size: 12px;
+}
+.field-label {
+  display: grid;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+  flex: 1;
+  min-width: 120px;
+}
+.zone-browser {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.zone-browser .game-card {
+  width: 100px;
+  min-height: 135px;
+}
+.zone-browser .card-art {
+  min-height: 53px;
+}
+.zone-browser .card-name {
+  font-size: 10px;
+  min-height: 29px;
+}
+.privacy {
+  background: #233330;
+  border: 1px dashed #566f62;
+  border-radius: 10px;
+  padding: 24px;
+  text-align: center;
+}
+.privacy strong {
+  display: block;
+  font-size: 26px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+.guide-list {
+  display: grid;
+  gap: 12px;
+  padding-left: 20px;
+  font-size: 13px;
+  color: #bdcbc6;
+  line-height: 1.6;
+}
+.history-list {
+  font-size: 12px;
+  color: #c2cfc8;
+  line-height: 1.7;
+  padding-left: 20px;
+}
+.inline-error {
+  color: var(--danger) !important;
+}
+.dialog-note {
+  font-size: 11px !important;
+  color: var(--muted) !important;
+}
+.move-row {
+  margin-top: 10px;
+}
+.shared-definition {
+  font-size: 12px;
+  color: var(--muted);
+  padding-bottom: 12px;
+  line-height: 1.6;
+}

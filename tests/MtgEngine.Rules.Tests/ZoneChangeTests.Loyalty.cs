@@ -93,7 +93,7 @@ public sealed partial class ZoneChangeTests
         var permanent = entered.In(ZoneKey.Shared(Zone.Battlefield))[0];
         Assert.Empty(entered.Objects[permanent].Counters);
 
-        var settled = Subsystems.Wave1().Sba.Check(entered);
+        var settled = LegacySubsystems.Create().Sba.Check(entered);
 
         Assert.Empty(settled.State.In(ZoneKey.Shared(Zone.Battlefield)));
         Assert.Single(settled.State.In(ZoneKey.Of(Zone.Graveyard, LoyaltySeat)));

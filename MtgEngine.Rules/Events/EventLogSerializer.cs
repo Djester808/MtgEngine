@@ -90,7 +90,7 @@ public static class EventLogSerializer
     public static string Write(IEnumerable<GameEvent> log) => JsonSerializer.Serialize(log.ToArray(), Options);
 
     public static IReadOnlyList<GameEvent> Read(string json) =>
-        JsonSerializer.Deserialize<GameEvent[]>(json, Options) ?? [];
+        JsonSerializer.Deserialize<GameEvent[]>(StartupLogMigration.Upgrade(json), Options) ?? [];
 
     /// <summary>A hash of the engine's event vocabulary and assembly version: what a card file's verification was run against.</summary>
     public static string EngineHash()

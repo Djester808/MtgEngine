@@ -12,7 +12,7 @@ namespace MtgEngine.Rules.Tests;
 
 /// <summary>
 /// What a viewer may see, CR 400.2. Every game here is a real one built through
-/// <c>Subsystems.Wave1()</c>, and the strongest assertion is the one made on the serialised
+/// <c>LegacySubsystems.Create()</c>, and the strongest assertion is the one made on the serialised
 /// view: a name a viewer is not entitled to must not appear anywhere in the text, however the
 /// projector arranges its records.
 /// </summary>
@@ -274,9 +274,9 @@ public sealed partial class HiddenInformationTests
 
     private static GameState Start(int openingHand = 7, string mine = MineOracle)
     {
-        var game = new Game(Subsystems.Wave1(), new HiddenInformationDefinitions());
+        var game = new Game(LegacySubsystems.Create(), new HiddenInformationDefinitions());
         var setup = new GameSetup(
-            [new PlayerStart("One", Deck(mine), []), new PlayerStart("Two", Deck(TheirsOracle), [])],
+            [new PlayerStart("One", [.. Deck(mine)], []), new PlayerStart("Two", [.. Deck(TheirsOracle)], [])],
             Seed: 11,
             OpeningHandSize: openingHand);
         return game.Create(setup).State;

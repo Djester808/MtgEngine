@@ -249,9 +249,9 @@ internal sealed class InterpreterTestsCopyingZones : IZoneSystem
     public Outcome Move(GameState state, ObjectId what, ZoneKey to, Placement where = Placement.Default, bool tapped = false, PlayerId? controller = null) =>
         _zones.Move(state, what, to, where, tapped, controller);
 
-    public Outcome Draw(GameState state, PlayerId player, int count) => _zones.Draw(state, player, count);
+    public Outcome Draw(GameState state, PlayerId player, int count, IEnumerable<string>? usedReplacements = null) => _zones.Draw(state, player, count, usedReplacements);
 
-    public Outcome Shuffle(GameState state, PlayerId player) => _zones.Shuffle(state, player);
+    public Outcome Shuffle(GameState state, PlayerId player, IEnumerable<string>? usedReplacements = null) => _zones.Shuffle(state, player, usedReplacements);
 
     public Outcome CreateToken(GameState state, TokenSpec token, PlayerId controller, bool tapped, bool attacking) =>
         _zones.CreateToken(state, token, controller, tapped, attacking);

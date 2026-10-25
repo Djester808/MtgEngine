@@ -212,7 +212,8 @@ public sealed partial class EffectInterpreter
     [RuleRef("601")]
     private EffectRun MayCastCard(EffectRun run, MayCast may)
     {
-        var cards = Objects(run, may.What);
+        var key = ":cast-offers:" + run.Path;
+        var cards = run.Context.Remembered.GetValueOrDefault(key) ?? Objects(run, may.What);
         if (cards.Count == 0)
             return run;
 
@@ -221,6 +222,20 @@ public sealed partial class EffectInterpreter
         if (may.Until is { } until)
             return Permission(run, may, cards, until);
 
+        run = Recall(run, key, cards);
+        while (!cards.IsEmpty)
+        {
+            run = MayCastSingle(run, may, cards[0]);
+            if (run.Halted)
+                return run;
+            cards = cards.RemoveAt(0);
+            run = Recall(run, key, cards) with { Answer = null, AnswerPath = null };
+        }
+        return run with { Context = run.Context with { Remembered = run.Context.Remembered.Remove(key) } };
+    }
+
+    private EffectRun MayCastSingle(EffectRun run, MayCast may, ObjectId card)
+    {
         if (Casting is null)
             throw new RefusedException(
                 $"{nameof(MayCast)} needs ICastingSystem on the interpreter's seam; asked for in seam-requests/E9e.md",
@@ -238,11 +253,11 @@ public sealed partial class EffectInterpreter
                 ImmutableList<ObjectId> earlier = Marked(run) is { } already
                     ? [.. already.Select(id => new ObjectId(id))]
                     : [];
-                return Cast(Unmark(run), who, cards[0], may, earlier.AddRange(Named(run.State, answered)));
+                return Cast(Unmark(run), who, card, may, earlier.AddRange(Named(run.State, answered)));
             }
 
             return answered.Any(o => string.Equals(o.Id, "yes", StringComparison.Ordinal))
-                ? Cast(run, who, cards[0], may, [])
+                ? Cast(run, who, card, may, [])
                 : run;
         }
 

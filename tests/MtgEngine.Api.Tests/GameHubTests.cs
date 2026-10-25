@@ -27,7 +27,7 @@ namespace MtgEngine.Api.Tests;
 /// disagree, so every test here goes in through <see cref="GameHub"/>'s own methods and reads
 /// what came back out of the transport.
 /// </remarks>
-public sealed class GameHubTests
+public sealed partial class GameHubTests
 {
     private const string Alice = "user-alice";
     private const string Bob = "user-bob";
@@ -89,6 +89,12 @@ public sealed class GameHubTests
             return Task.CompletedTask;
         }
 
+        public Task<bool> TryCreateAsync(PersistedGame game, CancellationToken ct = default)
+        {
+            lock (Rows)
+                return Task.FromResult(Rows.TryAdd(game.Id, game));
+        }
+
         public Task SaveLogAsync(Guid id, string logJson, int eventCount, bool finished, CancellationToken ct = default)
         {
             Saves++;
@@ -103,11 +109,13 @@ public sealed class GameHubTests
     /// <summary>Records what the hub sent and to whom, instead of sending it.</summary>
     private sealed class RecordingClients : IHubCallerClients
     {
+        public Func<string?, string, Task>? DelaySend { get; set; }
         public List<(string Reason, string? Rule)> Refusals { get; } = [];
 
         public List<string> ViewedBy { get; } = [];
 
         public List<string> ChoiceAskedOf { get; } = [];
+        public List<PendingChoice> ChoicePayloads { get; } = [];
 
         public IClientProxy Caller => new Proxy(this, To.Caller, null);
         public IClientProxy Others => new Proxy(this, To.Other, null);
@@ -141,13 +149,16 @@ public sealed class GameHubTests
                     owner.ViewedBy.Add(userId);
 
                 if (to == To.User && userId is not null && method == "ChoiceRequested")
+                {
                     owner.ChoiceAskedOf.Add(userId);
+                    owner.ChoicePayloads.Add((PendingChoice)args[0]!);
+                }
 
                 // The rule a broadcast would break: nothing addressed to a group may carry state.
                 if (to == To.Group)
                     throw new InvalidOperationException($"The hub broadcast {method} to a group.");
 
-                return Task.CompletedTask;
+                return owner.DelaySend?.Invoke(userId, method) ?? Task.CompletedTask;
             }
 
             public Task<T> InvokeCoreAsync<T>(string method, object?[] args, CancellationToken ct = default) =>
@@ -190,13 +201,17 @@ public sealed class GameHubTests
         var sessions = new GameSessionService(store, pool, new DeckGate(pool));
         var session = await sessions.CreateAsync(new NewGameRequest(
             [
-                new NewGameSeat(Alice, "Alice", DeckIds(), []),
-                new NewGameSeat(Bob, "Bob", DeckIds(), []),
+                new NewGameSeat(Alice, "Alice", [.. DeckIds()], []),
+                new NewGameSeat(Bob, "Bob", [.. DeckIds()], []),
             ],
             Seed: 42,
             allowHonourSystem,
             Format: "commander",
             StartingLife: 20));
+
+        // These transport tests exercise in-game actions; complete the real opening procedure.
+        while (session.State.Pending is { Kind: "mulligan" } opening)
+            await sessions.ApplyAsync(session, new Rules.Commands.AnswerChoice(opening.Player, opening.Id, ["keep"]));
 
         return Hub(sessions, session, store, actingAs);
     }
@@ -259,6 +274,26 @@ public sealed class GameHubTests
 
         Assert.Equal([Alice, Bob], table.Clients.ViewedBy);
         Assert.Empty(table.Clients.Refusals);
+    }
+
+    [Fact]
+    public async Task A_slow_recipient_does_not_delay_other_seats_views()
+    {
+        var table = await TableAsync();
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        table.Clients.DelaySend = (user, method) =>
+            user == Alice && method == "ViewUpdated" ? release.Task : Task.CompletedTask;
+        var command = table.Hub.Command(table.Session.Id, new ConcedeDto());
+        try
+        {
+            Assert.False(command.IsCompleted);
+            Assert.Contains(Bob, table.Clients.ViewedBy);
+        }
+        finally
+        {
+            release.SetResult();
+            await command;
+        }
     }
 
     [Fact]
@@ -407,6 +442,17 @@ public sealed class GameHubTests
     }
 
     [Fact]
+    public void Activation_wire_payload_preserves_selected_objects()
+    {
+        GameCommandDto dto = new ActivateAbilityDto(3, 0, null, null, null, null, null)
+        { CostObjects = [4, 5] };
+        var read = JsonSerializer.Deserialize<GameCommandDto>(JsonSerializer.Serialize(dto))!;
+        var command = Assert.IsType<MtgEngine.Rules.Commands.ActivateAbility>(read.ToCommand(new PlayerId(1)));
+        Assert.Equal(new[] { new ObjectId(4), new ObjectId(5) }, command.CostObjects);
+        Assert.Equal(new PlayerId(1), command.Player);
+    }
+
+    [Fact]
     public void Every_command_kind_round_trips_through_the_wire_shape()
     {
         // A payload the client can send but the server cannot read is the drift this hierarchy
@@ -417,7 +463,7 @@ public sealed class GameHubTests
             new ConcedeDto(),
             new PlayLandDto(3),
             new CastSpellDto(3, 0, [4], [1], [0], 2, ["kicker"]),
-            new ActivateAbilityDto(3, 1, null, null, null, null, null),
+            new ActivateAbilityDto(3, 1, null, null, null, null, null) { CostObjects = [4] },
             new DeclareAttackersDto([new AttackDto(3, 1, null)]),
             new DeclareBlockersDto([new BlockDto(4, 3)]),
             new AnswerChoiceDto(1, ["keep"]),
@@ -450,8 +496,8 @@ public sealed class GameHubTests
 
         await Assert.ThrowsAsync<InvalidRequestException>(() => sessions.CreateAsync(new NewGameRequest(
             [
-                new NewGameSeat(Alice, "Alice", DeckIds(), []),
-                new NewGameSeat(Bob, "Bob", DeckIds(), []),
+                new NewGameSeat(Alice, "Alice", [.. DeckIds()], []),
+                new NewGameSeat(Bob, "Bob", [.. DeckIds()], []),
             ],
             Seed: 1,
             AllowHonourSystem: false,

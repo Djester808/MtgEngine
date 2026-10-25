@@ -1,6 +1,5 @@
 using System.Text.Json;
 using MtgEngine.Cards;
-using MtgEngine.Rules.Commands;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.Mana;
@@ -63,27 +62,6 @@ public sealed class WaveNineSeamTests
         var checked_ = Assert.Single(result.Results);
         Assert.False(checked_.Passed);
         Assert.Equal("never shuffled", checked_.Actual);
-    }
-
-    [Fact]
-    [RuleRef("601.2c")]
-    public void A_casting_system_that_cannot_say_what_a_cost_wants_offers_nothing()
-    {
-        ICastingSystem casting = new Stubs.Casting();
-        var board = new Board();
-
-        Assert.Empty(casting.CostChoices(board.State, new PassPriority(P0)));
-    }
-
-    [Fact]
-    [RuleRef("702.15b")]
-    public void A_resumption_told_what_was_dealt_falls_back_to_the_plain_one()
-    {
-        ICombatSystem combat = new Stubs.Combat();
-        var board = new Board();
-
-        var error = Assert.Throws<NotImplementedException>(() => combat.ResumeCombatDamage(board.State, false, 1, []));
-        Assert.Contains("E4c", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -48,7 +48,7 @@ public sealed partial class LayerSystem
         foreach (var source in state.Objects.Values.Where(o => o.Zone.Zone == Zone.Battlefield))
         {
             // CR 708.2a: a face-down permanent has no text, so it has no static abilities.
-            if (source.FaceDown)
+            if (source.FaceDown || source.PhasedOut)
                 continue;
 
             var controller = ControllerFrom(source, FromResolutions(state, source.Id));
@@ -58,13 +58,13 @@ public sealed partial class LayerSystem
                 if (ability.Where != Zone.Battlefield)
                     continue;
 
-                // A conditional static ("as long as you control an artifact") needs IQuery.Holds,
-                // which the layer system still does not have; see seam-requests/E7.md.
-                if (ability.While is not null)
+                if (ability.While is { } condition && !ConditionThroughQuery(state, condition, source, controller))
                     continue;
 
                 if (Scope(ability) is { } who && IsPlayer(state, who, player, controller))
-                    yield return ability.Effect;
+                    yield return ability.Effect is CantDrawMoreThan draw
+                        ? draw with { PerTurn = new Fixed(Query.Evaluate(state, draw.PerTurn, ContextOf(state, source.Id, controller))) }
+                        : ability.Effect;
             }
         }
     }
@@ -81,6 +81,10 @@ public sealed partial class LayerSystem
         CantLoseGame cant => cant.Who,
         CantWinGame cant => cant.Who,
         CantGainLife cant => cant.Who,
+        CantSearchLibraries cant => cant.Who,
+        CantDrawMoreThan cant => cant.Who,
+        MayLookAtTopCard look => look.Who,
+        PlayWithTopCardRevealed reveal => reveal.Who,
         _ => null,
     };
 
@@ -103,9 +107,31 @@ public sealed partial class LayerSystem
 
         // CR 119.3: no life-gain event reaches a player who can't gain life.
         CantGainLife => limits with { CantGainLife = true },
+        CantSearchLibraries => limits with { CantSearchLibraries = true },
+        CantDrawMoreThan { PerTurn: Fixed count } => limits with
+        {
+            MaximumDrawsPerTurn = Math.Min(limits.MaximumDrawsPerTurn ?? int.MaxValue, Math.Max(0, count.N)),
+        },
+        CantDrawMoreThan => throw new NotSupportedException("A resolved draw limit must have its amount evaluated when created."),
+        MayLookAtTopCard => limits with { MayLookAtTopCard = true },
+        PlayWithTopCardRevealed => limits with { TopCardRevealed = true },
 
         // CR 702.16j: can't be targeted, can't be enchanted, all damage to them is prevented.
         PlayerProtectionFromEverything => limits with { ProtectionFromEverything = true },
+
+        // CR 305.2: "you may play an additional land on each of your turns". Several such
+        // effects add up, which is why this sums rather than takes a maximum.
+        //
+        // A count that is not a plain number would have to be evaluated, and the layer system
+        // holds no query to evaluate it with; every such effect in the corpus writes Fixed, and
+        // one that did not is refused here rather than silently granting nothing - a permission
+        // that quietly does not work is the defect this whole reader exists to fix.
+        ExtraLandDrops extra => limits with
+        {
+            ExtraLandDrops = limits.ExtraLandDrops + (extra.Count is Fixed n
+                ? n.N
+                : throw new NotSupportedException("An extra land drop whose count is not a plain number needs a query; see seam-requests.")),
+        },
 
         _ => limits,
     };

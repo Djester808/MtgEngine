@@ -18,7 +18,19 @@ public sealed record PlayerLimits(
     PlayerRestriction Cant = PlayerRestriction.None,
     bool CantWin = false,
     bool CantGainLife = false,
-    bool ProtectionFromEverything = false)
+    bool ProtectionFromEverything = false,
+
+    /// <summary>
+    /// CR 305.2: lands this player may play beyond the one a turn allows. Exploration and its
+    /// kin write <c>ExtraLandDrops</c>, which had no reader anywhere in the solution - the
+    /// ceiling was a hardcoded 1 - so the enchantment sat on the battlefield doing nothing and
+    /// the second land was refused.
+    /// </summary>
+    int ExtraLandDrops = 0,
+    bool CantSearchLibraries = false,
+    bool MayLookAtTopCard = false,
+    bool TopCardRevealed = false,
+    int? MaximumDrawsPerTurn = null)
 {
     /// <summary>A player no continuous effect restricts.</summary>
     public static readonly PlayerLimits None = new();

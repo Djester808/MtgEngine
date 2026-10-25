@@ -8,7 +8,26 @@ public sealed record CardDefinition(
     string OracleId,
     string Name,
     Layout Layout,
-    IReadOnlyList<Face> Faces);
+    IReadOnlyList<Face> Faces)
+{
+    /// <summary>Printed face data, independent of visibility or current evaluated characteristics.</summary>
+    public Face GetFace(int index)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, Faces.Count);
+        return Faces[index];
+    }
+
+    /// <summary>Structural requirements for creating a card, not validation of executable abilities.</summary>
+    public void Validate()
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(OracleId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(Name);
+        ArgumentNullException.ThrowIfNull(Faces);
+        if (Faces.Count == 0 || Faces.Any(face => face is null || string.IsNullOrWhiteSpace(face.Name) || face.Types is null))
+            throw new ArgumentException("A card must have named faces with printed type data.", nameof(Faces));
+    }
+}
 
 /// <summary>
 /// One face of a card: the printed characteristics, CR 109.3, and its abilities. Power and

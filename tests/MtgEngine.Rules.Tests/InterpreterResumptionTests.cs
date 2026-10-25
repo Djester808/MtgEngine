@@ -101,9 +101,9 @@ public sealed class InterpreterResumptionTests
         var library = table.In(Zone.Library, table.A);
         Assert.Equal(2, library.Count);
 
-        // The card that was not chosen is still on top; the chosen one is a new object at the bottom.
+        // Both cards remain in the same zone, with the chosen card at the bottom.
         Assert.Equal(second, library[0]);
-        Assert.DoesNotContain(top, library);
+        Assert.Equal(top, library[1]);
     }
 
     [Fact]
@@ -124,15 +124,19 @@ public sealed class InterpreterResumptionTests
         Assert.Equal([second, first], outcome.State.In(ZoneKey.Shared(Zone.Stack)));
     }
 
+    /// <summary>
+    /// CR 616.1 with 101.4: a question the combat or the zone layer raised names no effect tree,
+    /// so there is no walk to go back to and the answer is the replacement system's alone.
+    /// </summary>
     [Fact]
-    public void A_replacement_order_answer_is_handed_to_the_replacement_system_unchanged()
+    public void A_replacement_order_answer_with_no_walk_behind_it_is_handed_to_the_replacement_system()
     {
         var table = new InterpreterTable();
         var resumption = new Resumption(
             ChoiceKinds.ReplacementOrder,
             table.A,
             [],
-            new ChoiceContext(null, null, "0", ImmutableDictionary<string, string>.Empty));
+            new ChoiceContext(null, null, null, ImmutableDictionary<string, string>.Empty));
 
         table.Subject.Resume(table.State, resumption);
 
@@ -286,7 +290,8 @@ public sealed class InterpreterResumptionTests
         var victim = table.Permanent(table.B);
         var spell = table.OnStack(table.A, new Destroy(new Target(ObjectFilter.Creature)), new StackEntry(null, null, [victim], [], [], null, false));
 
-        var events = table.Run(new CopySpell(new Remembered("it")), table.Context() with
+        // MayChooseNewTargets off: the copy takes the original's targets and nobody is asked.
+        var events = table.Run(new CopySpell(new Remembered("it"), MayChooseNewTargets: false), table.Context() with
         {
             Remembered = ImmutableDictionary<string, ImmutableList<ObjectId>>.Empty.SetItem("it", [spell]),
         });
@@ -295,6 +300,50 @@ public sealed class InterpreterResumptionTests
         Assert.True(copy.Stack!.IsCopy);
         Assert.Equal([victim], copy.Stack.Targets);
         Assert.False(copy.IsToken);
+    }
+
+    /// <summary>
+    /// CR 707.10: "the controller of the copy may choose new targets for it." The flag has been
+    /// on the record since wave 0 and defaults to true, and nothing read it — so a Fork could
+    /// never be pointed anywhere else and every storm copy was locked to the original's target.
+    /// </summary>
+    [Fact]
+    [RuleRef("707.10")]
+    public void The_controller_of_a_copy_is_asked_for_new_targets()
+    {
+        var table = new InterpreterTable();
+        var victim = table.Permanent(table.B);
+        var spell = table.OnStack(table.A, new Destroy(new Target(ObjectFilter.Creature)), new StackEntry(null, null, [victim], [], [], null, false));
+
+        var events = table.Run(new CopySpell(new Remembered("it")), table.Context() with
+        {
+            Remembered = ImmutableDictionary<string, ImmutableList<ObjectId>>.Empty.SetItem("it", [spell]),
+        });
+
+        // The copy is made, and then its controller is asked where to point it.
+        var copy = Assert.IsType<ObjectCreated>(events[0]).Object;
+        Assert.True(copy.Stack!.IsCopy);
+
+        var asked = Assert.IsType<ChoiceRequested>(events[1]).Choice;
+        Assert.Equal(table.A, asked.Player);
+        Assert.Equal("target", asked.Kind);
+        Assert.Equal(1, asked.Min);
+    }
+
+    /// <summary>A copy that targets nothing has nothing to re-aim, so nobody is asked.</summary>
+    [Fact]
+    [RuleRef("707.10")]
+    public void A_copy_that_targets_nothing_asks_nobody()
+    {
+        var table = new InterpreterTable();
+        var spell = table.OnStack(table.A, new Draw(new Fixed(1)), new StackEntry(null, null, [], [], [], null, false));
+
+        var events = table.Run(new CopySpell(new Remembered("it")), table.Context() with
+        {
+            Remembered = ImmutableDictionary<string, ImmutableList<ObjectId>>.Empty.SetItem("it", [spell]),
+        });
+
+        Assert.IsType<ObjectCreated>(Assert.Single(events));
     }
 
     /* -------------------------------------------------------------------------------------- *

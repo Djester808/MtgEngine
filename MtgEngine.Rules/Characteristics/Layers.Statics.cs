@@ -14,24 +14,36 @@ namespace MtgEngine.Rules.Layers;
 /// </summary>
 public sealed partial class LayerSystem
 {
+    // GameState is immutable: reuse only within this exact snapshot. Weak keys
+    // let old replay/choice states be collected rather than retaining game history.
+    private readonly System.Runtime.CompilerServices.ConditionalWeakTable<GameState, StaticEffects> _staticEffects = new();
+
+    private sealed record StaticEffects(ImmutableList<StaticEffect> Items);
+
     /// <summary>
     /// Every continuous effect a permanent's static abilities generate right now, CR 604.2.
-    /// Recomputed on every call because a static ability's effect is not locked in: it applies
-    /// at any given moment to whatever its text indicates, CR 611.3a.
+    /// Recomputed for each state snapshot because a static ability's effect is not locked in:
+    /// it applies at any given moment to whatever its text indicates, CR 611.3a.
     /// </summary>
     [RuleRef("604.2")]
-    private ImmutableList<StaticEffect> Statics(GameState state)
+    private ImmutableList<StaticEffect> Statics(GameState state) =>
+        _staticEffects.GetValue(state, snapshot => new StaticEffects(GatherStatics(snapshot))).Items;
+
+    private ImmutableList<StaticEffect> GatherStatics(GameState state)
     {
         var gathered = ImmutableList.CreateBuilder<StaticEffect>();
         foreach (var source in state.Objects.Values.Where(o => o.Zone.Zone == Zone.Battlefield))
         {
-            // CR 708.2a: a face-down permanent has no text, so it has no static abilities.
-            if (source.FaceDown)
+            // CR 708.2a: face-down permanents have no text. CR 702.26b: phased-out
+            // permanents cannot supply continuous effects to other objects.
+            if (source.FaceDown || source.PhasedOut)
                 continue;
 
             var controller = ControllerFrom(source, FromResolutions(state, source.Id));
-            foreach (var ability in source.Face.AbilityList.OfType<StaticAbility>())
+            for (var abilityIndex = 0; abilityIndex < source.Face.AbilityList.Count; abilityIndex++)
             {
+                if (source.Face.AbilityList[abilityIndex] is not StaticAbility ability)
+                    continue;
                 // CR 611.3b: the effect applies while its source is in the zone the ability works in.
                 if (ability.Where != Zone.Battlefield)
                     continue;
@@ -52,7 +64,8 @@ public sealed partial class LayerSystem
 
                 // CR 613.7a: the effect's timestamp is the timestamp of the object the ability is on.
                 gathered.Add(new StaticEffect(
-                    new Layered(ability.Effect, source.Timestamp, ability.CharacteristicDefining, source.Id, controller, FromStatic: true),
+                    new Layered(ability.Effect, source.Timestamp, ability.CharacteristicDefining, source.Id, controller, FromStatic: true,
+                        Origin: new AbilityOrigin("static", abilityIndex, Source: source.Id, Face: source.FaceIndex)),
                     appliesTo));
             }
         }
@@ -66,7 +79,8 @@ public sealed partial class LayerSystem
         .. state.ActiveEffects
             .Where(e => e.AppliesTo.Contains(id))
             .OrderBy(e => e.Timestamp)
-            .Select(e => new Layered(e.Effect, e.Timestamp, false, e.Source, e.Controller, Bound: e.Remembered)),
+            .Select(e => new Layered(e.Effect, e.Timestamp, false, e.Source, e.Controller, Bound: e.Remembered,
+                Origin: new AbilityOrigin("effect", 0, EffectId: e.Id))),
     ];
 
     /// <summary>

@@ -6,10 +6,8 @@ namespace MtgEngine.Rules.Query;
 
 /// <summary>
 /// Wave 30's readings. The plural zone rider (CR 400.1) is answered in <c>Query.cs</c> beside the
-/// singular one, because every filter goes through the same two doors; the two V18 amounts are
-/// here — the names among a group, counted once each (CR 201.2b), and the two numbers nothing in
-/// the engine keeps yet (CR 119.3, CR 903.8), which refuse rather than answer the zero that would
-/// play the card and look right.
+/// singular one, because every filter goes through the same two doors. Names among a group are
+/// counted once each (CR 201.2b); life loss (CR 119.3) still requires a complete per-player record.
 /// </summary>
 public sealed partial class Query
 {
@@ -61,23 +59,4 @@ public sealed partial class Query
         "no per-player total of the life lost this turn is kept; the damage the turn recorded is one half of it, and a payment or an edict leaves no damage at all",
         "119.3");
 
-    /// <summary>
-    /// "for each time it was cast from the command zone this game", CR 903.8: the number the
-    /// commander tax is built on — per game, never reset, and counting casts from the command zone
-    /// alone, so a commander cast from a hand or a graveyard adds nothing to it.
-    /// <para>
-    /// No folder keeps it. <see cref="TurnHistory.SpellsCast"/> carries each cast's
-    /// <see cref="SpellCastRecord.From"/>, which is the right half of the shape, but the turn's
-    /// history is cleared as each turn begins, so it can answer "this turn" and never "this game" —
-    /// and a count taken from it would read 0 for the commander cast three times before this turn,
-    /// which is the tax undercharged and the card underpaid. <c>seam-requests/E5m.md</c> § 2 asks
-    /// the casting system for the per-game count, written where the cast from the command zone is
-    /// announced.
-    /// </para>
-    /// </summary>
-    [RuleRef("903.8")]
-    private static RefusedException NoCommanderCastCount() => Unanswerable(
-        nameof(CommanderCastsThisGame),
-        "no per-game count of the casts from the command zone is kept; the turn's history is cleared each turn and cannot answer a per-game question",
-        "903.8");
 }

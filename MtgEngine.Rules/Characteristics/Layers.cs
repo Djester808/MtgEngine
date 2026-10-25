@@ -73,7 +73,8 @@ public sealed partial class LayerSystem : ICharacteristics
             draft.ManaCost,
             [.. draft.Abilities],
             draft.Controller,
-            draft.EveryCreatureType);
+            draft.EveryCreatureType,
+            draft.Abilities.Origins);
 
     private static GameObject Find(GameState state, ObjectId id) =>
         state.Objects.TryGetValue(id, out var obj)
@@ -84,14 +85,15 @@ public sealed partial class LayerSystem : ICharacteristics
     /// Every continuous effect that applies to this object, earliest timestamp first
     /// (CR 613.7). Effects from a resolving spell or ability were locked to their set of
     /// objects when they began (CR 611.2c), so <see cref="ActiveEffect.AppliesTo"/> is read as
-    /// written; a static ability's set is recomputed here every call (CR 611.3a).
+    /// written; a static ability's set is recomputed for each state snapshot (CR 611.3a).
     /// </summary>
     [RuleRef("613.7")]
     private ImmutableList<Layered> Applicable(GameState state, ObjectId id, bool withStatics)
     {
         var fromEffects = state.ActiveEffects
             .Where(e => e.AppliesTo.Contains(id))
-            .Select(e => new Layered(e.Effect, e.Timestamp, false, e.Source, e.Controller, Bound: e.Remembered));
+            .Select(e => new Layered(e.Effect, e.Timestamp, false, e.Source, e.Controller, Bound: e.Remembered,
+                Origin: new AbilityOrigin("effect", 0, EffectId: e.Id)));
         var all = withStatics
             ? fromEffects.Concat(Statics(state).Where(l => l.AppliesTo.Contains(id)).Select(l => l.Effect))
             : fromEffects;
@@ -120,7 +122,7 @@ public sealed partial class LayerSystem : ICharacteristics
             Loyalty = Number(face.Loyalty),
             Defense = face.Defense,
             ManaCost = face.ManaCost,
-            Abilities = [.. face.AbilityList],
+            Abilities = LayerAbilityList.Printed(face.AbilityList, obj.FaceIndex),
             Controller = obj.InitialController,
         };
 
@@ -128,13 +130,16 @@ public sealed partial class LayerSystem : ICharacteristics
         // is a 2/2 creature with no name, no subtypes, no text and no mana cost.
         if (obj.FaceDown)
         {
+            // CR 406.3a: face-down exile has no characteristics; it is not a
+            // face-down spell or permanent with the default 2/2 creature values.
+            var exiled = obj.Zone.Zone == Zone.Exile;
             draft.Name = string.Empty;
-            draft.Types = CardType.Creature;
+            draft.Types = exiled ? CardType.None : CardType.Creature;
             draft.Supertypes = Supertype.None;
             draft.Subtypes.Clear();
             draft.Colors = Color.Colorless;
-            draft.Power = 2;
-            draft.Toughness = 2;
+            draft.Power = exiled ? null : 2;
+            draft.Toughness = exiled ? null : 2;
             draft.Loyalty = null;
             draft.ManaCost = null;
             draft.Abilities.Clear();
@@ -192,12 +197,14 @@ public sealed partial class LayerSystem : ICharacteristics
             draft.Loyalty = source.Loyalty;
             draft.Defense = source.Defense;
             draft.ManaCost = source.ManaCost;
-            draft.Abilities = source.Abilities;
+            draft.Abilities = source.Abilities.Copied(layered.Origin, Find(state, of[0]).Definition.OracleId, Find(state, of[0]).FaceIndex);
 
             // CR 707.2: the exceptions the copy effect names are applied on top of the copy.
+            var exceptionIndex = 0;
             foreach (var except in copy.Except ?? [])
             {
-                var one = ImmutableList.Create(new Layered(except, layered.Timestamp, false, layered.Source, layered.Controller));
+                var one = ImmutableList.Create(new Layered(except, layered.Timestamp, false, layered.Source, layered.Controller,
+                    Origin: new AbilityOrigin("copy-exception", exceptionIndex++, Parent: layered.Origin)));
                 Layer4Types(draft, one);
                 Layer5Colors(draft, one);
                 Layer6Abilities(obj, draft, one);
@@ -340,7 +347,7 @@ public sealed partial class LayerSystem : ICharacteristics
                     break;
 
                 case GrantAbility grant:
-                    draft.Abilities.Add(grant.Ability);
+                    draft.Abilities.Add(grant.Ability, layered.Origin);
                     break;
 
                 case GrantKeyword keyword:
@@ -399,7 +406,8 @@ public sealed partial class LayerSystem : ICharacteristics
         ObjectId? Source,
         PlayerId Controller,
         bool FromStatic = false,
-        ImmutableDictionary<string, ImmutableList<ObjectId>>? Bound = null);
+        ImmutableDictionary<string, ImmutableList<ObjectId>>? Bound = null,
+        AbilityOrigin? Origin = null);
 
     /// <summary>The characteristics as the layers are being applied to them.</summary>
     private sealed class Draft
@@ -427,7 +435,7 @@ public sealed partial class LayerSystem : ICharacteristics
 
         public string? ManaCost { get; set; }
 
-        public required List<Ability> Abilities { get; set; }
+        public required LayerAbilityList Abilities { get; set; }
 
         public required PlayerId Controller { get; set; }
     }

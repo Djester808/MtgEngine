@@ -1,5 +1,4 @@
 using MtgEngine.Cards;
-using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.State;
 using MtgEngine.Rules.Zones;
@@ -61,7 +60,7 @@ public sealed partial class ZoneChangeTests
         var outcome = Zones.Move(state, card, FaceDownBattlefield, Placement.Default, tapped: false, controller: null, faceIndex: null, faceDown: true);
 
         var landed = Assert.IsType<ObjectMoved>(Assert.Single(outcome.Events)).To.Id;
-        var read = Subsystems.Wave1().Characteristics.Of(outcome.State, landed);
+        var read = LegacySubsystems.Create().Characteristics.Of(outcome.State, landed);
         Assert.Equal(string.Empty, read.Name);
         Assert.Equal(2, read.Power);
         Assert.Equal(2, read.Toughness);

@@ -1,5 +1,6 @@
 using MtgEngine.Cards;
 using MtgEngine.Rules.Interpreter;
+using MtgEngine.Rules.Library;
 using MtgEngine.Rules.State;
 
 namespace MtgEngine.Rules.Choices;
@@ -48,8 +49,8 @@ public static class ChoiceSecrets
 
     /// <summary>
     /// The question as a player may see it, CR 101.4: every secret answer already given is taken
-    /// off it. Nothing else about the question changes — the same id, the same options, the same
-    /// bounds — so a client answers the question it was shown and the answer still validates.
+    /// off it, together with its internal proposed event, which can hold hidden card definitions.
+    /// The id, options and bounds stay the same, so the client's answer still validates.
     /// A question carrying no secret is returned unchanged, and so is no question at all.
     /// </summary>
     [RuleRef("101.4")]
@@ -62,13 +63,18 @@ public static class ChoiceSecrets
         var kept = extra;
         foreach (var key in extra.Keys)
         {
-            if (IsSecret(key))
+            // Internal remembered sets can contain other players' hidden library objects.
+            // Options and ChoiceCards are the authorized display contract, not this memory.
+            if (IsSecret(key) || key.StartsWith(EffectInterpreter.RememberedPrefix, StringComparison.Ordinal)
+                || LibrarySearchContinuation.IsPrivateKey(key) || StandaloneLibrarySearch.IsPrivateKey(key))
                 kept = kept.Remove(key);
         }
 
-        return ReferenceEquals(kept, extra)
-            ? pending
-            : pending with { Context = pending.Context with { Extra = kept } };
+        // Copy the display contract, not the continuation. New private fields then
+        // remain at their defaults without a second list of fields to clear.
+        var context = pending.Context;
+        var shown = new ChoiceContext(context.Source, context.AbilityIndex, context.EffectPath, kept);
+        return shown == context ? pending : pending with { Context = shown };
     }
 
     /// <summary>

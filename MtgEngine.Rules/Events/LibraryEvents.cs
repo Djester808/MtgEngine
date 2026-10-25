@@ -15,8 +15,8 @@ namespace MtgEngine.Rules.Events;
 /// searching and writes nothing.
 /// <para>
 /// <paramref name="Player"/> owns the library; <paramref name="Searcher"/> is the player doing the
-/// searching, who is the player a trigger matches. They are the same on every printed search, but
-/// an effect can send a player into another player's library, so the two are separate fields and
+/// searching, who is the player a trigger matches. An effect can send a player into another
+/// player's library, so the two are separate fields and
 /// neither is derived from the other. The shuffle CR 701.23c may call for afterwards is its own
 /// <see cref="ZoneReordered"/> and no part of this event; a search over several libraries is one
 /// of these per library, and CR 701.23h's repeated search of one library is a single search and so

@@ -51,14 +51,14 @@ public sealed partial class ZoneSystem : IZoneSystem
             var start = setup.Players[seat];
 
             // CR 401.1: when a game begins, each player's deck becomes their library.
-            foreach (var oracleId in start.DeckOracleIds)
-                tape.Add(Born(tape.State, Definition(store, oracleId), player, Cards.Zone.Library));
+            foreach (var card in start.DeckCards)
+                tape.Add(Born(tape.State, Definition(store, card.OracleId), player, Cards.Zone.Library, card));
 
             // CR 103.2c / 903.6: in a Commander game the commander starts face up in the command zone,
             // and stays a commander through every zone it visits, CR 903.3.
-            foreach (var oracleId in start.CommandZoneOracleIds)
+            foreach (var card in start.CommandCards)
             {
-                var born = Born(tape.State, Definition(store, oracleId), player, Cards.Zone.Command);
+                var born = Born(tape.State, Definition(store, card.OracleId), player, Cards.Zone.Command, card);
                 tape.Add(born with { Object = born.Object with { IsCommander = true } });
             }
         }
@@ -99,20 +99,47 @@ public sealed partial class ZoneSystem : IZoneSystem
     /// collide. A move whose replacement stops to ask (CR 616.1) stops the rest of the batch.
     /// </summary>
     [RuleRef("400.7")]
-    public Outcome MoveAll(GameState state, IReadOnlyList<MoveRequest> moves)
+    public Outcome MoveAll(GameState state, IReadOnlyList<MoveRequest> moves) => MoveAll(state, moves, null);
+
+    public Outcome MoveAll(GameState state, IReadOnlyList<MoveRequest> moves, IEnumerable<string>? usedReplacements)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(moves);
 
         var tape = new Tape(state);
-        foreach (var m in moves)
+        for (var index = 0; index < moves.Count; index++)
         {
+            var m = moves[index];
             if (Proposal(state, tape.State, m.What, m.To, m.Where, m.Tapped, m.Controller, null, faceDown: false) is not { } proposed)
                 continue;
 
-            tape.AddAll(Offer(state, proposed, AffectedBy(state, proposed)));
+            tape.AddAll(ApplyMove(state, tape.State, tape.Resolve(proposed), usedReplacements));
             if (tape.State.Pending is not null)
+            {
+                var remaining = ImmutableList.CreateBuilder<ObjectMoved>();
+                var counters = tape.State;
+                foreach (var later in moves.Skip(index + 1))
+                {
+                    if (Proposal(state, counters, later.What, later.To, later.Where, later.Tapped, later.Controller, null, faceDown: false) is not { } next)
+                        continue;
+                    remaining.Add(tape.Resolve(next));
+                    if (!IsLibraryReposition(next))
+                        counters = counters with { NextObjectId = counters.NextObjectId + 1, NextTimestamp = counters.NextTimestamp + 1 };
+                }
+                tape.Add(new ChoiceRequested(tape.State.Pending with
+                {
+                    Context = tape.State.Pending.Context with
+                    {
+                        DeferredZoneMoves = remaining.ToImmutable(),
+                        DeferredMoveHistory = usedReplacements is null
+                            ? ImmutableDictionary<int, ImmutableHashSet<string>>.Empty
+                            : remaining.ToImmutableDictionary(move => move.From.Value,
+                                _ => usedReplacements.ToImmutableHashSet(StringComparer.Ordinal)),
+                        ZoneMoveSnapshot = ZoneMoveSnapshot.Capture(state),
+                    },
+                }));
                 break;
+            }
         }
 
         return tape.Done();
@@ -146,11 +173,28 @@ public sealed partial class ZoneSystem : IZoneSystem
         // to its owner's instead; and the shared zones take no player in their key, CR 400.1.
         var destination = KeyFor(to.Zone, moving.Owner);
 
+        // Retain the existing object for an order instruction, including when stored in a
+        // deferred batch. ApplyMove translates this instruction into ZoneReordered.
+        if (destination.Zone == Cards.Zone.Library && moving.Zone == destination)
+            return new ObjectMoved(what, moving, where == Placement.Bottom ? -1 : 0, Departed: moving);
+
         // CR 603.10: the object as it last existed travels with the move, for the abilities that
         // look back. CR 306.5b: what the rules give the object as it enters is on the proposal, so
         // the replacement effects are offered a planeswalker that already has its printed loyalty.
         var arriving = Entering(Reborn(counters, moving, destination, tapped, controller, faceIndex, faceDown));
         return new ObjectMoved(what, arriving, PositionIn(board, destination, where), Departed: moving);
+    }
+
+    private static bool IsLibraryReposition(ObjectMoved move) =>
+        move.To.Zone.Zone == Cards.Zone.Library && move.LeftFrom == move.To.Zone;
+
+    private ImmutableList<GameEvent> ApplyMove(GameState evaluation, GameState current, ObjectMoved move, IEnumerable<string>? usedReplacements = null)
+    {
+        if (!IsLibraryReposition(move))
+            return Offer(ZoneMoveSnapshot.WithCurrentAllocation(evaluation, current), move, AffectedBy(evaluation, move), usedReplacements);
+        var cards = current.In(move.To.Zone);
+        var order = Library.LibraryOrder.Place(cards, move.From, move.Position);
+        return cards.SequenceEqual(order) ? [] : [new ZoneReordered(move.To.Zone, order)];
     }
 
     /// <summary>
@@ -159,67 +203,25 @@ public sealed partial class ZoneSystem : IZoneSystem
     /// CR 704.5b is what loses the game for it.
     /// </summary>
     [RuleRef("121")]
-    public Outcome Draw(GameState state, PlayerId player, int count)
+    public Outcome Draw(GameState state, PlayerId player, int count, IEnumerable<string>? usedReplacements = null) =>
+        new Library.LibraryDrawCoordinator(Replacements).Draw(state, player, count, usedReplacements);
+
+    internal static ObjectMoved? PrepareDraw(GameState state, PlayerId player)
     {
-        ArgumentNullException.ThrowIfNull(state);
-        var library = ZoneKey.Of(Cards.Zone.Library, player);
-        var hand = ZoneKey.Of(Cards.Zone.Hand, player);
-        var tape = new Tape(state);
-
-        for (var i = 0; i < count; i++)
-        {
-            var cards = tape.State.In(library);
-            if (cards.IsEmpty)
-            {
-                // CR 121.4: the attempt is what matters; each attempt is recorded.
-                tape.Add(new DrawFromEmptyLibraryAttempted(player));
-                continue;
-            }
-
-            // Libraries are top-first, so the drawn card is index 0; a drawn card goes to the end
-            // of the hand, which is unordered anyway, CR 400.5.
-            var top = cards[0];
-            var drawn = tape.State.Objects[top];
-            var reborn = Reborn(tape.State, drawn, hand, tapped: false, controller: null, faceIndex: null, faceDown: false);
-
-            // CR 121.1 and 614.1c: drawing is one action, so the draw itself is what is offered.
-            // A draw replaced away moves no card at all and leaves the library as it was; a draw
-            // that stands moves the top card first and is then recorded, CR 121.2.
-            var happened = Offer(tape.State, new ObjectDrawn(player, reborn.Id), player);
-            if (happened.Any(e => e is ObjectDrawn d && d.Object == reborn.Id))
-                tape.Add(new ObjectMoved(top, reborn, -1, Departed: drawn));
-
-            tape.AddAll(happened);
-
-            // CR 616.1: nothing else happens until the affected player says which effect applies.
-            if (tape.State.Pending is not null)
-                break;
-        }
-
-        return tape.Done();
+        var library = state.In(ZoneKey.Of(Cards.Zone.Library, player));
+        return library.IsEmpty ? null : Proposal(state, state, library[0], ZoneKey.Of(Cards.Zone.Hand, player),
+            Placement.Default, tapped: false, controller: null, faceIndex: null, faceDown: false);
     }
-
     /// <summary>
     /// Shuffle a library, CR 701.24a: randomize it so no player knows the order. The randomness is
     /// the seeded generator in the state, so the same log replays the same shuffle. A library of
     /// zero or one cards is still shuffled, CR 701.24e — the reorder is emitted either way.
     /// </summary>
     [RuleRef("701.24")]
-    public Outcome Shuffle(GameState state, PlayerId player)
+    public Outcome Shuffle(GameState state, PlayerId player, IEnumerable<string>? usedReplacements = null)
     {
         ArgumentNullException.ThrowIfNull(state);
-        var library = ZoneKey.Of(Cards.Zone.Library, player);
-        var (order, next) = Rng.Shuffle(state.Rng, state.In(library));
-
-        var tape = new Tape(state);
-
-        // The generator was consumed before the result is known, so the advance is logged first;
-        // with fewer than two cards Rng.Shuffle draws nothing and there is nothing to log.
-        if (next != state.Rng)
-            tape.Add(new RngAdvanced(next));
-
-        tape.Add(new ZoneReordered(library, order, Shuffle: true));
-        return tape.Done();
+        return new Library.LibraryShuffleCoordinator(Replacements).Shuffle(state, player, usedReplacements);
     }
 
     /// <summary>
@@ -301,10 +303,10 @@ public sealed partial class ZoneSystem : IZoneSystem
 
     /// <summary>A card entering the game for the first time, CR 103: owner and controller are the player who started with it.</summary>
     [RuleRef("108.3")]
-    private static ObjectCreated Born(GameState state, CardDefinition definition, PlayerId owner, Cards.Zone zone)
+    private static ObjectCreated Born(GameState state, CardDefinition definition, PlayerId owner, Cards.Zone zone, StartingCard card)
     {
         var key = KeyFor(zone, owner);
-        var obj = new GameObject(new ObjectId(state.NextObjectId), definition, 0, owner, owner, key, state.NextTimestamp);
+        var obj = GameObject.CreateCard(new ObjectId(state.NextObjectId), definition, card, owner, key, state.NextTimestamp);
         return new ObjectCreated(obj, -1);
     }
 
@@ -315,11 +317,13 @@ public sealed partial class ZoneSystem : IZoneSystem
     /// the mover's to ask for (CR 701.40a, 702.37c) and is never carried over by itself.
     /// </summary>
     [RuleRef("400.7")]
-    private static GameObject Reborn(GameState state, GameObject moving, ZoneKey destination, bool tapped, PlayerId? controller, int? faceIndex, bool faceDown) =>
+    internal static GameObject Reborn(GameState state, GameObject moving, ZoneKey destination, bool tapped, PlayerId? controller, int? faceIndex, bool faceDown) =>
         new(new ObjectId(state.NextObjectId), moving.Definition, FaceFor(moving, faceIndex), moving.Owner, ControllerFor(destination, moving, controller), destination, state.NextTimestamp)
         {
             IsToken = moving.IsToken,
             IsCommander = moving.IsCommander,
+            DeckSelection = moving.DeckSelection,
+            CardInstanceId = moving.CardInstanceId,
             Tapped = tapped,
             FaceDown = faceDown,
 
@@ -412,13 +416,32 @@ public sealed partial class ZoneSystem : IZoneSystem
     private sealed class Tape(GameState state)
     {
         private readonly ImmutableList<GameEvent>.Builder _events = ImmutableList.CreateBuilder<GameEvent>();
+        private readonly Dictionary<ObjectId, ObjectId> _identities = [];
 
         public GameState State { get; private set; } = state;
 
         public void Add(GameEvent e)
         {
             State = e.Apply(State);
+            if (e is ZoneReordered reordered)
+                foreach (var (previous, current) in Library.LibraryIdentity.AfterReorder(reordered.Order, State.In(reordered.Zone)))
+                    _identities[previous] = current;
             _events.Add(e);
+        }
+
+        public ObjectMoved Resolve(ObjectMoved move)
+        {
+            var id = move.From;
+            while (_identities.TryGetValue(id, out var current))
+                id = current;
+            if (id == move.From || !State.Objects.TryGetValue(id, out var card))
+                return move;
+            return move with
+            {
+                From = id,
+                Departed = card,
+                To = IsLibraryReposition(move) ? card : move.To,
+            };
         }
 
         public void AddAll(IEnumerable<GameEvent> more)

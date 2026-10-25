@@ -14,14 +14,24 @@ public static partial class SmokeScenario
     [RuleRef("701.19")]
     private static IReadOnlyList<string> Stock(SmokeBoard board, Search search)
     {
-        if (search.To is not (Zone.Hand or Zone.Graveyard or Zone.Battlefield or Zone.Library))
+        if (!Countable(search.To))
             return [];
         if (SmokeFillers.Findable(search.For, board.AnnouncedX) is not { } card)
             return [];
-        if (Destination(board, search, card) is null)
-            return [];
 
         var wanted = search.UpTo is Fixed { N: > 0 and var n } ? n : 1;
+
+        // CR 701.23a: one search may send the card after the first somewhere else, so a search
+        // that finds more than one card has a second destination to read. A zone the board
+        // cannot count would make every total in the scenario wrong, and a wrong total is
+        // reported as the card failing — so the search gets no scenario rather than a bad one.
+        if (wanted > 1 && search.OthersTo is { } others && !Countable(others))
+            return [];
+        if (Destination(board, search, card, first: true) is null)
+            return [];
+        if (wanted > 1 && Destination(board, search, card, first: false) is null)
+            return [];
+
         var stocked = new List<string>(wanted);
         for (var i = 0; i < wanted && board.CanStock; i++)
             stocked.Add(board.Stocks(card));
@@ -38,8 +48,15 @@ public static partial class SmokeScenario
     /// Null when an entry names something the board cannot read against a card: the search then
     /// gets no scenario at all, because a guessed zone would be reported as the card failing.
     /// </summary>
+    /// <param name="first">
+    /// Whether this is the first card the search found. One search can have two destinations —
+    /// "put one into your hand and the other into your graveyard" — which is what
+    /// <see cref="Search.OthersTo"/> says, and the interpreter reads it the same way
+    /// (EffectInterpreter.Destination). This generator did not, so Final Parting was written a
+    /// scenario expecting both cards in the hand and then failed for being played correctly.
+    /// </param>
     [RuleRef("701.23a")]
-    private static (Zone To, bool Tapped)? Destination(SmokeBoard board, Search search, string card)
+    private static (Zone To, bool Tapped)? Destination(SmokeBoard board, Search search, string card, bool first)
     {
         foreach (var instead in search.Instead ?? [])
         {
@@ -54,8 +71,20 @@ public static partial class SmokeScenario
             }
         }
 
-        return (search.To, search.Tapped);
+        // CR 701.23a: every card after the first goes where OthersTo says, tapped only when
+        // OthersTapped is set — nothing is tapped in a zone that is not the battlefield.
+        return first || search.OthersTo is not { } others
+            ? (search.To, search.Tapped)
+            : (others, search.OthersTapped);
     }
+
+    /// <summary>
+    /// Whether a card arriving in this zone changes a count the board keeps. The board tracks the
+    /// caster's hand, library, graveyard and battlefield; a search into any other zone is left
+    /// without a scenario rather than given one whose totals are guesses.
+    /// </summary>
+    private static bool Countable(Zone zone) =>
+        zone is Zone.Hand or Zone.Graveyard or Zone.Battlefield or Zone.Library;
 
     /// <summary>
     /// Where each found card ended up, and CR 701.20's shuffle. A search that puts the cards back
@@ -68,38 +97,41 @@ public static partial class SmokeScenario
     [RuleRef("701.20")]
     private static void Found(SmokeBoard board, Search search, IReadOnlyList<string> found)
     {
+        // Both destinations are read before anything is counted, so a search this generator
+        // cannot describe leaves the board untouched rather than half-adjusted.
         if (SmokeFillers.Findable(search.For, board.AnnouncedX) is not { } stocked
-            || Destination(board, search, stocked) is not { } went)
+            || Destination(board, search, stocked, first: true) is not { } firstWent
+            || Destination(board, search, stocked, first: false) is not { } restWent)
             return;
 
-        var n = found.Count;
-        switch (went.To)
+        for (var i = 0; i < found.Count; i++)
         {
-            case Zone.Hand:
-                board.Caster(hand: n, library: -n);
-                break;
-            case Zone.Graveyard:
-                board.Caster(graveyard: n, library: -n);
-                break;
-            case Zone.Battlefield:
-                board.Caster(library: -n);
-                board.Arrives(n);
-                break;
-            default:
-                break;
-        }
-
-        // CR 701.9b: a random discard later in the same resolution may take the card the search
-        // just put in the hand, so the card found is not named — the counts above are what holds
-        // whichever card the game took, and an expectation naming this one would pass or fail on
-        // the shuffle. A card the search put anywhere else is out of a discard's reach.
-        if (went.To is not Zone.Library && !(went.To is Zone.Hand && board.DiscardsAtRandom))
-        {
-            foreach (var card in found)
+            var went = i == 0 ? firstWent : restWent;
+            switch (went.To)
             {
-                board.Expect(new InZone(card, went.To));
+                case Zone.Hand:
+                    board.Caster(hand: 1, library: -1);
+                    break;
+                case Zone.Graveyard:
+                    board.Caster(graveyard: 1, library: -1);
+                    break;
+                case Zone.Battlefield:
+                    board.Caster(library: -1);
+                    board.Arrives(1);
+                    break;
+                default:
+                    break;
+            }
+
+            // CR 701.9b: a random discard later in the same resolution may take the card the
+            // search just put in the hand, so that card is not named — the counts above are what
+            // holds whichever card the game took, and an expectation naming this one would pass
+            // or fail on the shuffle. A card put anywhere else is out of a discard's reach.
+            if (went.To is not Zone.Library && !(went.To is Zone.Hand && board.DiscardsAtRandom))
+            {
+                board.Expect(new InZone(found[i], went.To));
                 if (went.To is Zone.Battlefield)
-                    board.Expect(new TappedIs(card, went.Tapped));
+                    board.Expect(new TappedIs(found[i], went.Tapped));
             }
         }
 

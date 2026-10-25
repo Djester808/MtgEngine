@@ -21,7 +21,7 @@ namespace MtgEngine.Api.Services;
 ///
 /// Falls back to ScryfallService (live API + disk cache) for any miss.
 /// </summary>
-public sealed class BulkDataService : IScryfallService, IDisposable
+public sealed class BulkDataService : IScryfallService, IPrintedCardLookup, IDisposable
 {
     private readonly ScryfallService _api;
     private readonly HttpClient _metaClient;      // ScryfallApi — small JSON, proven working
@@ -31,6 +31,8 @@ public sealed class BulkDataService : IScryfallService, IDisposable
 
     // oracle_id → CardDefinition (from oracle_cards file)
     private Dictionary<string, CardDefinition> _byOracleId = new(32_000);
+    // A rules-shaped projection of the same catalog source, without executable abilities.
+    private Dictionary<string, MtgEngine.Cards.CardDefinition> _printedByOracleId = new(32_000, StringComparer.OrdinalIgnoreCase);
     // lower-case name → oracle_id
     private Dictionary<string, string> _byName = new(32_000, StringComparer.OrdinalIgnoreCase);
     // oracle_id → ordered array of all printings
@@ -57,7 +59,7 @@ public sealed class BulkDataService : IScryfallService, IDisposable
     private readonly TaskCompletionSource _readySignal =
         new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-    private record PrintingEntry(string OracleId, string? ImgNormal, string? ImgLarge, string? ImgSmall, string? ImgArtCrop, string? SetCode, string? ImgNormalBack, CardPrices Prices);
+    private record PrintingEntry(string OracleId, string? ImgNormal, string? ImgLarge, string? ImgSmall, string? ImgArtCrop, string? SetCode, string? ImgNormalBack, CardPrices Prices, string? CollectorNumber);
 
     public BulkDataService(
         ScryfallService api,
@@ -82,6 +84,16 @@ public sealed class BulkDataService : IScryfallService, IDisposable
     // API-fallback results are cached inside ScryfallService, so misses stay fast
     // without back-filling here.
 
+    /// <summary>Optional display metadata, never a network lookup or a startup wait.</summary>
+    public Task<CardDefinition?> GetLocalByOracleIdAsync(string oracleId) =>
+        Task.FromResult(_byOracleId.GetValueOrDefault(oracleId));
+
+    public async Task<MtgEngine.Cards.CardDefinition?> FindPrintedAsync(string oracleId, CancellationToken ct = default)
+    {
+        await WaitReadyAsync().WaitAsync(ct).ConfigureAwait(false);
+        return _printedByOracleId.GetValueOrDefault(oracleId);
+    }
+
     public async Task<CardDefinition?> GetByOracleIdAsync(string oracleId)
     {
         await WaitReadyAsync();
@@ -89,6 +101,16 @@ public sealed class BulkDataService : IScryfallService, IDisposable
             return def;
         _logger.LogDebug("Oracle miss, falling back to API: {Id}", oracleId);
         return await _api.GetByOracleIdAsync(oracleId);
+    }
+
+    public async Task<CardDefinition?> GetLocalByNameAsync(string name)
+    {
+        await WaitReadyAsync();
+        if (_byName.TryGetValue(name, out var oracleId) && _byOracleId.TryGetValue(oracleId, out var exact))
+            return exact;
+        var front = name + " // ";
+        var match = _byName.FirstOrDefault(pair => pair.Key.StartsWith(front, StringComparison.OrdinalIgnoreCase));
+        return match.Value is not null && _byOracleId.TryGetValue(match.Value, out var face) ? face : null;
     }
 
     public async Task<CardDefinition?> GetByNameAsync(string name)
@@ -103,13 +125,20 @@ public sealed class BulkDataService : IScryfallService, IDisposable
     public async Task<CardDefinition?> GetByScryfallIdAsync(string scryfallId)
     {
         await WaitReadyAsync();
+        if (await GetLocalByScryfallIdAsync(scryfallId).ConfigureAwait(false) is { } printed)
+            return printed;
+        _logger.LogDebug("ScryfallId miss, falling back to API: {Id}", scryfallId);
+        return await _api.GetByScryfallIdAsync(scryfallId);
+    }
+
+    public Task<CardDefinition?> GetLocalByScryfallIdAsync(string scryfallId)
+    {
         if (_byScryfallId.TryGetValue(scryfallId, out var entry)
             && _byOracleId.TryGetValue(entry.OracleId, out var oracle))
         {
-            return CardParser.WithPrinting(oracle, entry.ImgNormal, entry.ImgLarge, entry.ImgSmall, entry.ImgArtCrop, entry.SetCode, entry.ImgNormalBack, entry.Prices);
+            return Task.FromResult<CardDefinition?>(CardParser.WithPrinting(oracle, entry.ImgNormal, entry.ImgLarge, entry.ImgSmall, entry.ImgArtCrop, entry.SetCode, entry.ImgNormalBack, entry.Prices, entry.CollectorNumber));
         }
-        _logger.LogDebug("ScryfallId miss, falling back to API: {Id}", scryfallId);
-        return await _api.GetByScryfallIdAsync(scryfallId);
+        return Task.FromResult<CardDefinition?>(null);
     }
 
     public async Task<PrintingDto[]> GetPrintingsAsync(string oracleId)
@@ -956,7 +985,7 @@ public sealed class BulkDataService : IScryfallService, IDisposable
                         pr.SetCode?.Equals(setFilter, StringComparison.OrdinalIgnoreCase) == true);
                     if (p is not null)
                         return CardParser.WithPrinting(d, p.ImageUriNormal, p.ImageUriLarge, p.ImageUriSmall, null,
-                                                       p.SetCode, p.ImageUriNormalBack);
+                                                       p.SetCode, p.ImageUriNormalBack, collectorNumber: p.CollectorNumber);
                 }
                 return d.ImageUriSmall is null ? EnrichWithNewestPrinting(d) : d;
             })
@@ -1166,6 +1195,7 @@ public sealed class BulkDataService : IScryfallService, IDisposable
     private void LoadOracleCards(string path)
     {
         var byOracleId = new Dictionary<string, CardDefinition>(32_000);
+        var printedByOracleId = new Dictionary<string, MtgEngine.Cards.CardDefinition>(32_000, StringComparer.OrdinalIgnoreCase);
         var byName = new Dictionary<string, string>(32_000, StringComparer.OrdinalIgnoreCase);
 
         _logger.LogInformation("Parsing oracle_cards.json…");
@@ -1192,6 +1222,8 @@ public sealed class BulkDataService : IScryfallService, IDisposable
                 continue;
 
             byOracleId[def.OracleId] = def;
+            if (MtgEngine.Cards.PrintedCardMapping.Read(card) is { } printed)
+                printedByOracleId[def.OracleId] = printed;
             byName[def.Name] = def.OracleId;
 
             var rarity = card.TryGetProperty("rarity", out var rEl) ? rEl.GetString() ?? "" : "";
@@ -1205,6 +1237,7 @@ public sealed class BulkDataService : IScryfallService, IDisposable
             byOracleId.Count, skippedByLayout);
 
         _byOracleId = byOracleId;
+        _printedByOracleId = printedByOracleId;
         _byName = byName;
         _rarityByOracleId = rarityMap;
     }
@@ -1251,7 +1284,7 @@ public sealed class BulkDataService : IScryfallService, IDisposable
 
             scryfallIdx[dto.ScryfallId] = new PrintingEntry(
                 oid, dto.ImageUriNormal!, dto.ImageUriLarge, dto.ImageUriSmall,
-                parsed.Value.ImageUriArtCrop, setCode, dto.ImageUriNormalBack, parsed.Value.Prices);
+                parsed.Value.ImageUriArtCrop, setCode, dto.ImageUriNormalBack, parsed.Value.Prices, dto.CollectorNumber);
 
             // Build set-code → oracle-id index and set name lookup
             if (setCode.Length > 0)
@@ -1313,7 +1346,7 @@ public sealed class BulkDataService : IScryfallService, IDisposable
         if (!_printingsByOracleId.TryGetValue(oracle.OracleId, out var printings) || printings.Length == 0)
             return oracle;
         var newest = printings[0];
-        return CardParser.WithPrinting(oracle, newest.ImageUriNormal, newest.ImageUriLarge, newest.ImageUriSmall, null, newest.SetCode);
+        return CardParser.WithPrinting(oracle, newest.ImageUriNormal, newest.ImageUriLarge, newest.ImageUriSmall, null, newest.SetCode, collectorNumber: newest.CollectorNumber);
     }
 
     // ---- Bulk-data metadata & download -----------------------------------

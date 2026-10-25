@@ -1,0 +1,162 @@
+[
+  {
+    "file": "Card.all.cs",
+    "sha256": "a68eb2ad02f90e4cdaf6c85d8964ef640678be692bc3e9690abe4ad81f1600ce",
+    "bytes": 990533
+  },
+  {
+    "file": "Card.CardViewModel.cs",
+    "sha256": "b0abdeff1b612cb578e46019f87613d6e6cbe376f79bfe156bb0ee4d0570ee75",
+    "bytes": 196509
+  },
+  {
+    "file": "Card.ManaCost.cs",
+    "sha256": "4217eec1e01fe4738d2775611993bea09c63daf199d324a6e69173fd4cd65418",
+    "bytes": 269
+  },
+  {
+    "file": "Card.PrototypeAbility.cs",
+    "sha256": "1b3c41ececec71a533ff214b50508794bc77670a0b6f701e6414d4669d7c9dd7",
+    "bytes": 1793
+  },
+  {
+    "file": "Card.SagaAbility.cs",
+    "sha256": "1e6a9e52614cbaab586a170ce4d735e1dae8cf2a4058e06a204e889393e54bf5",
+    "bytes": 911
+  },
+  {
+    "file": "Card.StationAbility.cs",
+    "sha256": "4265fbe7e9597243e1e60c11e47f9cd8528228687d1a58d30df079998b364b96",
+    "bytes": 7992
+  },
+  {
+    "file": "CardAction.cs",
+    "sha256": "83324151e3ce9016af4718a27ec33d0f35b7dcb8c1e8847f82a00be60407ee34",
+    "bytes": 9768
+  },
+  {
+    "file": "CombatDamageAssignmentAction.cs",
+    "sha256": "547e14c006d778c72aedd5ce09029d790d9acab93a53d418f5a3b7fff7962a7c",
+    "bytes": 2955
+  },
+  {
+    "file": "Game.cs",
+    "sha256": "17c0bb8cefc655603587f6b6c2e871c6b6ddacef5783a6456d75808cd642a034",
+    "bytes": 110236
+  },
+  {
+    "file": "GameAction.cs",
+    "sha256": "ae749c2817f11a05da9d36d3485535027c617ff954c4e946b9dbed944e443d84",
+    "bytes": 9927
+  },
+  {
+    "file": "GameCard.cs",
+    "sha256": "a38135cbc0fb0dcfe1e3388a411479d7ad3776560324793b2ee68632b2fd9641",
+    "bytes": 129241
+  },
+  {
+    "file": "GamePlayStatusMessage.cs",
+    "sha256": "95aafc661a53ecc59fbe71b9e08c54044dbed133fedddf2214303a90603a0966",
+    "bytes": 22436
+  },
+  {
+    "file": "GamePlayStatusMessageDetailed.cs",
+    "sha256": "88976d455acd308182062425e967d1d9e2231de257f36e86de5c03919edde365",
+    "bytes": 7142
+  },
+  {
+    "file": "GsMessageMessage.cs",
+    "sha256": "4c06e3210a1063aef9fafea16d1bf12b0d7449500c67bfad6d38929f6ea32225",
+    "bytes": 5883
+  },
+  {
+    "file": "InProgressGame.cs",
+    "sha256": "621070d227a8a9ed10d5e8925d72b4a06ab6e7fc924c02017ef3316835adb216",
+    "bytes": 40603
+  },
+  {
+    "file": "InProgressGameStates.cs",
+    "sha256": "8b7aca8f75bcc6ce074eb27dfa6b00f0b71bc7755ae5e05dc2c5a21653fa73f3",
+    "bytes": 1612
+  },
+  {
+    "file": "LocalAction.cs",
+    "sha256": "c1d3ef556113378148c3e3b5dcf2767de70c5d598636d4c84dafdaba1f3c54ea",
+    "bytes": 2073
+  },
+  {
+    "file": "NewCardActionMessage.cs",
+    "sha256": "e139d3640ab2b5cd7e357591f87619af7253123b2b15bc13e615de0cf51d1daf",
+    "bytes": 10964
+  },
+  {
+    "file": "PromptActionMessage.cs",
+    "sha256": "7488ff5b2202df3cd7a69d4454964ed634470ad6828edbd8c55ba06b0dc73208",
+    "bytes": 5047
+  },
+  {
+    "file": "SendGameMessageAction.cs",
+    "sha256": "ff71dedbdac50641f469f093db3366cb4fff34f8c75dcbb7db90debc11680ea7",
+    "bytes": 247
+  },
+  {
+    "file": "TargetSet.cs",
+    "sha256": "73881c4991e8c2fdf601b016ebcb83cf4bf7946f2b4f6b9f8ab3d9bdd86939a9",
+    "bytes": 23562
+  },
+  {
+    "file": "CardSelectorAction.cs",
+    "sha256": "736b012b89d51c2d0d14535a41c759b0ec9d8c36831d8ee477cfd9e33b5dc66c",
+    "bytes": 1580
+  },
+  {
+    "file": "InteractionState.cs",
+    "sha256": "6d29624b8760b3f506fe3bd9ec4b95e2882d8bb1f27b66d0bb58c033567b3aab",
+    "bytes": 2159
+  },
+  {
+    "file": "DuelSceneViewModel.cs",
+    "sha256": "c49b06f38525aa9d0d9687941d59d5c6bbef1649bbd792169667243b11c208cb",
+    "bytes": 211945
+  },
+  {
+    "file": "CardSelectorViewModel.cs",
+    "sha256": "b3531b632b001bc4edea3c834e896aa522836c0fed917ed4e5e1be89574fbbe6",
+    "bytes": 6126
+  },
+  {
+    "file": "CardSelectorManager.cs",
+    "sha256": "c9f37aff81ec00eae5fae4ed156d5ba948e05dff9b3f6ca42c29a2843cb9f762",
+    "bytes": 3834
+  },
+  {
+    "file": "ZoneViewModel.cs",
+    "sha256": "5ca30fec182ff525b7c080e7be0a810e26f1ec4a95becce1e0af36d70135da8b",
+    "bytes": 12819
+  },
+  {
+    "file": "PlayerViewModel.cs",
+    "sha256": "9802ce19477f6d0af1a23b6f75a52f98f0b86108426a1e74dc508fa3470c31e7",
+    "bytes": 52008
+  },
+  {
+    "file": "PromptBoxViewModel.cs",
+    "sha256": "e8cc28a4fa67ec56567a20645db5acc66511ccf69d8196a70a8508157a00b50f",
+    "bytes": 51860
+  },
+  {
+    "file": "CardSelectorView.cs",
+    "sha256": "c3be415b9dc0b495db91d325a2cd14b973b222a6ebda7ee8ad8585e87431bd25",
+    "bytes": 3099
+  },
+  {
+    "file": "CardSelectorDialogViewModel.cs",
+    "sha256": "3f54ee39ad356ffe9b8a40b183c53a91a8f6a55507a29b05e6d451a252fb45db",
+    "bytes": 4651
+  },
+  {
+    "file": "DuelSceneCardViewModel.cs",
+    "sha256": "4896f80ef1ddb11cca70c8c6032ff23f13bc99fe72c86578da3dab8a0edf5925",
+    "bytes": 155426
+  }
+]

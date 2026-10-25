@@ -53,7 +53,7 @@ public sealed partial class CastingSystem
         // CR 601.3b: the face and every optional cost are chosen before anything moves, so the
         // plan is what the spell costs and what it will be on the stack.
         var chars = characteristics.Of(state, card.Id);
-        var plan = CastPlan.For(state, card, command, query, instructed);
+        var plan = CastPlan.For(state, card, command, query, characteristics, instructed);
         if (!instructed)
             RequireCastingTiming(state, command.Player, card, plan, chars);
 
@@ -121,7 +121,11 @@ public sealed partial class CastingSystem
             // CR 106.6a: which mana actually paid is a property of the spell, so it travels too.
             ManaProvenanceSpent: ProvenanceSpent(payments));
         var move = StackZone.MoveSpellToStack(paid.Outcome.State, card, entry, plan.Chosen.FaceIndex);
-        var cast = new SpellCast(move.To.Id, command.Player, plan.From);
+        // CR 116.2a: which permission allowed the cast, so a once-per-turn one is spent by the
+        // cast it allowed and not by any cast out of the same zone. The plan decided it - asking
+        // here whether a permission merely exists stamped one onto a flashback cast, which then
+        // refused the graveyard cast that permission was actually for.
+        var cast = new SpellCast(move.To.Id, command.Player, plan.From, plan.Permission, plan.StaticPermission);
         ImmutableList<GameEvent> events = [.. SpentOn(payments, move.To.Id), move, cast];
         return new Outcome(GameReducer.Apply(state, events), events);
     }

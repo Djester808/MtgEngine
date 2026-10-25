@@ -36,6 +36,8 @@ public sealed partial class ReplacementSystem
         DamageDealt { ToPlayer: { } player } => Undealable(_layers.PlayerRestrictions(state, player)),
 
         LifeChanged life => Unchangeable(_layers.PlayerRestrictions(state, life.Player), life.Delta),
+        ObjectDrawn draw => DrawForbidden(state, draw.Player),
+        DrawFromEmptyLibraryAttempted draw => DrawForbidden(state, draw.Player),
 
         // CR 613.11 with 111.5: an effect that modifies the rules and forbids an entry is not a
         // replacement of the entry, so it is read here — the object never arrives and no effect is
@@ -46,6 +48,10 @@ public sealed partial class ReplacementSystem
         // and rechecked on resolution; by the time an event is proposed the target is settled.
         _ => false,
     };
+
+    private bool DrawForbidden(GameState state, PlayerId player) =>
+        _layers.PlayerRestrictions(state, player).MaximumDrawsPerTurn is { } maximum
+        && state.Player(player).ObjectsDrawnThisTurn >= maximum;
 
     /// <summary>
     /// CR 119.7 and 119.8 with CR 101.2: a life total that can't change can't change in either

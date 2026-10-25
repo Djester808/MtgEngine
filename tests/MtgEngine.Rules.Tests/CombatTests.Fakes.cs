@@ -65,6 +65,20 @@ internal sealed class CombatFakeQuery : IQuery
 /// definition store, no turn system. Object ids are their own timestamps, so declaration and
 /// damage order is the order the test created them in.
 /// </summary>
+/// <summary>
+/// Commander damage is keyed by the COMMANDER, not by the object dealing it: CR 400.7 gives a
+/// commander a new object id on every zone change, so an object key started the total again
+/// each time one died and was recast (CR 903.10a counts it over the whole game).
+/// </summary>
+internal static class CommanderKeys
+{
+    public static CommanderIdentity Commander(GameState state, ObjectId id)
+    {
+        var obj = state.Objects[id];
+        return new CommanderIdentity(obj.Owner, obj.Definition.OracleId);
+    }
+}
+
 internal sealed class CombatTable
 {
     private static readonly CardDefinition Blank = new(

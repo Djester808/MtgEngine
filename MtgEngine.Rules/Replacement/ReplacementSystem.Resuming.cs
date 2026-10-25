@@ -30,6 +30,8 @@ public sealed partial class ReplacementSystem
             throw new InvalidOperationException("a replacement-order answer arrived without the event it was about.");
 
         var used = Used(resumption.Context);
+        if (resumption.Context.Extra.ContainsKey(CommanderReplacementKey))
+            return ResumeCommander(state, proposed, resumption, used);
         var chosen = Chosen(state, proposed, used, resumption.Chosen);
 
         // An answer naming an effect that no longer applies applies nothing; the game looks again,
@@ -40,7 +42,7 @@ public sealed partial class ReplacementSystem
         // CR 616.1: no effect applies to the same event twice, whether it applied before the
         // question was raised or is applying because of the answer.
         used.Add(chosen.Key);
-        var applied = Apply(state, proposed, chosen);
+        var applied = Apply(state, proposed, chosen, used);
         return Continue(applied.State, applied.Event, resumption.Player, used, applied.Extra);
     }
 

@@ -39,7 +39,7 @@ public sealed class TemplateStage
     public static bool Accepts(CorpusCard card)
     {
         ArgumentNullException.ThrowIfNull(card);
-        return card.Faces.Count > 0 && card.Faces.Select((f, i) => TryFace(f, Templates.RoleOf(card.Layout, i))).All(f => f is not null);
+        return card.Faces.Count > 0 && card.Faces.Select((f, i) => TryFace(f, PrintedCardMapping.RoleOf(card.Layout, i))).All(f => f is not null);
     }
 
     /// <summary>
@@ -55,7 +55,8 @@ public sealed class TemplateStage
     public static Face? TryFace(CorpusFace face, FaceRole role)
     {
         ArgumentNullException.ThrowIfNull(face);
-        if (Templates.ParseTypeLine(face.TypeLine) is not { } types)
+        if (PrintedCardMapping.Face(face.Name, role, face.TypeLine, face.ManaCost, face.OracleText,
+            face.Power, face.Toughness, face.Loyalty, face.Defense) is not { } printed)
             return null;
 
         var abilities = new List<Ability>();
@@ -77,17 +78,7 @@ public sealed class TemplateStage
                 return null;
         }
 
-        return new Face(
-            face.Name,
-            role,
-            types,
-            string.IsNullOrWhiteSpace(face.ManaCost) ? null : face.ManaCost,
-            Stat(face.Power),
-            Stat(face.Toughness),
-            string.IsNullOrWhiteSpace(face.Loyalty) ? null : face.Loyalty,
-            Defense(face.Defense),
-            Abilities: abilities.Count == 0 ? null : abilities,
-            OracleText: face.OracleText.Length == 0 ? null : face.OracleText);
+        return printed with { Abilities = abilities.Count == 0 ? null : abilities };
     }
 
     /// <summary>The card file for a template card, or null when the card is not one.</summary>
@@ -97,7 +88,7 @@ public sealed class TemplateStage
         var faces = new List<Face>();
         for (var i = 0; i < card.Faces.Count; i++)
         {
-            if (TryFace(card.Faces[i], Templates.RoleOf(card.Layout, i)) is not { } face)
+            if (TryFace(card.Faces[i], PrintedCardMapping.RoleOf(card.Layout, i)) is not { } face)
                 return null;
             faces.Add(face);
         }
@@ -110,7 +101,7 @@ public sealed class TemplateStage
             card.Name,
             card.OracleHash,
             IrVersion.Current,
-            new CardDefinition(card.OracleId, card.Name, Templates.LayoutOf(card.Layout), faces),
+            new CardDefinition(card.OracleId, card.Name, PrintedCardMapping.LayoutOf(card.Layout), faces),
             ImplementationStatus.Translated,
             new TemplateProvenance(TemplateOf(card)),
             card.Keywords);
@@ -183,9 +174,4 @@ public sealed class TemplateStage
     private static IReadOnlyList<string> Lines(string oracleText) =>
         oracleText.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-    private static PrintedStat? Stat(string? printed) =>
-        string.IsNullOrWhiteSpace(printed) ? null : new PrintedStat(printed);
-
-    private static int? Defense(string? printed) =>
-        int.TryParse(printed, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? n : null;
 }

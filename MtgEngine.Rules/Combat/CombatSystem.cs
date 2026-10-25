@@ -61,7 +61,11 @@ public sealed partial class CombatSystem(ICharacteristics characteristics, IQuer
         var events = PayAttackTax(state, command.Player, attackers).Events;
 
         // CR 508.1f then 508.1k: the creatures become attacking, and then they become tapped.
-        events = events.Add(new AttackersDeclared(command.Player, attackers));
+        events = events.Add(new AttackersDeclared(command.Player, attackers)
+        {
+            DefendingPlayers = [.. attackers.Values.Select(t => DefendingPlayer(state, t)).OfType<PlayerId>()
+                .Distinct().OrderBy(p => (p.Value - command.Player.Value + state.Players.Count) % state.Players.Count)],
+        });
         foreach (var attack in command.Attacks)
         {
             // CR 702.20b — attacking does not cause creatures with vigilance to tap.
@@ -90,6 +94,14 @@ public sealed partial class CombatSystem(ICharacteristics characteristics, IQuer
             throw new RefusedException("Blockers have already been declared this combat.", "509.1");
         if (command.Player == combat.AttackingPlayer)
             throw new RefusedException("The attacking player does not declare blockers.", "509.1a");
+        if (combat.BlockersDeclaredBy.Contains(command.Player))
+            throw new RefusedException("This player has already declared blockers.", "509.1");
+        var defenders = combat.DefendingPlayers.IsEmpty
+            ? combat.Attackers.Values.Select(t => DefendingPlayer(state, t)).OfType<PlayerId>().Distinct().ToImmutableList()
+            : combat.DefendingPlayers;
+        var waiting = defenders.Where(p => !state.Player(p).HasLost && !combat.BlockersDeclaredBy.Contains(p)).ToImmutableList();
+        if (waiting.IsEmpty || waiting[0] != command.Player)
+            throw new RefusedException("The next defending player must declare blockers first.", "802.4");
 
         var byAttacker = new Dictionary<ObjectId, ImmutableList<ObjectId>>();
         var seen = new HashSet<ObjectId>();

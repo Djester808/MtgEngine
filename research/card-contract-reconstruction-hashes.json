@@ -1,0 +1,17 @@
+[
+  {
+    "file": "research/mtgo/decompiled/CardDefinition.cs",
+    "sha256": "3a82c8eca85ccf9721d73a24c83604bb5962d6a61bca81ef3d98a56806d873b3",
+    "bytes": 67972
+  },
+  {
+    "file": "research/arena/decompiled/CardPrintingData.cs",
+    "sha256": "ca5c2d9086ad0c9447963be6a9d6a6f09e65a1175bb2f6a0094b32e28fd526f6",
+    "bytes": 22095
+  },
+  {
+    "file": "research/arena/decompiled/MtgCardInstance.cs",
+    "sha256": "fac735818cddd576a87e56a1a836e7ac7ace26f901e04db0e717750f0c1cbe77",
+    "bytes": 11962
+  }
+]

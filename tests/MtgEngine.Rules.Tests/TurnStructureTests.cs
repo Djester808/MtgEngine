@@ -48,7 +48,7 @@ public sealed partial class TurnStructureTests
     {
         var (state, log) = Turns.PassUntilTurn(TurnFixture.Table(2), untilTurn: 2);
 
-        Assert.Equal(new List<Step>(TurnFixture.TurnWithNoCombat) { Step.Untap, Step.Upkeep }, TurnFixture.StepsIn(log));
+        Assert.Equal(new List<Step>(TurnFixture.TurnWithNoCombat.Where(step => step != Step.Draw)) { Step.Untap, Step.Upkeep }, TurnFixture.StepsIn(log));
         Assert.Equal(new[] { TurnFixture.P0, TurnFixture.P1 }, log.OfType<TurnBegan>().Select(e => e.ActivePlayer));
         Assert.Equal(2, state.Turn.Number);
     }

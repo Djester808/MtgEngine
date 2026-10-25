@@ -2,6 +2,7 @@ using MtgEngine.Cards;
 using MtgEngine.Rules.Choices;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
+using MtgEngine.Rules.Library;
 using MtgEngine.Rules.State;
 
 namespace MtgEngine.Rules.Replacement;
@@ -90,15 +91,18 @@ public sealed partial class ReplacementSystem(IQuery query, ICharacteristics cha
             }
 
             used.Add(tier[0].Key);
-            var applied = Apply(working, current, tier[0]);
+            var applied = Apply(working, current, tier[0], used);
             working = applied.State;
             extra = extra.AddRange(applied.Extra);
             current = applied.Event;
         }
 
-        return current is null
-            ? new Outcome(working, extra)
-            : new Outcome(current.Apply(working), extra.Add(current));
+        if (current is null)
+            return new Outcome(working, extra);
+        var completed = current is ZoneReordered { AwaitingRandomization: true } shuffle
+            ? LibraryShuffleCoordinator.Complete(working, shuffle)
+            : LibraryDrawCoordinator.Complete(working, current);
+        return new Outcome(working, extra).Then(_ => completed);
     }
 
     /// <summary>
@@ -133,6 +137,8 @@ public sealed partial class ReplacementSystem(IQuery query, ICharacteristics cha
     {
         var probe = Probe(state, proposed);
         var found = new List<Candidate>();
+        if (CommanderCandidate(state, proposed, used) is { } commander)
+            found.Add(commander);
 
         foreach (var obj in probe.Objects.Values)
         {
@@ -158,7 +164,7 @@ public sealed partial class ReplacementSystem(IQuery query, ICharacteristics cha
                 if (ability.If is { } condition && !_query.Holds(probe, condition, context))
                     continue;
 
-                found.Add(new Candidate(key, ability.Text ?? ability.Instead.GetType().Name, obj.Id, controller, ability.SelfOnly && about, ability, null));
+                found.Add(new Candidate(key, Label(state, obj, ability, i, controller), obj.Id, controller, ability.SelfOnly && about, ability, null));
             }
         }
 
@@ -270,9 +276,17 @@ public sealed partial class ReplacementSystem(IQuery query, ICharacteristics cha
         DamageDealt d => d.ToPlayer,
         LifeChanged l => l.Player,
         ObjectDrawn draw => draw.Player,
+        DrawFromEmptyLibraryAttempted draw => draw.Player,
         PlayerCountersChanged p => p.Player,
         PlayerLost p => p.Player,
         ManaChanged m => m.Player,
+        _ => null,
+    };
+
+    private static PlayerId? DrawingPlayer(GameEvent proposed) => proposed switch
+    {
+        ObjectDrawn draw => draw.Player,
+        DrawFromEmptyLibraryAttempted draw => draw.Player,
         _ => null,
     };
 }

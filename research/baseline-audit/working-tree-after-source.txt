@@ -1,0 +1,117 @@
+ M MtgEngine.Api/Controllers/AuthController.cs
+ M MtgEngine.Api/Controllers/CollectionsController.cs
+ M MtgEngine.Api/Controllers/UsersController.cs
+ M MtgEngine.Api/Data/MtgEngineDbContext.cs
+ M MtgEngine.Api/Dtos/Dtos.cs
+ M MtgEngine.Api/Mapping/DomainMapper.cs
+ M MtgEngine.Api/Migrations/MtgEngineDbContextModelSnapshot.cs
+ M MtgEngine.Api/Program.cs
+ M MtgEngine.Api/Services/AiExceptionHandler.cs
+ M MtgEngine.Api/Services/BulkDataService.cs
+ M MtgEngine.Api/Services/CollectionService.cs
+ M MtgEngine.Api/Services/ProfileService.cs
+ M MtgEngine.Api/Services/ScryfallService.cs
+ M MtgEngine.Api/Services/TokenService.cs
+ M MtgEngine.Cards.Pipeline/Scenarios/SmokeScenario.Searches.cs
+ M MtgEngine.Domain/Models/Collection.cs
+ M MtgEngine.Domain/Models/User.cs
+M  MtgEngine.Rules/Casting/CastPlan.cs
+M  MtgEngine.Rules/Casting/CastingSystem.Instructed.cs
+M  MtgEngine.Rules/Casting/CastingSystem.Wave30.cs
+M  MtgEngine.Rules/Casting/CastingSystem.cs
+M  MtgEngine.Rules/Casting/ObjectCosts.cs
+M  MtgEngine.Rules/Characteristics/Layers.Players.cs
+M  MtgEngine.Rules/Characteristics/PlayerLimits.cs
+M  MtgEngine.Rules/Commander/CommanderDamage.cs
+M  MtgEngine.Rules/Engine/Seams.cs
+M  MtgEngine.Rules/Events/GameEvent.cs
+MM MtgEngine.Rules/Interpreter/EffectInterpreter.Actions.cs
+M  MtgEngine.Rules/Interpreter/EffectInterpreter.Backlog.cs
+M  MtgEngine.Rules/Interpreter/EffectInterpreter.Faces.cs
+MM MtgEngine.Rules/Interpreter/EffectInterpreter.Resume.cs
+M  MtgEngine.Rules/Interpreter/EffectInterpreter.Structure.cs
+MM MtgEngine.Rules/Interpreter/EffectInterpreter.cs
+M  MtgEngine.Rules/Interpreter/InterpreterEvents.cs
+M  MtgEngine.Rules/Query/Query.Selectors.cs
+M  MtgEngine.Rules/Query/Query.cs
+M  MtgEngine.Rules/Sba/StateBasedActions.Permanents.cs
+M  MtgEngine.Rules/State/GameState.cs
+M  MtgEngine.Rules/State/PlayerState.cs
+M  MtgEngine.Rules/Triggers/TriggerMatching.Wave25.cs
+M  MtgEngine.Rules/Turn/TurnSystem.cs
+ M tests/MtgEngine.Api.Tests/MtgEngine.Api.Tests.csproj
+ M tests/MtgEngine.Api.Tests/ProfileServiceTests.cs
+M  tests/MtgEngine.Rules.Tests/CastingBacklogTests.Fakes.cs
+M  tests/MtgEngine.Rules.Tests/CastingTests.Fakes.cs
+M  tests/MtgEngine.Rules.Tests/CastingTests.cs
+M  tests/MtgEngine.Rules.Tests/CombatReplacementTests.cs
+M  tests/MtgEngine.Rules.Tests/CombatTests.Fakes.cs
+M  tests/MtgEngine.Rules.Tests/CombatTests.cs
+M  tests/MtgEngine.Rules.Tests/FaceCastingTests.Fakes.cs
+M  tests/MtgEngine.Rules.Tests/FaceCastingTests.cs
+ M tests/MtgEngine.Rules.Tests/InterpreterProposalTests.cs
+MM tests/MtgEngine.Rules.Tests/InterpreterResumptionTests.cs
+ M tests/MtgEngine.Rules.Tests/InterpreterTests.Fakes.cs
+ M tests/MtgEngine.Rules.Tests/InterpreterTests.Searches.cs
+ M tests/MtgEngine.Rules.Tests/LegalActionsTests.cs
+ M tests/MtgEngine.Rules.Tests/ScenarioRunnerTests.ManaColors.cs
+MM tests/MtgEngine.Rules.Tests/StateBasedActionTests.Fakes.cs
+M  tests/MtgEngine.Rules.Tests/StateBasedActionTests.cs
+M  tests/MtgEngine.Rules.Tests/events.txt
+?? MtgEngine.Api/Controllers/AccountController.cs
+?? MtgEngine.Api/Controllers/CollectionMetadataController.cs
+?? MtgEngine.Api/Controllers/ExploreController.cs
+?? MtgEngine.Api/Controllers/ExploreDeckCopyController.cs
+?? MtgEngine.Api/Controllers/PublicCollectionsController.cs
+?? MtgEngine.Api/Dtos/AccountDtos.cs
+?? MtgEngine.Api/Dtos/CollectionMetadataDtos.cs
+?? MtgEngine.Api/Dtos/ExploreDtos.cs
+?? MtgEngine.Api/Dtos/PublicCollectionDtos.cs
+?? MtgEngine.Api/Migrations/20261021022251_AccountManagement.Designer.cs
+?? MtgEngine.Api/Migrations/20261021022251_AccountManagement.cs
+?? MtgEngine.Api/Migrations/20261021024923_CollectionMetadataAndUndo.Designer.cs
+?? MtgEngine.Api/Migrations/20261021024923_CollectionMetadataAndUndo.cs
+?? MtgEngine.Api/Migrations/20261021205259_ProfileParity.Designer.cs
+?? MtgEngine.Api/Migrations/20261021205259_ProfileParity.cs
+?? MtgEngine.Api/Services/AccountEmailSender.cs
+?? MtgEngine.Api/Services/AccountManagementService.Credentials.cs
+?? MtgEngine.Api/Services/AccountManagementService.Profile.cs
+?? MtgEngine.Api/Services/AccountManagementService.Sessions.cs
+?? MtgEngine.Api/Services/AccountManagementService.cs
+?? MtgEngine.Api/Services/CollectionExportService.cs
+?? MtgEngine.Api/Services/CollectionMetadataService.Snapshot.cs
+?? MtgEngine.Api/Services/CollectionMetadataService.cs
+?? MtgEngine.Api/Services/CollectionUndoCleanupWorker.cs
+?? MtgEngine.Api/Services/Community/
+?? MtgEngine.Api/Services/PublicCollectionService.cs
+?? MtgEngine.Domain/Models/AccountSession.cs
+?? MtgEngine.Domain/Models/CollectionUndo.cs
+?? MtgEngine.Rules/Events/GameEvent.Casting.cs
+?? MtgEngine.Rules/Events/GameEvent.Lifecycle.cs
+?? MtgEngine.Rules/Interpreter/EffectInterpreter.Proposals.cs
+?? tests/MtgEngine.Api.Tests/AccountManagementTests.cs
+?? tests/MtgEngine.Api.Tests/CollectionExportTests.cs
+?? tests/MtgEngine.Api.Tests/CollectionMetadataTests.cs
+?? tests/MtgEngine.Api.Tests/EdhrecAverageDeckParserTests.cs
+?? tests/MtgEngine.Api.Tests/EdhrecCardPageParserTests.cs
+?? tests/MtgEngine.Api.Tests/EdhrecCommanderPageParserTests.cs
+?? tests/MtgEngine.Api.Tests/EdhrecFixtures.cs
+?? tests/MtgEngine.Api.Tests/EdhrecVariantTests.cs
+?? tests/MtgEngine.Api.Tests/ExploreDeckCopyTests.cs
+?? tests/MtgEngine.Api.Tests/ExploreServiceTests.cs
+?? tests/MtgEngine.Api.Tests/Fixtures/
+?? tests/MtgEngine.Api.Tests/PublicCollectionTests.cs
+?? tests/MtgEngine.Rules.Tests/CastingTests.PermissionSpent.cs
+?? tests/MtgEngine.Rules.Tests/CommanderDamageIdentityTests.cs
+?? tests/MtgEngine.Rules.Tests/FaceCastingTests.Buyback.cs
+?? tests/MtgEngine.Rules.Tests/InitiativeTests.cs
+?? tests/MtgEngine.Rules.Tests/InterpreterExileTests.cs
+?? tests/MtgEngine.Rules.Tests/LayerPlayerLimitsTests.cs
+?? tests/MtgEngine.Rules.Tests/QueryTests.Phasing.cs
+?? tests/MtgEngine.Rules.Tests/QueryTests.TurnOrder.cs
+?? tests/MtgEngine.Rules.Tests/SeamDecoratorTests.cs
+?? tests/MtgEngine.Rules.Tests/StateBasedActionTests.Phasing.cs
+?? tests/MtgEngine.Rules.Tests/StateBasedActionTests.PlayerLeft.cs
+?? tests/MtgEngine.Rules.Tests/TurnStructureTests.ExtraTurnOrder.cs
+?? tests/MtgEngine.Rules.Tests/TurnStructureTests.Phasing.cs
+?? tests/MtgEngine.Rules.Tests/ZoneChangeTests.MoveHistory.cs

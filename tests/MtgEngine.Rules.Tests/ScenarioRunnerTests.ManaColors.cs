@@ -111,14 +111,26 @@ public sealed class ScenarioRunnerTestsManaColors
 
         public Outcome PlayLand(GameState state, PlayLand command) => inner.PlayLand(state, command);
 
+
         public Outcome ResolveTop(GameState state) => inner.ResolveTop(state);
 
-        public Outcome FinishResolving(GameState state, ObjectId stackObject) => inner.FinishResolving(state, stackObject);
+        public Outcome FinishResolving(GameState state, ObjectId stackObject, bool resolved = true) => inner.FinishResolving(state, stackObject, resolved);
 
         public Refusal? Check(GameState state, Command command) => inner.Check(state, command);
 
         public ImmutableList<CostChoice> CostChoices(GameState state, Command command) => inner.CostChoices(state, command);
 
         public Outcome CastInstructed(GameState state, CastSpell command) => inner.CastInstructed(state, command);
+
+        // Every remaining member, forwarded because a wrapper that misses one does not fail to
+        // compile: it quietly inherits the seam's throwing default. SeamDecoratorTests is what
+        // says so; these four were found by it.
+        public Refusal? CheckInstructed(GameState state, CastSpell command) => inner.CheckInstructed(state, command);
+
+        public Outcome PayForRule(GameState state, PlayerId player, Cost cost, ObjectId? source = null, int? x = null) =>
+            inner.PayForRule(state, player, cost, source, x);
+
+        public Refusal? CanPayForRule(GameState state, PlayerId player, Cost cost, ObjectId? source = null, int? x = null) =>
+            inner.CanPayForRule(state, player, cost, source, x);
     }
 }

@@ -1,76 +1,62 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.EntityFrameworkCore;
-using MtgEngine.Api.Data;
 using MtgEngine.Api.Dtos;
 using MtgEngine.Api.Services;
-using MtgEngine.Domain.Models;
 
 namespace MtgEngine.Api.Controllers;
 
-[ApiController]
-[AllowAnonymous]
-[EnableRateLimiting("auth")]
-[Route("api/[controller]")]
-public sealed class AuthController : ControllerBase
+[ApiController, Route("api/auth"), EnableRateLimiting("auth")]
+public sealed class AuthController(AccountManagementService accounts) : ControllerBase
 {
-    private readonly MtgEngineDbContext _db;
-    private readonly TokenService _tokens;
-
-    public AuthController(MtgEngineDbContext db, TokenService tokens)
+    private const string CookieName = "compleat_refresh";
+    [AllowAnonymous, HttpPost("register")]
+    public async Task<ActionResult<AuthTokenResponse>> Register(RegisterRequest request, CancellationToken ct)
     {
-        _db = db;
-        _tokens = tokens;
+        var result = await accounts.RegisterAsync(request, Device(), ct).ConfigureAwait(false);
+        SetRefresh(Response, result);
+        return Ok(result.Response);
     }
-
-    [HttpPost("register")]
-    public async Task<ActionResult<AuthTokenResponse>> Register([FromBody] RegisterRequest request)
+    [AllowAnonymous, HttpPost("login")]
+    public async Task<ActionResult<AuthTokenResponse>> Login(LoginRequest request, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(request.Username)
-            || string.IsNullOrWhiteSpace(request.Email)
-            || string.IsNullOrWhiteSpace(request.Password))
-            return Problem(detail: "Username, email, and password are required", statusCode: StatusCodes.Status400BadRequest);
-
-        if (request.Password.Length < 8)
-            return Problem(detail: "Password must be at least 8 characters", statusCode: StatusCodes.Status400BadRequest);
-
-        var taken = await _db.Users.AnyAsync(u =>
-            u.Username == request.Username || u.Email == request.Email);
-        if (taken)
-            return Problem(detail: "Username or email is already taken", statusCode: StatusCodes.Status409Conflict);
-
-        var user = new User
-        {
-            Username = request.Username,
-            Email = request.Email,
-            PasswordHash = PasswordHasher.Hash(request.Password),
-        };
-
-        _db.Users.Add(user);
-        await _db.SaveChangesAsync();
-
-        return Ok(new AuthTokenResponse(_tokens.Generate(user), user.Username));
+        var result = await accounts.LoginAsync(request, Device(), ct).ConfigureAwait(false);
+        SetRefresh(Response, result, request.RememberMe);
+        return Ok(result.Response);
     }
-
-    [HttpPost("login")]
-    public async Task<ActionResult<AuthTokenResponse>> Login([FromBody] LoginRequest request)
+    [AllowAnonymous, HttpPost("refresh")]
+    public async Task<ActionResult<AuthTokenResponse>> Refresh(RefreshSessionRequest request, CancellationToken ct)
     {
-        // Accept either username or email in the Username field
-        var user = await _db.Users.FirstOrDefaultAsync(u =>
-            u.Username == request.Username || u.Email == request.Username);
-
-        if (user is null)
-        {
-            // Burn the same hashing cost as a real check so response timing does not
-            // reveal whether the account exists.
-            PasswordHasher.VerifyDummy(request.Password);
-            return Problem(detail: "Invalid credentials", statusCode: StatusCodes.Status401Unauthorized);
-        }
-
-        if (!PasswordHasher.Verify(request.Password, user.PasswordHash))
-            return Problem(detail: "Invalid credentials", statusCode: StatusCodes.Status401Unauthorized);
-
-        return Ok(new AuthTokenResponse(_tokens.Generate(user), user.Username));
+        var result = await accounts.RefreshAsync(Request.Cookies[CookieName] ?? "", ct).ConfigureAwait(false);
+        SetRefresh(Response, result, request.RememberMe);
+        return Ok(result.Response);
     }
+    [AllowAnonymous, HttpPost("logout")]
+    public async Task<IActionResult> Logout(CancellationToken ct)
+    {
+        Guid? id = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var user) ? user : null;
+        Guid? family = Guid.TryParse(User.FindFirstValue("session"), out var session) ? session : null;
+        await accounts.SignOutAsync(Request.Cookies[CookieName] ?? "", id, family, ct).ConfigureAwait(false);
+        ClearRefresh(Response);
+        return NoContent();
+    }
+    [AllowAnonymous, HttpPost("password/forgot")]
+    public async Task<IActionResult> Forgot(ForgotAccountPasswordRequest request, CancellationToken ct)
+    {
+        await accounts.ForgotAsync(request.Email, ct).ConfigureAwait(false);
+        return NoContent();
+    }
+    [AllowAnonymous, HttpPost("password/reset")]
+    public async Task<IActionResult> Reset(ResetAccountPasswordRequest request, CancellationToken ct)
+    {
+        await accounts.ResetAsync(request, ct).ConfigureAwait(false);
+        ClearRefresh(Response);
+        return NoContent();
+    }
+    private string Device() => Request.Headers.UserAgent.ToString();
+    private static void SetRefresh(HttpResponse response, AccountSignIn result, bool rememberMe = true) => response.Cookies.Append(CookieName, result.RefreshToken,
+        new CookieOptions { HttpOnly = true, Secure = true, SameSite = SameSiteMode.Strict, Path = "/api/auth", Expires = rememberMe ? result.RefreshExpiresAt : null });
+    public static void ClearRefresh(HttpResponse response) => response.Cookies.Delete(CookieName,
+        new CookieOptions { HttpOnly = true, Secure = true, SameSite = SameSiteMode.Strict, Path = "/api/auth" });
 }

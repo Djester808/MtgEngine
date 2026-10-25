@@ -78,10 +78,9 @@ public sealed partial class Query
             GreatestSameNameCount sameName => GreatestSameName(state, sameName, context), // CR 201.2
             AttackersAgainst against => AttackersAgainstPlayers(state, against, context), // CR 508.1
             DistinctNameCount names => DistinctNames(state, names, context), // CR 201.2b
-            // The two numbers no folder keeps yet; each refuses naming the field that has to write
-            // it, because zero is a legal answer here and would play the card silently wrongly.
+            // Life loss still needs a complete per-player record; damage alone cannot answer it.
             LifeLostThisTurn => throw NoLifeLostThisTurn(), // CR 119.3
-            CommanderCastsThisGame => throw NoCommanderCastCount(), // CR 903.8
+            CommanderCastsThisGame casts => CommanderCastCount(state, casts, context), // CR 903.8
             _ => throw Unanswerable(amount.GetType().Name, "no arm in the query layer"),
         };
     }

@@ -48,6 +48,12 @@ public sealed partial class StateBasedActions
             if (snapshot.Player(obj.Owner).HasLost)
                 continue;
 
+            // CR 702.26b: a phased-out permanent does not exist, so 704.5 has nothing to judge.
+            // These walk the objects directly rather than through a filter, so the query layer's
+            // guard does not cover them.
+            if (obj.PhasedOut)
+                continue;
+
             var zone = obj.Zone.Zone;
 
             // 704.5d and 704.5e: a token and a copy leave the game the same way, so they are one

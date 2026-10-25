@@ -1,0 +1,65 @@
+[
+  {
+    "name": "bot-ability",
+    "id": "ev_5e9a04773e86252fec5e7e1b6960630bae3b9e6ce85dd09cb1333e2faaeab38a",
+    "coverage": {
+      "state": "complete",
+      "issues": []
+    },
+    "artifact": {
+      "path": "C:\\Program Files\\Wizards of the Coast\\MTGA\\MTGA_Data\\Managed\\SharedClientCore.dll",
+      "sha256": "42f2fb5f062ccc6098182a902d411746070759a404e875b6e0aac44d3b7ccc6e",
+      "byte_length": 1569792,
+      "format": "pe"
+    }
+  },
+  {
+    "name": "headless",
+    "id": "ev_696f6ddcb5fa7275d7f248560fe14aa52c5b7244ba14d4959f4780f878a4f5ca",
+    "coverage": {
+      "state": "complete",
+      "issues": []
+    },
+    "artifact": {
+      "path": "C:\\Program Files\\Wizards of the Coast\\MTGA\\MTGA_Data\\Managed\\SharedClientCore.dll",
+      "sha256": "42f2fb5f062ccc6098182a902d411746070759a404e875b6e0aac44d3b7ccc6e",
+      "byte_length": 1569792,
+      "format": "pe"
+    }
+  },
+  {
+    "name": "importer",
+    "id": "ev_2260c05b7240dd2cef9aa9a4dfd067b3137f8891f26a00a6e36468de15058c3e",
+    "coverage": {
+      "state": "complete",
+      "issues": []
+    },
+    "artifact": {
+      "path": "C:\\Program Files\\Wizards of the Coast\\MTGA\\MTGA_Data\\Managed\\GrpdParser.dll",
+      "sha256": "948a9df0d6571a99d2978d82b02d79887e26bc0c763e812335541d5dfff1caab",
+      "byte_length": 96768,
+      "format": "pe"
+    }
+  },
+  {
+    "name": "tutorial",
+    "id": "ev_e723b0ec7b0c17999878ab2f12e108865fb8fe5c48c7dbdedee4db6161c92c92",
+    "coverage": {
+      "state": "unavailable",
+      "issues": [
+        {
+          "code": "resource-limit",
+          "scope": "metadata.representation",
+          "offset": 9563172,
+          "detail": "Managed metadata exceeds the 67108864 byte representation budget"
+        }
+      ]
+    },
+    "artifact": {
+      "path": "C:\\Program Files\\Wizards of the Coast\\MTGA\\MTGA_Data\\Managed\\Core.dll",
+      "sha256": "3e85d45e88b10a2fd3841e3abe6f5b37a17e0c42d360c93988e2270b4fdc858a",
+      "byte_length": 12856320,
+      "format": "pe"
+    }
+  }
+]

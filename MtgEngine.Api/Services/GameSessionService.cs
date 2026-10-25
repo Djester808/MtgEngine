@@ -7,6 +7,7 @@ using MtgEngine.Rules.Commands;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.State;
+using MtgEngine.Rules.Views;
 
 namespace MtgEngine.Api.Services;
 
@@ -14,8 +15,8 @@ namespace MtgEngine.Api.Services;
 public sealed record NewGameSeat(
     string UserId,
     string Name,
-    IReadOnlyList<string> DeckOracleIds,
-    IReadOnlyList<string> CommandZoneOracleIds);
+    IReadOnlyList<StartingCard> DeckCards,
+    IReadOnlyList<StartingCard> CommandCards);
 
 /// <summary>A table being created. The honour-system setting is chosen here and never again.</summary>
 public sealed record NewGameRequest(
@@ -35,9 +36,8 @@ public sealed record NewGameRequest(
 /// state, so there is nothing that can disagree with the log about what happened.
 /// <para>
 /// The deck gate runs once, at creation. A card's status can move underneath a table that is
-/// already playing — the pipeline writes <c>cards/</c> continuously — and a game that was legal
-/// when it started stays legal, so a resumed game recomputes what is enforced but never refuses
-/// itself back out of existence.
+/// already playing — the pipeline writes <c>cards/</c> continuously — so new games persist
+/// their admission decision and resume with the same coverage and definition snapshots.
 /// </para>
 /// </remarks>
 public sealed class GameSessionService
@@ -46,17 +46,20 @@ public sealed class GameSessionService
     private readonly IGameLogStore _store;
     private readonly ICardFilePool _pool;
     private readonly DeckGate _gate;
+    private readonly GameDefinitionResolver _definitions;
     private readonly Func<ImmutableHashSet<string>, Subsystems> _subsystems;
 
     /// <param name="subsystems">
     /// The engine for a table, given the oracle ids the table enforces: the view says per card
     /// whether the engine plays it or the table does by hand, and only the admission knows.
     /// </param>
-    public GameSessionService(IGameLogStore store, ICardFilePool pool, DeckGate gate, Func<ImmutableHashSet<string>, Subsystems>? subsystems = null)
+    public GameSessionService(IGameLogStore store, ICardFilePool pool, DeckGate gate, Func<ImmutableHashSet<string>, Subsystems>? subsystems = null,
+        GameDefinitionResolver? definitions = null)
     {
         _store = store;
         _pool = pool;
         _gate = gate;
+        _definitions = definitions ?? new GameDefinitionResolver(pool);
         _subsystems = subsystems ?? (enforced => Subsystems.Wave2(enforced.Contains));
     }
 
@@ -64,39 +67,60 @@ public sealed class GameSessionService
     /// Creates a table: every deck through the gate, then the engine, then the log stored.
     /// </summary>
     /// <exception cref="InvalidRequestException">A deck holds a card this table cannot play.</exception>
-    public async Task<GameSession> CreateAsync(NewGameRequest request, CancellationToken ct = default)
+    public Task<GameSession> CreateAsync(NewGameRequest request, CancellationToken ct = default) =>
+        CreateCoreAsync(request, Guid.NewGuid(), false, ct);
+
+    /// <summary>A lobby's stable id is its game's id, so a retry cannot create another game.</summary>
+    public Task<GameSession> CreateForLobbyAsync(Guid lobbyId, NewGameRequest request, CancellationToken ct = default) =>
+        lobbyId == Guid.Empty ? throw new InvalidRequestException("Table id is required.") : CreateCoreAsync(request, lobbyId, true, ct);
+
+    private async Task<GameSession> CreateCoreAsync(NewGameRequest request, Guid id, bool reuse, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(request);
-        if (request.Seats.Count < 2)
-            throw new InvalidRequestException("A game needs at least two seats.");
+        if (request.Seats.Count is < 2 or > 4)
+            throw new InvalidRequestException("A game needs two to four seats.");
+        if (request.Seats.Any(seat => string.IsNullOrWhiteSpace(seat.UserId) || string.IsNullOrWhiteSpace(seat.Name)))
+            throw new InvalidRequestException("Every seat needs a signed-in account and player name.");
+        if (request.Seats.Select(seat => seat.UserId).Distinct(StringComparer.Ordinal).Count() != request.Seats.Count)
+            throw new InvalidRequestException("Each account may hold only one seat at a table.");
+        if (reuse && await FindAsync(id, ct).ConfigureAwait(false) is { } existing)
+            return SameTable(existing, request);
 
         var enforced = ImmutableHashSet.CreateBuilder<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var seat in request.Seats)
         {
-            var admission = _gate.Admit([.. seat.DeckOracleIds, .. seat.CommandZoneOracleIds], request.AllowHonourSystem);
+            var admission = _gate.Admit([.. seat.DeckCards.Concat(seat.CommandCards).Select(card => card.OracleId)], request.AllowHonourSystem);
             enforced.UnionWith(admission.EnforcedOracleIds);
         }
 
         ct.ThrowIfCancellationRequested();
 
+        var definitions = await _definitions.ResolveAsync(
+            request.Seats.SelectMany(seat => seat.DeckCards.Concat(seat.CommandCards)).Select(card => card.OracleId),
+            request.AllowHonourSystem, ct).ConfigureAwait(false);
+
         var setup = new GameSetup(
-            [.. request.Seats.Select(s => new PlayerStart(s.Name, [.. s.DeckOracleIds], [.. s.CommandZoneOracleIds]))],
+            [.. request.Seats.Select(s => new PlayerStart(s.Name, [.. s.DeckCards], [.. s.CommandCards]))],
             request.Seed,
             request.StartingLife,
-            request.Format);
+            request.Format,
+            OfferMulligans: true);
 
         var enforcedIds = enforced.ToImmutable();
-        var engine = new Game(_subsystems(enforcedIds), _pool);
+        var engine = new Game(_subsystems(enforcedIds), definitions);
         var created = engine.Create(setup);
+        created = created with
+        {
+            Events = [.. created.Events.Select(e => e is GameStarted start ? start with { EnforcedOracleIds = enforcedIds } : e)],
+        };
 
-        var id = Guid.NewGuid();
         var session = new GameSession(
             id, engine, created.State, created.Events,
             [.. request.Seats.Select(s => s.UserId)],
             enforcedIds,
             request.AllowHonourSystem);
 
-        await _store.CreateAsync(
+        var stored = await _store.TryCreateAsync(
             new PersistedGame
             {
                 Id = id,
@@ -109,8 +133,24 @@ public sealed class GameSessionService
             },
             ct).ConfigureAwait(false);
 
-        _live[id] = session;
-        return session;
+        if (!stored)
+        {
+            session.Dispose();
+            var recovered = await FindAsync(id, ct).ConfigureAwait(false)
+                ?? throw new InvalidResourceStateException("The game could not be recovered. Try again.");
+            return SameTable(recovered, request);
+        }
+
+        return _live.GetOrAdd(id, session);
+    }
+
+    private static GameSession SameTable(GameSession existing, NewGameRequest request)
+    {
+        if (!existing.Seats.SequenceEqual(request.Seats.Select(seat => seat.UserId))
+            || !string.Equals(existing.State.Format, request.Format, StringComparison.OrdinalIgnoreCase)
+            || existing.AllowHonourSystem != request.AllowHonourSystem)
+            throw new InvalidResourceStateException("This table is already bound to a different game setup.");
+        return existing;
     }
 
     /// <summary>The table, live if it is in memory and replayed from its log if it is not.</summary>
@@ -146,31 +186,31 @@ public sealed class GameSessionService
     {
         ArgumentNullException.ThrowIfNull(session);
         return session.State.Objects.TryGetValue(what, out var obj)
-            && session.EnforcedOracleIds.Contains(obj.Definition.OracleId);
+            && RulesCoverage.IsEnforced(obj, session.EnforcedOracleIds.Contains);
     }
 
     private Task PersistAsync(GameSession session, ImmutableList<GameEvent> appended, CancellationToken ct) =>
         _store.SaveLogAsync(session.Id, EventLogSerializer.Write(session.Log), session.Log.Count, session.Finished, ct);
 
     /// <summary>
-    /// What a resumed game enforces, read back from the decks in its first event.
+    /// What a resumed game enforces, read from its admission snapshot.
     /// </summary>
     /// <remarks>
-    /// Not the gate: a card verified after the game began does not become enforced mid-table
-    /// (the players have been handling it themselves), and a card demoted by a refutation does
-    /// not throw a game away. Both are decided against the pool as it is now, which is the only
-    /// answer that is the same for every player at the table.
+    /// Older logs did not record this decision and retain their historical reconstruction
+    /// behavior. An explicitly empty snapshot means a manual table, not a missing snapshot.
     /// </remarks>
     private ImmutableHashSet<string> EnforcedIn(IEnumerable<GameEvent> log)
     {
         var started = log.OfType<GameStarted>().FirstOrDefault();
         if (started is null)
             return [];
+        if (started.EnforcedOracleIds is { } admitted)
+            return admitted.WithComparer(StringComparer.OrdinalIgnoreCase);
 
         return ImmutableHashSet.CreateRange(
             StringComparer.OrdinalIgnoreCase,
             started.Players
-                .SelectMany(p => p.DeckOracleIds.Concat(p.CommandZoneOracleIds))
+                .SelectMany(p => p.DeckCards.Concat(p.CommandCards)).Select(card => card.OracleId)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .Where(id => _pool.StatusOf(id).Status == ImplementationStatus.Verified));
     }

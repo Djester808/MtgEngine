@@ -4,8 +4,9 @@ using MtgEngine.Domain.ValueObjects;
 namespace MtgEngine.Domain.Models;
 
 /// <summary>
-/// Immutable oracle definition of a card. Shared across all copies.
-/// Think of this as the card's "type" -- loaded once from Scryfall.
+/// Catalog data used by collection and deck features, loaded from Scryfall.
+/// Includes Oracle characteristics and the resolved printing's display/price metadata.
+/// This is not an individual game card or an executable rules program.
 /// </summary>
 public sealed class CardDefinition
 {
@@ -60,6 +61,9 @@ public sealed class CardDefinition
 
     public string? FlavorText { get; init; }
     public string? Artist { get; init; }
+    public int? EdhrecRank { get; init; }
+    public string? CollectorNumber { get; init; }
+    public IReadOnlyList<string>? ProducedMana { get; init; }
     public string? SetCode { get; init; }
     public string? Rarity { get; init; }
     public IReadOnlyDictionary<string, string> Legalities { get; init; } = new Dictionary<string, string>();

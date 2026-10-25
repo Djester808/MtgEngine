@@ -12,9 +12,22 @@ namespace MtgEngine.Api.Controllers;
 [ApiController]
 [Route("api/games")]
 [Authorize]
-public sealed class GamesController(GameReportService reports) : ControllerBase
+public sealed class GamesController(GameReportService reports, GameSessionService sessions, GameArtworkService? artwork = null) : ControllerBase
 {
     private string UserId => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+
+
+    /// <summary>A seated player's redacted snapshot. Account identity selects the seat.</summary>
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> View(Guid id, CancellationToken ct)
+    {
+        var session = await sessions.FindAsync(id, ct).ConfigureAwait(false);
+        if (session is null || session.SeatOf(UserId) is not { } seat)
+            return NotFound();
+        var (view, legal) = session.ProjectFor(seat);
+        var images = artwork is null ? null : await artwork.ForAsync(view, ct).ConfigureAwait(false);
+        return Ok(new { GameId = id, View = view, Legal = legal, Artwork = images });
+    }
 
     /// <summary>Files a report that a card did not play as printed, from a position in the log.</summary>
     [HttpPost("{id:guid}/reports")]

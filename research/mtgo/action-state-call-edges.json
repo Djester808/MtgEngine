@@ -1,0 +1,657 @@
+[
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.GamePrompt.Create",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.GamePrompt",
+    "target_name": ".ctor"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.GamePrompt.Create",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.GamePrompt",
+    "target_name": ".ctor"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.ReplayGameEvent.ReplayGame.ExecuteAction",
+    "target_declaring_type": "WotC.MtGO.Client.Common.Diagnostics.Error",
+    "target_name": "AssertNotNull"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.ReplayGameEvent.ReplayGame.ExecuteAction",
+    "target_declaring_type": "WotC.MtGO.Client.Common.Diagnostics.Error",
+    "target_name": "Assert"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.ReplayGameEvent.ReplayGame.ExecuteAction",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game",
+    "target_name": "get_GlobalActions"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.ReplayGameEvent.ReplayGame.ExecuteAction",
+    "target_declaring_type": "<>c",
+    "target_name": "<ExecuteAction>b__23_0"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.ReplayGameEvent.ReplayGame.ExecuteAction",
+    "target_declaring_type": "System.Func`2",
+    "target_name": ".ctor"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.ReplayGameEvent.ReplayGame.ExecuteAction",
+    "target_declaring_type": "System.Linq.Enumerable",
+    "target_name": "FirstOrDefault"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.ReplayGameEvent.ReplayGame.ExecuteAction",
+    "target_declaring_type": "WotC.MtGO.Client.Common.Diagnostics.Error",
+    "target_name": "Assert"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.ReplayGameEvent.ReplayGame.ExecuteAction",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.IGameAction",
+    "target_name": "get_Name"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.ReplayGameEvent.ReplayGame.ExecuteAction",
+    "target_declaring_type": "System.String",
+    "target_name": "IsNullOrEmpty"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.ReplayGameEvent.ReplayGame.ExecuteAction",
+    "target_declaring_type": "System.DateTime",
+    "target_name": "get_Now"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.ReplayGameEvent.ReplayGame.ExecuteAction",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.Actions.GameAction",
+    "target_name": "Execute"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ExecuteAction",
+    "target_declaring_type": "WotC.MtGO.Client.Common.Diagnostics.Error",
+    "target_name": "AssertNotNull"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ExecuteAction",
+    "target_declaring_type": "WotC.MtGO.Client.Common.Diagnostics.Error",
+    "target_name": "Assert"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ExecuteAction",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.Actions.GameAction",
+    "target_name": "Execute"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ExecuteAction",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game",
+    "target_name": "OnGameAction"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.Process",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game",
+    "target_name": "get_CurrentGameStateProcessor"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.Process",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Core.StateManagement.IStateProcessor",
+    "target_name": "Process"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.HandleGamePlayStatusMessageDetailed",
+    "target_declaring_type": "<>c__DisplayClass300_0",
+    "target_name": ".ctor"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.HandleGamePlayStatusMessageDetailed",
+    "target_declaring_type": "WotC.MtGO.Client.Model.IBatchedNotifiedCollection`1",
+    "target_name": "EndBatch"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.HandleGamePlayStatusMessageDetailed",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.GamePlayStatusMessageDetailed",
+    "target_name": "get_IsFullGameState"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.HandleGamePlayStatusMessageDetailed",
+    "target_declaring_type": "<>c__DisplayClass300_0",
+    "target_name": "<HandleGamePlayStatusMessageDetailed>b__0"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.HandleGamePlayStatusMessageDetailed",
+    "target_declaring_type": "System.Action",
+    "target_name": ".ctor"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.HandleGamePlayStatusMessageDetailed",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.GamePlayStatusMessageDetailed",
+    "target_name": "get_IsFullGameState"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.HandleGamePlayStatusMessageDetailed",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game",
+    "target_name": "ExecuteGameStateWithRetry"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.HandleGamePlayStatusMessageDetailed",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.GamePlayStatusMessageDetailed",
+    "target_name": "get_IsFullGameState"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.HandleGamePlayStatusMessageDetailed",
+    "target_declaring_type": "System.Diagnostics.Stopwatch",
+    "target_name": "Reset"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.HandleGamePlayStatusMessageDetailed",
+    "target_declaring_type": "System.Diagnostics.Stopwatch",
+    "target_name": "get_Elapsed"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.HandleGamePlayStatusMessageDetailed",
+    "target_declaring_type": "System.TimeSpan",
+    "target_name": "get_TotalSeconds"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessThingElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.ThingElement",
+    "target_name": "get_Properties"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessThingElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Core.PropertyContainer",
+    "target_name": "TryGetIntegerProperty"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessThingElement",
+    "target_declaring_type": "WotC.MtGO.Client.Common.Diagnostics.Error",
+    "target_name": "Assert"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessThingElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game",
+    "target_name": "IsPlayer"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessThingElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.ThingElement",
+    "target_name": "get_Properties"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessThingElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.GameCard",
+    "target_name": "GetCardDefinitionForNewGameCard"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessThingElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game",
+    "target_name": "ReconcileThingElementWithCardDefinition"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessThingElement",
+    "target_declaring_type": "System.Collections.Generic.IDictionary`2",
+    "target_name": "TryGetValue"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessThingElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Core.DigitalMagicObject",
+    "target_name": "get_Properties"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessThingElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.ThingElement",
+    "target_name": "get_Properties"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessThingElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Core.PropertyContainer",
+    "target_name": "CopyFrom"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessThingElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.ThingElement",
+    "target_name": "get_Properties"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessThingElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game",
+    "target_name": "CreateDigitalObject"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessThingElement",
+    "target_declaring_type": "System.Collections.Generic.IDictionary`2",
+    "target_name": "set_Item"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessThingElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Core.MagicEntityInstance`2",
+    "target_name": "get_Definition"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessThingElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Core.DigitalMagicObject",
+    "target_name": "ResolveProperties"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessThingElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Core.MagicEntityInstance`2",
+    "target_name": "SetNewCardDefinition"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessThingElement",
+    "target_declaring_type": "System.Collections.Generic.ICollection`1",
+    "target_name": "Contains"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessThingElement",
+    "target_declaring_type": "System.Collections.Generic.ICollection`1",
+    "target_name": "Remove"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessThingElement",
+    "target_declaring_type": "System.Collections.Generic.ICollection`1",
+    "target_name": "Add"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.InteractStateElement",
+    "target_name": "get_TurnNumber"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game",
+    "target_name": "set_CurrentTurn"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.InteractStateElement",
+    "target_name": "get_CurrentPhase"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game",
+    "target_name": "set_CurrentPhase"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.InteractStateElement",
+    "target_name": "get_TimeStamp"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.InteractStateElement",
+    "target_name": "get_PromptedPlayer"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.InteractStateElement",
+    "target_name": "get_PromptText"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.InteractStateElement",
+    "target_name": "get_TimeStamp"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.GamePrompt",
+    "target_name": "Create"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game",
+    "target_name": "get_Players"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "System.Collections.Generic.IEnumerable`1",
+    "target_name": "GetEnumerator"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "System.Collections.Generic.IEnumerator`1",
+    "target_name": "get_Current"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.IGamePlayer",
+    "target_name": "get_ManaPool"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.IManaPool",
+    "target_name": "set_ManaAction"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "System.Collections.IEnumerator",
+    "target_name": "MoveNext"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "System.IDisposable",
+    "target_name": "Dispose"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game",
+    "target_name": "DetermineSpecialStepTypeFromInteractElement"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.InteractStateElement",
+    "target_name": "get_SpecialStepPlayer"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game",
+    "target_name": "set_SpecialStepPlayer"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.InteractStateElement",
+    "target_name": "get_UIElements"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "System.Collections.Generic.IEnumerable`1",
+    "target_name": "GetEnumerator"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "System.Collections.Generic.IEnumerator`1",
+    "target_name": "get_Current"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.StateElements.TurnStepUIElements.UIElement",
+    "target_name": "get_Type"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game",
+    "target_name": "HandleCardSelectorElement"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game",
+    "target_name": "HandleListSelectorElement"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.GamePrompt",
+    "target_name": "get_Text"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.InteractStateElement",
+    "target_name": "get_TimeStamp"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.Actions.CardWishAction",
+    "target_name": "Create"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.GamePrompt",
+    "target_name": "AddAction"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.StateElements.TurnStepUIElements.PromptButton",
+    "target_name": "get_Label"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.StateElements.TurnStepUIElements.PromptButton",
+    "target_name": "get_ButtonCode"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.StateElements.TurnStepUIElements.PromptButton",
+    "target_name": "get_Hotkey"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.InteractStateElement",
+    "target_name": "get_TimeStamp"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.Actions.PrimitiveAction",
+    "target_name": "Create"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.GamePrompt",
+    "target_name": "AddAction"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.GamePrompt",
+    "target_name": "get_Text"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.StateElements.TurnStepUIElements.NumberSpinner",
+    "target_name": "get_Minimum"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.StateElements.TurnStepUIElements.NumberSpinner",
+    "target_name": "get_Maximum"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.StateElements.TurnStepUIElements.NumberSpinner",
+    "target_name": "get_Default"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.InteractStateElement",
+    "target_name": "get_TimeStamp"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.Actions.NumericAction",
+    "target_name": "Create"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.GamePrompt",
+    "target_name": "AddAction"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Core.Resources",
+    "target_name": "get_Button_Play_Action_OK"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.InteractStateElement",
+    "target_name": "get_TimeStamp"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.Actions.PrimitiveAction",
+    "target_name": "Create"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.GamePrompt",
+    "target_name": "AddAction"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.GamePrompt",
+    "target_name": "get_Text"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.GamePrompt",
+    "target_name": "get_Timestamp"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.Actions.SelectPlayerAction",
+    "target_name": "Create"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game",
+    "target_name": "get_Players"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "System.Collections.Generic.IEnumerable`1",
+    "target_name": "GetEnumerator"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "System.Collections.Generic.IEnumerator`1",
+    "target_name": "get_Current"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.Actions.SelectPlayerAction",
+    "target_name": "get_AvailablePlayers"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.IGamePlayer",
+    "target_name": "get_User"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.IUser",
+    "target_name": "get_Name"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Core.NamedValue`1",
+    "target_name": ".ctor"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "System.Collections.Generic.ICollection`1",
+    "target_name": "Add"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "System.Collections.IEnumerator",
+    "target_name": "MoveNext"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "System.IDisposable",
+    "target_name": "Dispose"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.GamePrompt",
+    "target_name": "AddAction"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.StateElements.TurnStepUIElements.ChooseColorButton",
+    "target_name": "get_ColorButtons"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Core.Resources",
+    "target_name": "get_Button_Play_Action_Pay"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.StateElements.TurnStepUIElements.ChooseColorButton",
+    "target_name": "get_ColorButtons"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.InteractStateElement",
+    "target_name": "get_TimeStamp"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.Actions.ManaPoolAction",
+    "target_name": "Create"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.GamePrompt",
+    "target_name": "AddAction"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game",
+    "target_name": "get_PlayersInServerOrder"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.StateElements.TurnStepUIElements.ManaPromptButton",
+    "target_name": "get_Whose"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "System.Linq.Enumerable",
+    "target_name": "ElementAtOrDefault"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.GamePlayer",
+    "target_name": "get_ManaPool"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Core.Resources",
+    "target_name": "get_Button_Play_Action_Pay"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.StateElements.TurnStepUIElements.ManaPromptButton",
+    "target_name": "get_ManaButtons"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.InteractStateElement",
+    "target_name": "get_TimeStamp"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.Actions.ManaPoolAction",
+    "target_name": "Create"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.IManaPool",
+    "target_name": "set_ManaAction"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "System.Collections.IEnumerator",
+    "target_name": "MoveNext"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "System.IDisposable",
+    "target_name": "Dispose"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "System.Collections.Generic.Queue`1",
+    "target_name": "Dequeue"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.GamePrompt",
+    "target_name": "AddAction"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "System.Collections.Generic.Queue`1",
+    "target_name": "get_Count"
+  },
+  {
+    "caller": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game.ProcessInteractStateElement",
+    "target_declaring_type": "WotC.MtGO.Client.Model.Play.InProgressGameEvent.Game",
+    "target_name": "set_Prompt"
+  }
+]

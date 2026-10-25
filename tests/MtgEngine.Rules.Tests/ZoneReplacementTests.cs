@@ -142,9 +142,11 @@ public sealed class ZoneReplacementTests
 
         var outcome = new ZoneSystem { Replacements = fake }.Draw(state, new PlayerId(0), 3);
 
-        Assert.IsType<ChoiceRequested>(Assert.Single(outcome.Events));
+        Assert.All(outcome.Events, item => Assert.IsType<ChoiceRequested>(item));
+        Assert.Equal(2, Assert.Single(outcome.State.Pending!.Context.DeferredDraws).Count);
         Assert.Single(fake.Offered);
         Assert.Equal(3, outcome.State.In(ZoneKey.Of(Zone.Library, new PlayerId(0))).Count);
+        AssertLogFolds(state, outcome);
     }
 
     /// <summary>CR 400.7 and 704.5m: every move in a batch is read against the board before any of them happened.</summary>
@@ -303,7 +305,7 @@ public sealed class ZoneReplacementTests
     {
         ImmutableList<string> cards = [.. deck];
         var setup = new GameSetup(
-            [new PlayerStart("One", cards, []), new PlayerStart("Two", [], [])],
+            [new PlayerStart("One", [.. cards], []), new PlayerStart("Two", [], [])],
             Seed: 11,
             OpeningHandSize: 0);
         return new ZoneSystem().Create(setup, Store).State;

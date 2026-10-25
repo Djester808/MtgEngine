@@ -1,0 +1,629 @@
+ M CARD_COLLECTION_FEATURE.md
+ M MtgEngine.Api/Controllers/AuthController.cs
+ M MtgEngine.Api/Controllers/CollectionsController.cs
+ M MtgEngine.Api/Controllers/UsersController.cs
+ M MtgEngine.Api/Data/MtgEngineDbContext.cs
+ M MtgEngine.Api/Dtos/Dtos.cs
+ M MtgEngine.Api/Mapping/DomainMapper.cs
+ M MtgEngine.Api/Migrations/MtgEngineDbContextModelSnapshot.cs
+ M MtgEngine.Api/Program.cs
+ M MtgEngine.Api/Services/AiExceptionHandler.cs
+ M MtgEngine.Api/Services/BulkDataService.cs
+ M MtgEngine.Api/Services/CollectionService.cs
+ M MtgEngine.Api/Services/ProfileService.cs
+ M MtgEngine.Api/Services/ScryfallService.cs
+ M MtgEngine.Api/Services/TokenService.cs
+ M MtgEngine.Cards.Pipeline/Scenarios/SmokeScenario.Searches.cs
+ M MtgEngine.Domain/Models/Collection.cs
+ M MtgEngine.Domain/Models/User.cs
+M  MtgEngine.Rules/Casting/CastPlan.cs
+M  MtgEngine.Rules/Casting/CastingSystem.Instructed.cs
+M  MtgEngine.Rules/Casting/CastingSystem.Wave30.cs
+M  MtgEngine.Rules/Casting/CastingSystem.cs
+M  MtgEngine.Rules/Casting/ObjectCosts.cs
+M  MtgEngine.Rules/Characteristics/Layers.Players.cs
+M  MtgEngine.Rules/Characteristics/PlayerLimits.cs
+M  MtgEngine.Rules/Commander/CommanderDamage.cs
+M  MtgEngine.Rules/Engine/Seams.cs
+M  MtgEngine.Rules/Events/GameEvent.cs
+MM MtgEngine.Rules/Interpreter/EffectInterpreter.Actions.cs
+M  MtgEngine.Rules/Interpreter/EffectInterpreter.Backlog.cs
+M  MtgEngine.Rules/Interpreter/EffectInterpreter.Faces.cs
+MM MtgEngine.Rules/Interpreter/EffectInterpreter.Resume.cs
+M  MtgEngine.Rules/Interpreter/EffectInterpreter.Structure.cs
+MM MtgEngine.Rules/Interpreter/EffectInterpreter.cs
+M  MtgEngine.Rules/Interpreter/InterpreterEvents.cs
+M  MtgEngine.Rules/Query/Query.Selectors.cs
+M  MtgEngine.Rules/Query/Query.cs
+M  MtgEngine.Rules/Sba/StateBasedActions.Permanents.cs
+M  MtgEngine.Rules/State/GameState.cs
+M  MtgEngine.Rules/State/PlayerState.cs
+M  MtgEngine.Rules/Triggers/TriggerMatching.Wave25.cs
+M  MtgEngine.Rules/Turn/TurnSystem.cs
+ M README.md
+ M USER_PROFILE_FEATURE.md
+ M cards/002965be-a36f-4a09-9ce0-c6535bca1703.json
+ M cards/00c0543c-2a1f-4425-8283-4062d74a1637.json
+ M cards/01546b7d-a233-4176-8843-d732074dc5b6.json
+ M cards/0259f063-3e3f-4e07-9066-f748d4819829.json
+ M cards/02679a2e-303d-412f-87d8-0a37a8ca259c.json
+ M cards/032b8a0d-491a-4a12-ab9f-689010054d5b.json
+ M cards/032ec6e2-6cc3-4a97-9cc7-3233f5e11904.json
+ M cards/0370afa0-07d3-4787-8a5b-10272cb3a486.json
+ M cards/038519b9-bca8-4b27-b5ac-2409595469d0.json
+ M cards/03df6a57-37c9-46d3-83b3-4a6240100714.json
+ M cards/03f5c566-825c-4c46-9c01-a2f9b1e70a13.json
+ M cards/04b7362d-0490-4cb0-b5d7-2a7732f659ce.json
+ M cards/04c7f4fe-2098-4311-866d-6733c08d5178.json
+ M cards/053a69d8-2b5e-4f14-8b02-ca405891dc4a.json
+ M cards/05849bd6-8f38-4031-be2b-e2aa03beb8cc.json
+ M cards/05a4f8ff-49da-42af-add5-6248c4b0644b.json
+ M cards/05e6b243-48a6-4a42-bc5f-413441de9c33.json
+ M cards/066cd584-773c-4623-be53-8f6feda5a26a.json
+ M cards/068b370f-a358-4244-8050-6c81680c55c7.json
+ M cards/078def07-ae5d-4591-8db6-d156834aab97.json
+ M cards/0826cf7d-7ccc-459b-a92f-29dc169628f8.json
+ M cards/08b13e1f-27ca-40a8-b5ed-88ac933d24bf.json
+ M cards/08cb8a30-9cb4-4517-bee5-8848aa60d1a2.json
+ M cards/09955b4b-6052-4c27-8b63-9548482b3c5c.json
+ M cards/09a70ae8-3859-4a09-901d-dce063fa3b5f.json
+ M cards/09cc8709-fe10-472a-b05c-e89f3523018d.json
+ M cards/09dd85aa-47bc-4713-a9b9-8b52ff2285ed.json
+ M cards/0a1dc797-7531-4494-afe6-add6ac3f74c0.json
+ M cards/0a79237e-0811-4a8a-bd4d-db3ca91bff22.json
+ M cards/0b67c4e2-f88b-4e01-85a1-9d5f5b8db13b.json
+ M cards/0bfa4512-e35a-4c93-b324-80ec659f5a97.json
+ M cards/0c2841bb-038c-4fbf-8360-bc0a1522b58d.json
+ M cards/0c85b8f7-0bd0-4680-9ec5-d4b110460a54.json
+ M cards/0d4ecdb1-ec90-497f-a7a4-1c68092b8757.json
+ M cards/0d96b60b-a060-48ee-bb83-93f1c4a10669.json
+ M cards/0f77c0c9-4dc4-489a-b547-e93287c4d1a5.json
+ M cards/0fd114c4-092b-4e28-b0dc-ef529f3bc73e.json
+ M cards/1093fdb6-bd4f-46a8-92e3-5aa46b52bb4f.json
+ M cards/1182591d-8660-4a2e-8d77-2fc544b02b66.json
+ M cards/11b5308d-5bc0-4782-875f-a28be36e665d.json
+ M cards/126e9140-2c05-4c00-8b01-5653456c736a.json
+ M cards/127de52b-df75-4342-95a0-20d84c5bf916.json
+ M cards/134d5b82-7940-4b33-a922-7f9d1f403e50.json
+ M cards/13575cf9-65c1-4861-b21e-eb2155e07766.json
+ M cards/135cc078-1c45-465e-b0b9-7168c89f56f4.json
+ M cards/1386d111-a2a7-4df1-91d7-947664126989.json
+ M cards/14589b6b-1814-46f9-a364-83cc15dacac2.json
+ M cards/14c3ff84-1e82-4606-a433-869fc52cc382.json
+ M cards/153376c9-dffd-458c-8ce3-a4c8269bc4e9.json
+ M cards/1593ea18-2f2f-4ab4-83fb-6ccc0bec8a90.json
+ M cards/162572f2-1757-42e9-bd97-e6bd9a762c0e.json
+ M cards/16629f59-bae8-4c19-bf50-443eb0ed6856.json
+ M cards/16cd0b90-f70c-4efa-b252-8de8784ef9a3.json
+ M cards/16e015b2-f8a3-4b1a-80be-58a8f5fb5e8c.json
+ M cards/17975a20-2c13-4325-be1e-0bcda5063a2d.json
+ M cards/17b29350-4f37-4552-8192-4856b15345f9.json
+ M cards/17e905ca-c0bd-473d-95a7-e180ba5fea43.json
+ M cards/1861e642-21d5-4232-89f3-b5557f2946c1.json
+ M cards/19015380-1332-4960-8cc6-0732009525a2.json
+ M cards/1b3fb20a-e090-4286-9c03-6b71c27c45be.json
+ M cards/1b882a0e-0ede-4d1a-bd1a-9b7cffbcde8e.json
+ M cards/1b9f9f5b-8712-4f00-90cb-1b7b9970eccc.json
+ M cards/1bd3e453-aa21-4ee6-95c2-d6d920ee8e7a.json
+ M cards/1c857fa4-e823-494d-9ea4-7eb9e719c9b6.json
+ M cards/1c9e1f75-73f0-4846-b53f-458a0984b1bb.json
+ M cards/1cb0610b-a731-42c2-b93f-0a29f63cebf4.json
+ M cards/1d725121-e50c-42f0-9128-56802f07c89e.json
+ M cards/1e6a24be-8281-41c1-a5ba-b68f0ef1d7b8.json
+ M cards/1ff25f67-36a7-4cfa-a2b1-2135b5b6fb67.json
+ M cards/20129459-a386-41eb-899d-1aede3427300.json
+ M cards/204b71fc-4d5f-40dd-903d-56c733171d84.json
+ M cards/204f9afe-c20b-4933-b5cd-aa572784762a.json
+ M cards/20a6d576-a5b2-43b4-8be9-75be001e567d.json
+ M cards/21338b71-37f5-4121-9b84-565025ebcd17.json
+ M cards/216cb26e-8da9-478b-bfbc-8030f7adee72.json
+ M cards/21fa2442-6eac-4dce-a9cc-76f0053fdb8f.json
+ M cards/2224b6e0-c5ff-45d0-84e3-83758c5fc99f.json
+ M cards/23467047-6dba-4498-b783-1ebc4f74b8c2.json
+ M cards/240f0835-36af-4ad8-9336-d6d3d816d293.json
+ M cards/24882fa2-3fe9-4c1b-aa3d-0e6488b9db27.json
+ M cards/2549bc57-9ffb-4053-9f10-f2a5f792b845.json
+ M cards/25c983e0-a8c9-4784-91a4-8fe04c6df882.json
+ M cards/2699005b-a471-429f-a9d8-fbf2077ee2fd.json
+ M cards/276cece9-f9f2-46e6-ae76-daddaa2fb9ab.json
+ M cards/27ad3e00-6ffb-48f7-8469-8868d066d1e2.json
+ M cards/27b047e3-0d41-45e2-98e9-9391d7923a1e.json
+ M cards/27e9db49-7af7-4bef-ad4c-bf5dfb92030d.json
+ M cards/28b46183-c62f-47b1-9fee-3ba148202cab.json
+ M cards/29737a60-3ebd-40d9-b935-c4f54b90d45d.json
+ M cards/298a7e1a-b254-442e-bc1d-2a3e5296d849.json
+ M cards/299fc083-0834-4064-8344-f895aff68867.json
+ M cards/2ad8ff62-d090-4835-9274-3b755ba0f8e6.json
+ M cards/2b76f9e9-cd28-4eaf-8674-215c34263f96.json
+ M cards/2bd111bb-ce02-414c-b5b7-e0e037d8d96b.json
+ M cards/2c49d24a-98a4-43c2-bb59-1ef13d4214c2.json
+ M cards/2cb95721-56c8-4008-8055-579a5a97fc8b.json
+ M cards/2ccdc60a-49a9-44b9-a7af-0ebf18b26785.json
+ M cards/2d513c3e-bd27-479e-af32-7f66d96d0de0.json
+ M cards/2e3ee458-fa3f-4452-ab95-5a7fb5a0483b.json
+ M cards/2e467fab-e808-44d3-99bf-e3621baeb7cb.json
+ M cards/2ec4288e-34c6-4831-a2c0-ba1ca1d9d1dc.json
+ M cards/2f092562-9e17-43cd-aeb8-d0567f99363e.json
+ M cards/2fc070dc-f2f7-4648-8069-31d74790a39c.json
+ M cards/3029df1d-d02a-4fed-8ab4-000a2096f823.json
+ M cards/30b24e8e-3b0e-4d8e-90f3-f66eb7c1858c.json
+ M cards/30ec73ad-c7a1-4527-8dc6-44bdd65b9ba6.json
+ M cards/310f141c-7f37-4729-aed6-dd9c09db448d.json
+ M cards/3127ae9b-a7a7-43ec-89d7-688f8445b33d.json
+ M cards/31f15274-301b-47c5-ba19-0ced04520878.json
+ M cards/322f44f0-e6da-4ee0-b474-e7d5e9a461c5.json
+ M cards/324824cb-f938-401c-b9b5-d8908b431ef0.json
+ M cards/326ba371-124c-4949-a048-3a0c8962e567.json
+ M cards/32e5339e-9e4f-46f8-b305-f9d6d3ba8bb5.json
+ M cards/33666a98-812f-4892-9f8d-33e0cbecc340.json
+ M cards/339f5334-b65a-445a-a016-20e997e0b4bb.json
+ M cards/3407fe41-fdd3-4119-8f70-4bc4590a379f.json
+ M cards/34515b16-c9a4-4f98-8c77-416a7a523407.json
+ M cards/34b90d3e-f48c-41ff-b3e4-5cab7a9cd597.json
+ M cards/34f34409-326d-4994-a0ea-1a69aa278f03.json
+ M cards/3525e263-e29a-49bf-a29f-fb3ce43bbd33.json
+ M cards/352b64d2-2ae5-44ee-a64f-94932ef545d3.json
+ M cards/3567c3c8-b3c7-45b7-935b-b1fdbc973720.json
+ M cards/3589bcfc-42b0-414a-adce-bc690dc631c8.json
+ M cards/3644f316-f9a3-46c9-9b1e-747f86cf4ead.json
+ M cards/365548fb-5acc-4a8a-b20b-26d28b7d029f.json
+ M cards/36cd2364-d113-47d1-b2c4-b088d9eb88dd.json
+ M cards/37108cd4-bbab-4ce3-9ed6-f60e8422e703.json
+ M cards/376c9d3f-21d3-4251-bb6a-026fa9e1b0e1.json
+ M cards/37a55560-6e32-4f54-b9a8-fd157aea6eb5.json
+ M cards/37c06f89-db36-4937-9404-2b07cd22e1a6.json
+ M cards/37df5ade-6a21-4b0c-89f8-e2e917589a8d.json
+ M cards/382b7873-e78d-473b-8346-d92d16e8f634.json
+ M cards/38515f89-348b-4cf3-b7bd-1f6fe4ce2fba.json
+ M cards/3875aef0-3102-4fbf-be90-e4139f7a2348.json
+ M cards/388168b3-ec68-4af2-b88c-6a5ec88c15f6.json
+ M cards/38a12bd7-4394-44a8-91a0-6a4ff7fa4f71.json
+ M cards/38f3b157-0df4-409b-89cc-086e1531cd5b.json
+ M cards/3999cd64-ff5c-4e2c-8aa6-d14f9f8a2b4c.json
+ M cards/3a940dfa-a026-4969-8981-ef90cdfbe9ef.json
+ M cards/3aa83ed2-f48b-4ce6-a614-2c54ddf50538.json
+ M cards/3ab3996f-aa3f-4041-8634-8e197d51f108.json
+ M cards/3be3d7e6-7860-438a-b8c8-ef154c18c163.json
+ M cards/3c1ef404-e2c6-486d-a5a2-d5779c71d498.json
+ M cards/3c43efd6-b1a8-452c-ae20-9a936c3340ab.json
+ M cards/3c7f2b29-9f42-41ab-a2d4-7a450fb0242d.json
+ M cards/3cda958a-f777-433d-850e-a6c8f581db4e.json
+ M cards/3dc364f3-3094-4660-80ca-9418588c7fde.json
+ M cards/3dcc35f3-74dc-46a8-8aa9-3411189f0547.json
+ M cards/3e39224c-72ce-4ecc-aa17-12c071ea1f3e.json
+ M cards/4001b868-ada1-43f4-92e2-27ab0e80c913.json
+ M cards/4457ed35-7c10-48c8-9776-456485fdf070.json
+ M cards/44661108-d72f-4d02-9303-7e4b0ecf7e9c.json
+ M cards/4474ecee-0ec3-409b-90df-738d9313fe3c.json
+ M cards/451e8ece-7389-4d52-8bc9-450cb5e53e6a.json
+ M cards/454a8902-8120-4373-96ee-bbf352b04e8d.json
+ M cards/4567a528-75f0-4ea6-b927-3a500caf76ac.json
+ M cards/457af74a-02b3-4659-846d-63e482667f34.json
+ M cards/463865bc-087e-477b-9e86-84e77f1ad931.json
+ M cards/46779609-4fa7-4fd2-b5b4-7d4d749339e6.json
+ M cards/469956a2-7cd4-4695-b8f4-c841526f160d.json
+ M cards/499a4715-6776-461b-bee4-22ed172d455e.json
+ M cards/49b9a3ac-d245-431a-bf40-64d1b8dc2b91.json
+ M cards/49dddec0-d958-4810-8c6e-225fc8118c8f.json
+ M cards/4b1bf05e-753e-4350-a913-894cf3cecc0c.json
+ M cards/4b515bb0-f275-4400-8032-3173b799ab40.json
+ M cards/4b8bf64b-4800-45ff-81c6-2857f34999b5.json
+ M cards/4ba5b3f6-503b-43e6-b66e-4f8c55cffed7.json
+ M cards/4c6a0c30-b547-4eff-8ff4-0ca25803c076.json
+ M cards/4d18bcba-a346-445e-a182-6cc30b7e066d.json
+ M cards/4e0b647a-6e1a-421b-bca9-8d5e346bda80.json
+ M cards/4eb813fd-2d5a-4b02-8193-662681ef4e7d.json
+ M cards/4fb00dbe-1f82-4ba6-b18c-97e816d10d3a.json
+ M cards/4fdbbec2-e921-4b63-958d-f9ba1e417197.json
+ M cards/4fe8af73-c84a-44bd-9739-ee5c8b027874.json
+ M cards/522dd417-364b-44ab-8ca9-fb55db5f26a6.json
+ M cards/5277a68e-1ceb-4b40-8e10-3d0564f5d7be.json
+ M cards/53236dd7-845a-444c-96d5-f41ed7325d8f.json
+ M cards/53f7c868-b03e-4fc2-8dcf-a75bbfa3272b.json
+ M cards/5502741a-e3b9-454e-8121-4360a6db6750.json
+ M cards/55f3c721-e13a-406e-bc8e-d6cdc91ac477.json
+ M cards/5748ebf1-24e3-499d-ab7c-c2cebd462a24.json
+ M cards/57c9ff89-dd30-467b-bb3e-499eeea8cb94.json
+ M cards/5825997b-10d7-4a36-972c-a80ddd90b8ed.json
+ M cards/58b0c737-0a84-4f9a-b3b7-300c5de43874.json
+ M cards/5b2364d7-a811-4595-a1b4-224c70555ffa.json
+ M cards/5b9a2b81-a645-43be-8001-03817ac210ca.json
+ M cards/5d998c09-7d89-4265-ada4-6d80cbf56dae.json
+ M cards/5da7eea8-bb9e-47ce-a554-8a1ee058bd7a.json
+ M cards/5def9f38-0a0b-4e8d-9f9d-29dcb46520b4.json
+ M cards/5e7ef7fe-968b-4ada-9fe4-6fda0541aafc.json
+ M cards/5e958212-6a5b-4288-8d31-f1572619d7dc.json
+ M cards/5ece7d03-9ee7-4953-a06e-9d8e41874903.json
+ M cards/5f15125e-ae89-471e-b055-226a783bc7c1.json
+ M cards/5f2a3797-28aa-4c7a-ba2b-fd243a1747fd.json
+ M cards/60433b48-d27f-413c-905c-43839b1943f1.json
+ M cards/605c1ee0-5e8a-4e0a-a99b-42a38873f822.json
+ M cards/634d5009-cbf3-44cb-8c15-7057f501a210.json
+ M cards/63625b26-3a19-4c3c-b18a-91247bb2a40c.json
+ M cards/6385fd0d-256d-4400-9319-afa8170024db.json
+ M cards/63a509ea-cedc-40e9-b4e8-0ff4fc356485.json
+ M cards/647ca69e-cc01-4b2b-b376-bee2a98331e8.json
+ M cards/64bf8929-f5f2-4d50-8667-13b1d007bcfc.json
+ M cards/6587a463-a108-4854-b6d1-944e89b8c8a4.json
+ M cards/65986c1b-8e51-4604-b685-d82fa7d1263a.json
+ M cards/660f370a-b25b-4ea5-b765-7abf96899c1c.json
+ M cards/66ca8a60-e028-4a5f-8177-860b888cb9d1.json
+ M cards/6761b077-7a89-42c9-93ab-675fe4231564.json
+ M cards/6789a170-f2c5-4fc0-8a45-2b2361e67410.json
+ M cards/67d60b24-d429-4ded-90d9-06e49f28c396.json
+ M cards/69872a9a-fe54-4e58-940c-89395af71acd.json
+ M cards/698e79ec-c2bc-4973-a095-f3c57b50e39c.json
+ M cards/6a5ce1b0-ac78-4a74-9eb7-4064e1687bf1.json
+ M cards/6b9194dd-2296-4879-ac5e-f89b18431df6.json
+ M cards/6c2c8bf3-9bf8-4a86-89d3-3bb36260dc51.json
+ M cards/6d4e558e-9109-4918-a082-fdcbaffd516b.json
+ M cards/6f4ac4a4-53ec-4bc9-8f5c-d4b801d867b2.json
+ M cards/705509e9-a034-4a5a-9c65-66f58748b8a2.json
+ M cards/706ae742-1807-44b7-a4fa-f2e26f61519a.json
+ M cards/70dc830e-d05b-4fc7-88dd-879e140b3fbf.json
+ M cards/713332c1-5bd8-400f-bfff-c1ca0697a043.json
+ M cards/7246d45b-2185-4cdd-981b-5419b7d52bce.json
+ M cards/727f3201-1cfc-4ab2-9dfe-be4f7251f42f.json
+ M cards/72deedab-7c17-4505-aeca-4bc8596d80a5.json
+ M cards/73089a39-a2f6-4aa2-a058-e6551475153d.json
+ M cards/7324abaa-48da-439d-9339-b0ea5eea612e.json
+ M cards/7336a541-3ae9-4ab2-acb8-f574c0a5b3a9.json
+ M cards/7358e164-5704-4e78-9b21-6a9bf2a968ce.json
+ M cards/736017e2-bc33-49e8-812d-1639443fdb51.json
+ M cards/736892cb-a34b-4bb9-b56c-e26e3db207a2.json
+ M cards/74d3277a-38e5-4732-afed-084a56148f20.json
+ M cards/7536eb66-959d-4dca-9b75-895572ef733c.json
+ M cards/765863c8-1be0-4bb1-9e9c-db7701cffde3.json
+ M cards/76b003e0-15af-4f22-bdf2-1ade5430964a.json
+ M cards/7735eeba-693b-47e2-bd51-414379cf1016.json
+ M cards/776341cb-d2ec-423f-9250-92dc8bd8d503.json
+ M cards/777b8ec4-a783-4297-96b7-4f200d0eb734.json
+ M cards/78427103-9543-41fb-b6d4-72963fe87275.json
+ M cards/78826359-fe63-44ad-adc4-a17ffcd710e4.json
+ M cards/78a2972c-14f4-41f3-99f9-167948bdd73a.json
+ M cards/78b6dd40-c182-4037-a4d3-9fd012b2c584.json
+ M cards/7a43bd27-fdd8-41f0-9bc4-92568f3408f1.json
+ M cards/7b0d7e62-0287-454a-8702-b0bfa7b41245.json
+ M cards/7c2a4fe5-43e8-4e20-bef2-0278d18afc4b.json
+ M cards/7c3944fa-7c86-4979-85a9-86196aa94594.json
+ M cards/7c427c3d-ecd8-45ef-bebd-8f10f4a311db.json
+ M cards/7c777a41-e40a-4b40-96bf-8ddd5c12924c.json
+ M cards/7cb9e29f-835f-4155-a2a5-4b778866c773.json
+ M cards/7d0efc64-151f-45b4-8c0b-c32609f9d862.json
+ M cards/7e00b0cd-d212-4604-ba07-da21f4fe00b0.json
+ M cards/7e8c2a18-e404-40ff-a9e0-ec3eeb6d576e.json
+ M cards/7edb3d15-4f70-4ebe-8c5e-caf6a225076d.json
+ M cards/7eff84f1-f772-497a-b350-bbc93d0230f7.json
+ M cards/7ffae8f8-3006-4969-a339-6d30678f87ea.json
+ M cards/80ea56ad-e741-4a85-b4e8-ce62e7d593d5.json
+ M cards/8164b1e8-3350-465e-8a17-75f57d326344.json
+ M cards/81b67745-0b1f-4433-963d-9b9653fb4d95.json
+ M cards/81c70ae7-3c18-4c9b-8505-e4db9e0e6518.json
+ M cards/82004860-e589-4e38-8d61-8c0210e4ea39.json
+ M cards/8203c621-a1a0-4865-8c9a-0d4064c86107.json
+ M cards/83101ba8-a569-4827-8c53-9ca0dfcd59a7.json
+ M cards/83161d59-2520-4741-9328-e2a4a8b5d5bc.json
+ M cards/84122d81-9634-4d3f-85a5-f6cf4303691a.json
+ M cards/8539f295-5d58-4436-a73a-b9277c4c7795.json
+ M cards/858e12e9-3eaa-40cf-9e22-f9ccdfe485b3.json
+ M cards/86bf58f2-7f25-4e10-b797-25e0e8e67769.json
+ M cards/86ef6474-613f-41fb-931c-d4279b03ed99.json
+ M cards/86fb3749-37d6-48a6-8524-71e996850307.json
+ M cards/88cf4c1a-5863-45fc-b76d-7ad33b175b2b.json
+ M cards/893fed41-c144-433f-af88-bc7d419b7fb3.json
+ M cards/89ca686a-7c72-4d8f-9290-e89635624a83.json
+ M cards/8a3ad2ef-8bcb-40c0-85de-f03328c2b644.json
+ M cards/8ae98ef8-8f52-4877-a08c-1fae5514184e.json
+ M cards/8aed54cb-d1bb-45ad-adbe-38e55d84ff31.json
+ M cards/8b21062e-97b0-4967-96df-30e8309f4fba.json
+ M cards/8b27326f-e7b8-4a4d-b589-df459246d19a.json
+ M cards/8b610f8f-c8dd-4eeb-bc6e-3bc706d5f63e.json
+ M cards/8b755881-a72d-4e21-a369-d2924eb4585a.json
+ M cards/8c3495bf-02e7-4ad9-949d-92eb3d2b662a.json
+ M cards/8c45bf9d-a017-43bf-9e32-67810a8a217b.json
+ M cards/8c52bd39-0586-48ca-b263-17210cf9feb6.json
+ M cards/8cb6dbb5-9ea2-4c19-8173-148080fb898e.json
+ M cards/8d02b297-97c4-4379-9862-0a462400f66f.json
+ M cards/8dd5f5af-d2d8-4356-8617-8381081b930c.json
+ M cards/8ddfc283-c9b4-41a5-af88-cf0068e986cc.json
+ M cards/8dec6fcf-1254-4b1b-ba23-7a3e492a7241.json
+ M cards/8eb7c0a5-6190-40de-b473-2d1daa3bbe28.json
+ M cards/8f933fae-6c0c-42d7-a817-14760d8285cd.json
+ M cards/8fcf50cd-e6d0-4516-850f-d42ee75dcc3a.json
+ M cards/910488bf-66ab-415e-973b-1262b2ab7454.json
+ M cards/913e6182-706a-4872-8c8a-e146b0ae0738.json
+ M cards/91d4a5fe-fd6d-4b14-a63f-61b4d0ecd9c4.json
+ M cards/91fbb25b-8521-483f-88b0-77778d25f7fd.json
+ M cards/9218b56d-aaec-482f-99e9-d95d227bfe25.json
+ M cards/9242cd3e-1a71-4700-8182-9c1005616033.json
+ M cards/92cfba68-12f6-4f97-9187-0f6a39656a0f.json
+ M cards/92eed395-62ca-4293-882b-8565c40daab5.json
+ M cards/93056597-b964-421f-be2f-e92abef1c2a4.json
+ M cards/938b4e2c-88d9-4637-bc00-e228920c9a78.json
+ M cards/93953926-a644-49bb-9b5a-4c8f19114c7e.json
+ M cards/9396546c-d067-4ce3-9c3d-b62cca970b4f.json
+ M cards/940ba435-7abc-40f8-a5af-c1c653b3284e.json
+ M cards/948217ac-289e-455f-8c7c-519aa75fa345.json
+ M cards/94a844d2-0574-45a7-b347-e0e329767c42.json
+ M cards/94e8b0a9-44a1-4dce-8d44-78681ae638a1.json
+ M cards/94f0a572-e91c-4b56-a5d1-6cbbeabd210d.json
+ M cards/95560508-7ac9-4be9-8a3f-3c7d5b52807b.json
+ M cards/956381ba-6d37-4a8a-846c-bad79222dbee.json
+ M cards/9575d7ce-f26d-4b90-87a3-6329e9799572.json
+ M cards/958d71ff-c9f7-46f0-96ca-79e7f4d65a16.json
+ M cards/95be5f72-1f81-4ec6-9bd9-f0b07bfc874b.json
+ M cards/967e8b3f-8266-4d9a-a38b-d0e10184e1e4.json
+ M cards/97a84e9d-bfc4-4ca2-b1e8-908dba56ccdb.json
+ M cards/97cabeda-9fe3-490d-99b4-4c8d87c17157.json
+ M cards/98a389f4-2905-47f3-b60e-3d4afb3e5cb0.json
+ M cards/9965d9c5-2ebf-4a6c-930e-55c5890979be.json
+ M cards/9a107e48-3d50-4941-95b1-10f2b29a4245.json
+ M cards/9ad4f730-a18e-4a7c-a468-a926c718c741.json
+ M cards/9b8d9236-0452-4509-aca4-a53a399fff85.json
+ M cards/9c58d241-4d9f-4b46-b8ee-f4587f9acfd6.json
+ M cards/9c8845d6-fa65-4731-b348-dc724fc2d285.json
+ M cards/9d3c7c96-056f-408e-a834-fa45a430d3d4.json
+ M cards/9d581188-ce80-494e-bd38-f411e1f4efb5.json
+ M cards/9f12bf9a-6e1a-4377-b4af-e8cabd3ee58a.json
+ M cards/9f8fe514-77ed-41b4-a6f3-c6f095bb97be.json
+ M cards/9fb8cd81-403a-4988-8f1c-b8eccf8abd9c.json
+ M cards/a02e1ca7-23c5-41e3-a744-72fc9e9dd8ba.json
+ M cards/a044474a-cd72-4e9d-bd8d-a08f2de9cdc0.json
+ M cards/a0abd957-01a0-4aa9-8fc8-0e6840d21606.json
+ M cards/a0af158b-f42a-4022-a438-e0a2e1fd6d9e.json
+ M cards/a1e232c0-dc38-47be-a5a0-f68bc1d86a29.json
+ M cards/a38828be-781e-4340-9c6f-f40b1d34773f.json
+ M cards/a3a8a044-283d-443e-bc40-c2f826d70c22.json
+ M cards/a3c8d817-7949-4dae-b9f5-f9d952479270.json
+ M cards/a492a323-df8a-40fd-bff0-50091baa7700.json
+ M cards/a4d33e21-d3fe-4d5b-903c-b75e859d6f7f.json
+ M cards/a54f0869-94c8-42af-9080-166efb9486a4.json
+ M cards/a5852994-d816-4e62-8a03-254223714544.json
+ M cards/a731e87b-8d99-4b64-8ee3-8e540d652366.json
+ M cards/a75445d3-1303-4bb5-89ad-26ea93fecd48.json
+ M cards/a784481f-eccb-4112-bb38-04a659319660.json
+ M cards/a7e97fa9-4b72-4548-b854-5be5f18a6f1a.json
+ M cards/a85197ab-dc94-4b72-9716-8dbdbbe90ff8.json
+ M cards/a8dba58b-2956-492e-ae30-49db2ae68e53.json
+ M cards/a8e707ec-ce77-4bc5-8c76-5ea3e81e8c7f.json
+ M cards/aa6723a2-75da-49f5-a1ba-cbfa82c55301.json
+ M cards/aa959340-c869-4caa-92c7-572bd8d23eef.json
+ M cards/aadd10d0-6dd0-4bdc-8d93-ff08e29a5863.json
+ M cards/ac2dd694-d2f1-4025-8400-12332bdc882a.json
+ M cards/ace86e56-efde-4eb7-8815-71456a4c3abe.json
+ M cards/ace8e88e-ca6a-4bdf-8c6d-1b914fc00259.json
+ M cards/adfcdadd-ddda-477b-8e72-0cae2430fb63.json
+ M cards/afaef788-34d1-460b-b884-9d7ae6ddeb18.json
+ M cards/b01e698b-608a-4fc7-8073-b01d044743ec.json
+ M cards/b0b6be0c-41cf-4757-9f0e-87227b6ba6b3.json
+ M cards/b1544f21-7e98-461b-aed5-e748b0168c52.json
+ M cards/b166b670-febc-4821-855e-f8d465644c03.json
+ M cards/b168e4e6-f572-4d9f-b98f-95b2611354cb.json
+ M cards/b17ea905-0696-4e58-b564-557e87236e27.json
+ M cards/b1a0ae56-77aa-43ad-9aa8-dc1ab779e9d9.json
+ M cards/b2e950fb-cb7e-40a0-a311-5bbdd0477b29.json
+ M cards/b3d81980-76f2-44e2-b1c9-01e30c726312.json
+ M cards/b3f16f34-d78c-4b61-821b-05fc6bd0da37.json
+ M cards/b473e293-59e3-4e04-acf2-622604aeb25f.json
+ M cards/b5b4cf54-ed5e-42d0-9d98-5fec76b0b0b8.json
+ M cards/b653db44-ddae-44e8-8fa6-6af3232cd586.json
+ M cards/b7d4b7dd-fbb1-4ca3-875f-ef13a95e66ad.json
+ M cards/b8f16311-be5a-4648-b024-849a61dff0bc.json
+ M cards/b8f566ea-8283-4afa-9ac8-737e26419283.json
+ M cards/b9538d53-480b-481a-abbf-83ab17e1a45b.json
+ M cards/b9a62c6b-5848-44b1-932b-8d5de2560976.json
+ M cards/b9a7c722-6b24-4383-ac6e-2a30f7834269.json
+ M cards/b9f4f96b-6e54-4fe6-8df7-623e0fc72409.json
+ M cards/ba26ff0a-e714-44f2-95cf-1a5a6088edf9.json
+ M cards/bb2b324c-970a-4920-884e-c92ba49669f0.json
+ M cards/bccb06f1-8839-4104-9ffa-c79a817f8378.json
+ M cards/bdb3ca68-ec1f-4e16-81cc-d23f8f52c728.json
+ M cards/be811e70-aaaa-41f3-bf9e-5d3f9f719b49.json
+ M cards/befb211f-37ca-4083-98d4-9ff1f28be3f2.json
+ M cards/bf1341dd-41a3-49f6-87ec-63170dde4324.json
+ M cards/bffdfe7b-f17a-41b6-a460-80280fe497d4.json
+ M cards/c02c5547-b9c9-4b2d-9d12-e87bfba8f2d2.json
+ M cards/c0adbddc-b070-4c5f-afe0-0474c72a9251.json
+ M cards/c11e84a1-dbda-429b-8cd6-fd0deaefc689.json
+ M cards/c20a96f7-aa5a-4c15-b8b1-806685c99b27.json
+ M cards/c232d974-9c65-4bce-b045-e5a7cc0c62e0.json
+ M cards/c23e5b80-08d2-4e24-9908-fe2aa4f30f6f.json
+ M cards/c37051cc-6683-4dbb-b5ff-5c3a5bdab1df.json
+ M cards/c3aafcdd-c890-4971-b8a9-5bfcad794c0b.json
+ M cards/c4d36522-3ace-4bfb-bf2d-1a366f458698.json
+ M cards/c5229c17-b7be-4b05-b683-f2277edc4849.json
+ M cards/c5acf2a5-40f4-433d-a74d-1cb56c521464.json
+ M cards/c61374e5-a7f6-455e-a40b-a481751b536b.json
+ M cards/c6207f6a-a624-4754-88f5-dbe700c841ff.json
+ M cards/c68faebc-b2cd-461b-b93e-e1fcd4816810.json
+ M cards/c6eb2814-0021-4308-ad44-6c8cc59b0d1c.json
+ M cards/c73c1d91-0163-49c6-832a-b9327e7a2c9b.json
+ M cards/c749f23c-40c0-4159-b84c-a70cbb062c14.json
+ M cards/c7ee1b21-d02e-49ef-95d6-d6dbf2f886ae.json
+ M cards/c7f33cea-2ec8-4081-9208-a5b1d86721b3.json
+ M cards/c8b143ad-43ec-4e0d-a440-e348daa31391.json
+ M cards/c97361b5-af16-4a7b-af85-a429dbaf4ad2.json
+ M cards/ca204b66-8d0c-431a-8d34-282f7c2d17da.json
+ M cards/cac95494-0db0-4bec-8665-998431a6f76b.json
+ M cards/cae166de-e681-40a0-83a8-3c17cf40e2fc.json
+ M cards/cb027150-848c-4a66-88ad-e20222304dd8.json
+ M cards/cb8ec2e4-8223-4172-8f2c-37c918a573fa.json
+ M cards/cbcb6d9a-6ae5-4bcd-8013-2b657553764a.json
+ M cards/cbe3a4e7-5dbe-4f58-8ee6-a1762b65acfd.json
+ M cards/cc187110-1148-4090-bbb8-e205694a39f5.json
+ M cards/cc65ac73-5bef-4ecb-ad8e-39199084c027.json
+ M cards/cc6a83c7-e645-4a53-9550-be79b42cd851.json
+ M cards/cc999cf2-c99b-4911-8c52-6cc4a99fcc7b.json
+ M cards/cdf41cf4-4e77-453d-be5b-0abbbd358934.json
+ M cards/cfb8cdde-11f6-441a-942b-32d8c191fc90.json
+ M cards/cfdd5dc6-593e-495a-8cfe-3a56b3c4c7df.json
+ M cards/d057289d-5e28-43d5-8ff3-4a1bc723477d.json
+ M cards/d0901053-6de0-46d0-9ee3-8d40510236c1.json
+ M cards/d0a31db0-69db-405c-99a3-945617900c54.json
+ M cards/d1d171de-1c6d-4fb9-817a-9c689c709f3d.json
+ M cards/d2075f58-b0e9-4e85-b7e6-0523a27a1d5b.json
+ M cards/d21a89eb-7c5b-459a-acc7-12b20b13bf79.json
+ M cards/d2664f28-49e1-46f8-a863-b217e961a57c.json
+ M cards/d2d9ecea-7925-420e-98b9-2f87f41f387c.json
+ M cards/d3a0b660-358c-41bd-9cd2-41fbf3491b1a.json
+ M cards/d3b2d8a2-d3bc-448c-9cf6-6bead6010c28.json
+ M cards/d4e875d9-2245-470d-aa2f-1dfe66ce2d15.json
+ M cards/d57a8f0b-7989-4db5-8756-6f2690097252.json
+ M cards/d64b0848-0193-4025-ba62-63ecd8fb9f50.json
+ M cards/d64e9152-ef24-4394-aeb0-9c3befc56549.json
+ M cards/d683024d-8fe7-4509-851b-7655fadc1de7.json
+ M cards/d683d985-9888-4d21-8b5f-69e69ce4a03b.json
+ M cards/d69b1e68-8d8e-460b-9eb4-6a68be886197.json
+ M cards/d6b2c998-a226-426c-a40d-6e6007041bfe.json
+ M cards/d75b9c82-1b49-4c3e-a1b5-aeef57d6644b.json
+ M cards/d79cbc61-6c15-48ea-bbba-3cffb819ccba.json
+ M cards/d7f49243-a96e-499f-b2d7-8e9842432420.json
+ M cards/d8ad23a1-0b43-48ea-9fbe-d89b29194509.json
+ M cards/d9a7e5a6-3e41-4fc6-987a-18fe1b9d67dd.json
+ M cards/da3b17a2-e1e1-44e9-b9b1-ae54a92037db.json
+ M cards/da3e7d3d-2ca0-40c3-9602-fca37c92f507.json
+ M cards/dab520d0-20b4-4273-ba6b-eb07f85ea433.json
+ M cards/db6174d7-211d-4817-b8e4-8384594c83f9.json
+ M cards/dba16032-66c1-4ccb-9d65-d41ac550d182.json
+ M cards/dbcbdf37-c40f-4068-b4a7-a849cab1056c.json
+ M cards/dc0593c2-ccb4-4648-a592-c5bcd121dc72.json
+ M cards/dca51281-fb21-45b6-beb4-1f13397caee2.json
+ M cards/ddd649f4-dbaf-48ec-8ff7-95581257772d.json
+ M cards/de75e5dd-8a52-406c-b55c-96d686885500.json
+ M cards/df13dafb-f82e-42ac-b6dc-efe82af5db58.json
+ M cards/e0445c80-fa53-4c3e-881e-940e9fce7f57.json
+ M cards/e1e96802-fd0c-41f1-aa21-3287d75a0e88.json
+ M cards/e2487868-f386-438e-a73f-b494f6d35fac.json
+ M cards/e2cd65f6-7cbc-497c-bdc9-698ff17da31e.json
+ M cards/e3afc704-220f-498f-9eaa-0821b17dc24c.json
+ M cards/e48f9fc7-72cf-4c3a-b3b3-d237edc01310.json
+ M cards/e5df4597-1647-4ac2-bdb3-a517598d1431.json
+ M cards/e62f8d69-a559-4f13-a5c9-5fb750b4af2c.json
+ M cards/e6555cca-e608-4c87-b835-9cd47fd1f543.json
+ M cards/e6e4a8bd-5c40-4654-8de1-0da9afed90fd.json
+ M cards/e7e1b166-9267-426d-897d-24903327b48d.json
+ M cards/e87906d2-db1a-4e19-b910-adb4eb339945.json
+ M cards/e88027a6-24cc-4a8b-86db-734f26149ea8.json
+ M cards/e8863518-0bfa-49c3-8c6e-6c9116a81051.json
+ M cards/e8c7566d-7cc0-48af-a986-83223ec7e06c.json
+ M cards/e8cf80a1-6908-4adb-88e7-2015672d4905.json
+ M cards/ea5103f5-27e0-4eb1-902c-7f34652d6bf3.json
+ M cards/ea750169-1f6f-40c2-96e9-55719e103a63.json
+ M cards/ea9709b6-4c37-4d5a-b04d-cd4c42e4f9dd.json
+ M cards/ec3d4466-547c-4e02-b1b5-a156ec4637e9.json
+ M cards/ed4cd3a1-688b-4c05-948d-39d3336e00c0.json
+ M cards/ededbdae-d9dc-4206-9335-d7158f2d7700.json
+ M cards/ee24bf27-484d-4e1c-998e-6a74e3d3f6c4.json
+ M cards/ee579a32-a048-4335-b966-231ba731cdea.json
+ M cards/ee723c7c-ec9f-4ffb-8f36-cd7637eb1fae.json
+ M cards/ef833546-f755-4ac5-867a-3926984e68a0.json
+ M cards/ef86989d-ce80-4e55-aece-7d11710eeffa.json
+ M cards/f02682f0-26c0-4032-9df3-273b6a45d0a8.json
+ M cards/f0449cbd-855c-4c20-a1f5-f76a395d8d39.json
+ M cards/f1ef5698-14bd-42bf-aae5-2870699e4186.json
+ M cards/f29dc596-2121-4421-8463-15f6c2e8b9b3.json
+ M cards/f33ce38a-34ec-4b65-a0fc-160484a02007.json
+ M cards/f3c5978a-70fa-431f-933b-b954bd0db0ea.json
+ M cards/f3c7af78-a77d-4134-82a2-a5ce84285a84.json
+ M cards/f3fad295-1af2-4ecc-8546-b121ad6be27b.json
+ M cards/f5f4dd28-f4ae-4d39-b9b8-6ebfd63c93fe.json
+ M cards/f633c16d-d943-421c-ad18-af35db9ec9fc.json
+ M cards/f63c2438-27d4-449a-828f-f0a2ea86ff16.json
+ M cards/f718e507-296b-4f22-842b-5fb91322069b.json
+ M cards/f73979bb-91a5-4388-b70b-0cd7a4e14291.json
+ M cards/f78af825-023a-42e9-8374-5c52303a1417.json
+ M cards/f825c98f-a327-440b-8c0d-ebe02e23bfb7.json
+ M cards/f82a4e85-526d-4456-b700-7760043a31be.json
+ M cards/f8f4fc60-725d-46d8-8e8f-e68e00d20589.json
+ M cards/f99f4b52-21ae-47a2-8ae6-b0aa7386723a.json
+ M cards/f9d3b046-0b95-4103-a630-4b3fb88bb60b.json
+ M cards/f9db72dc-9a5b-48a4-a86e-7464d9a2166a.json
+ M cards/fae37e28-e137-4177-b973-fa8b4dd8f409.json
+ M cards/fb81f95c-70f8-4eb7-8d15-15d0ae23ec03.json
+ M cards/fb868840-09fa-49b1-85cb-b08ad065e972.json
+ M cards/fc0707c7-d504-4ccf-a0d2-3eb6e26e7a57.json
+ M cards/fc299c1c-50f3-492a-b6b8-a3664bb72ab7.json
+ M cards/fd74f8eb-0253-42dd-8277-186d4934da38.json
+ M cards/fd949f82-fc10-4e37-8aa9-6c7569fe3c55.json
+ M cards/fe83087d-c6c1-40be-9295-baaa1c6b2db1.json
+ M cards/ff01b408-6d17-40a3-9efd-a1b341ec1307.json
+ M cards/ffce81c5-1b58-4882-a4e7-6f8d7cb170de.json
+ M tests/MtgEngine.Api.Tests/MtgEngine.Api.Tests.csproj
+ M tests/MtgEngine.Api.Tests/ProfileServiceTests.cs
+M  tests/MtgEngine.Rules.Tests/CastingBacklogTests.Fakes.cs
+M  tests/MtgEngine.Rules.Tests/CastingTests.Fakes.cs
+M  tests/MtgEngine.Rules.Tests/CastingTests.cs
+M  tests/MtgEngine.Rules.Tests/CombatReplacementTests.cs
+M  tests/MtgEngine.Rules.Tests/CombatTests.Fakes.cs
+M  tests/MtgEngine.Rules.Tests/CombatTests.cs
+M  tests/MtgEngine.Rules.Tests/FaceCastingTests.Fakes.cs
+M  tests/MtgEngine.Rules.Tests/FaceCastingTests.cs
+ M tests/MtgEngine.Rules.Tests/InterpreterProposalTests.cs
+MM tests/MtgEngine.Rules.Tests/InterpreterResumptionTests.cs
+ M tests/MtgEngine.Rules.Tests/InterpreterTests.Fakes.cs
+ M tests/MtgEngine.Rules.Tests/InterpreterTests.Searches.cs
+ M tests/MtgEngine.Rules.Tests/LegalActionsTests.cs
+ M tests/MtgEngine.Rules.Tests/ScenarioRunnerTests.ManaColors.cs
+MM tests/MtgEngine.Rules.Tests/StateBasedActionTests.Fakes.cs
+M  tests/MtgEngine.Rules.Tests/StateBasedActionTests.cs
+M  tests/MtgEngine.Rules.Tests/events.txt
+?? COMPLEAT_FEATURE_PORT.md
+?? MtgEngine.Api/Controllers/AccountController.cs
+?? MtgEngine.Api/Controllers/CollectionMetadataController.cs
+?? MtgEngine.Api/Controllers/ExploreController.cs
+?? MtgEngine.Api/Controllers/ExploreDeckCopyController.cs
+?? MtgEngine.Api/Controllers/PublicCollectionsController.cs
+?? MtgEngine.Api/Dtos/AccountDtos.cs
+?? MtgEngine.Api/Dtos/CollectionMetadataDtos.cs
+?? MtgEngine.Api/Dtos/ExploreDtos.cs
+?? MtgEngine.Api/Dtos/PublicCollectionDtos.cs
+?? MtgEngine.Api/Migrations/20261021022251_AccountManagement.Designer.cs
+?? MtgEngine.Api/Migrations/20261021022251_AccountManagement.cs
+?? MtgEngine.Api/Migrations/20261021024923_CollectionMetadataAndUndo.Designer.cs
+?? MtgEngine.Api/Migrations/20261021024923_CollectionMetadataAndUndo.cs
+?? MtgEngine.Api/Migrations/20261021205259_ProfileParity.Designer.cs
+?? MtgEngine.Api/Migrations/20261021205259_ProfileParity.cs
+?? MtgEngine.Api/Services/AccountEmailSender.cs
+?? MtgEngine.Api/Services/AccountManagementService.Credentials.cs
+?? MtgEngine.Api/Services/AccountManagementService.Profile.cs
+?? MtgEngine.Api/Services/AccountManagementService.Sessions.cs
+?? MtgEngine.Api/Services/AccountManagementService.cs
+?? MtgEngine.Api/Services/CollectionExportService.cs
+?? MtgEngine.Api/Services/CollectionMetadataService.Snapshot.cs
+?? MtgEngine.Api/Services/CollectionMetadataService.cs
+?? MtgEngine.Api/Services/CollectionUndoCleanupWorker.cs
+?? MtgEngine.Api/Services/Community/
+?? MtgEngine.Api/Services/PublicCollectionService.cs
+?? MtgEngine.Domain/Models/AccountSession.cs
+?? MtgEngine.Domain/Models/CollectionUndo.cs
+?? MtgEngine.Rules/Events/GameEvent.Casting.cs
+?? MtgEngine.Rules/Events/GameEvent.Lifecycle.cs
+?? MtgEngine.Rules/Interpreter/EffectInterpreter.Proposals.cs
+?? research/
+?? seam-requests/EINT7.md
+?? tests/MtgEngine.Api.Tests/AccountManagementTests.cs
+?? tests/MtgEngine.Api.Tests/CollectionExportTests.cs
+?? tests/MtgEngine.Api.Tests/CollectionMetadataTests.cs
+?? tests/MtgEngine.Api.Tests/EdhrecAverageDeckParserTests.cs
+?? tests/MtgEngine.Api.Tests/EdhrecCardPageParserTests.cs
+?? tests/MtgEngine.Api.Tests/EdhrecCommanderPageParserTests.cs
+?? tests/MtgEngine.Api.Tests/EdhrecFixtures.cs
+?? tests/MtgEngine.Api.Tests/EdhrecVariantTests.cs
+?? tests/MtgEngine.Api.Tests/ExploreDeckCopyTests.cs
+?? tests/MtgEngine.Api.Tests/ExploreServiceTests.cs
+?? tests/MtgEngine.Api.Tests/Fixtures/
+?? tests/MtgEngine.Api.Tests/PublicCollectionTests.cs
+?? tests/MtgEngine.Rules.Tests/CastingTests.PermissionSpent.cs
+?? tests/MtgEngine.Rules.Tests/CommanderDamageIdentityTests.cs
+?? tests/MtgEngine.Rules.Tests/FaceCastingTests.Buyback.cs
+?? tests/MtgEngine.Rules.Tests/InitiativeTests.cs
+?? tests/MtgEngine.Rules.Tests/InterpreterExileTests.cs
+?? tests/MtgEngine.Rules.Tests/LayerPlayerLimitsTests.cs
+?? tests/MtgEngine.Rules.Tests/QueryTests.Phasing.cs
+?? tests/MtgEngine.Rules.Tests/QueryTests.TurnOrder.cs
+?? tests/MtgEngine.Rules.Tests/SeamDecoratorTests.cs
+?? tests/MtgEngine.Rules.Tests/StateBasedActionTests.Phasing.cs
+?? tests/MtgEngine.Rules.Tests/StateBasedActionTests.PlayerLeft.cs
+?? tests/MtgEngine.Rules.Tests/TurnStructureTests.ExtraTurnOrder.cs
+?? tests/MtgEngine.Rules.Tests/TurnStructureTests.Phasing.cs
+?? tests/MtgEngine.Rules.Tests/ZoneChangeTests.MoveHistory.cs

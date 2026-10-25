@@ -73,12 +73,14 @@ public sealed class CollectionCardEvent
 
     /// <summary>Foil copies moved by this event. Negative when copies left.</summary>
     public int QuantityFoilDelta { get; set; }
+    public int QuantityEtchedDelta { get; set; }
 
     /// <summary>Regular copies on the row after the event.</summary>
     public int QuantityAfter { get; set; }
 
     /// <summary>Foil copies on the row after the event.</summary>
     public int QuantityFoilAfter { get; set; }
+    public int QuantityEtchedAfter { get; set; }
 
     /// <summary>The other collection in a transfer; null for everything else.</summary>
     public Guid? CounterpartCollectionId { get; set; }

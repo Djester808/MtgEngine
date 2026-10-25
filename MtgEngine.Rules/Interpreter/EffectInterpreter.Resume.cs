@@ -27,7 +27,7 @@ public sealed partial class EffectInterpreter : IResumable
     /// The prefix a remembered set rides under in a question's context, CR 608.2h: the objects an
     /// earlier step of the same walk named, which the resumed walk would otherwise have lost.
     /// </summary>
-    private const string RememberedPrefix = "remembered:";
+    internal const string RememberedPrefix = "remembered:";
 
     /// <summary>
     /// Continue whatever the question interrupted. The kinds a rule asked about are finished by
@@ -41,9 +41,16 @@ public sealed partial class EffectInterpreter : IResumable
         ArgumentNullException.ThrowIfNull(resumption);
 
         // CR 616.1: which applicable replacement applies first is the replacement system's loop,
-        // and it is handed the answer unchanged rather than reinterpreted here.
-        if (Is(resumption, ChoiceKinds.ReplacementOrder))
-            return replacements.Resume(state, resumption);
+        // and it is handed the answer unchanged rather than reinterpreted here. That is right for
+        // a question the combat or zone layer raised, which has no effect tree waiting on it.
+        // A question raised inside an effect walk belongs to the node that proposed the event:
+        // the node hands the answer to the layer itself and then goes on with the instructions
+        // after the proposal, which finishing the event here would drop for ever (CR 101.4).
+        // The proposal ordinal is what separates the two — Propose is the only writer of it, and
+        // the path does NOT separate them, because the layer's own question carries the literal
+        // path "replacement" rather than no path at all.
+        if (Is(resumption, ChoiceKinds.ReplacementOrder) && !resumption.Context.Extra.ContainsKey(ProposalKey))
+            return Zones.ZoneMoveSnapshot.Resume(replacements, state, resumption);
 
         // CR 603.3b: the order this player's simultaneous triggers go on the stack.
         if (Is(resumption, ChoiceKinds.TriggerOrder))
@@ -86,23 +93,30 @@ public sealed partial class EffectInterpreter : IResumable
                 path,
                 resumption,
                 path,
-                Answers(resumption),
-                OffStack: true),
+                context.Source is null && effect is Search search
+                    ? Library.StandaloneLibrarySearch.Save(search, Answers(resumption)) : Answers(resumption),
+                OffStack: true, OffStackEffect: context.OffStackEffect),
             effect);
-        return new Outcome(run.State, run.Events);
+        return Result(run);
     }
 
     /// <summary>Which effect of the source asked, CR 614.1a and 603.7.</summary>
     private static Effect? Tree(GameState state, ChoiceContext context)
     {
-        if (context.EffectPath is null || context.Source is not { } source)
+        if (context.EffectPath is null)
             return null;
+        if (context.OffStackEffect is { } saved)
+            return saved;
+        if (context.Source is not { } source)
+            return Library.StandaloneLibrarySearch.Read(context.Extra);
 
         if (state.Objects.TryGetValue(source, out var obj) && context.AbilityIndex is { } index)
         {
             var abilities = obj.Face.AbilityList;
             if (index >= 0 && index < abilities.Count)
-                return abilities[index] is ReplacementAbility replacement ? replacement.With : Body(abilities[index]);
+                return abilities[index] is ReplacementAbility replacement
+                    ? replacement.With is ReplaceWith instead ? instead.Do : replacement.With
+                    : Body(abilities[index]);
         }
 
         // CR 603.7: a delayed trigger's instruction is held in the game state, not on a card.
@@ -158,6 +172,15 @@ public sealed partial class EffectInterpreter : IResumable
     {
         if (context.EffectPath is null)
             return null;
+
+        // The asker said which object it was, so there is nothing to guess. Only a question
+        // raised before this was recorded falls through to the scan below.
+        if (context.Extra.TryGetValue(EffectInterpreter.AskingKey, out var named)
+            && int.TryParse(named, NumberStyles.Integer, CultureInfo.InvariantCulture, out var asking)
+            && state.Objects.ContainsKey(new ObjectId(asking)))
+        {
+            return new ObjectId(asking);
+        }
         foreach (var id in state.In(ZoneKey.Shared(Zone.Stack)))
         {
             if (!state.Objects.TryGetValue(id, out var obj) || obj.Stack is not { } entry)
@@ -192,11 +215,11 @@ public sealed partial class EffectInterpreter : IResumable
 
         var path = resumption.Context.EffectPath;
         var run = Execute(
-            new EffectRun(state, context, [], false, "0", entry.AbilityIndex, path, resumption, path, Answers(resumption)),
+            new EffectRun(state, context, [], false, "0", entry.AbilityIndex, path, resumption, path, Answers(resumption), StackObject: stackObject),
             effect);
         return run.Halted
-            ? new Outcome(run.State, run.Events)
-            : new Outcome(run.State, run.Events.Add(new StackObjectResolved(stackObject)));
+            ? Result(run)
+            : Result(run with { Events = run.Events.Add(new StackObjectResolved(stackObject)) });
     }
 
     /// <summary>

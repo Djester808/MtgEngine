@@ -67,6 +67,8 @@ internal static class CostPayment
         foreach (var cost in Flatten(costs))
         {
             var step = One(state, context, cost);
+            if (step.State.Pending is { } pending && pending.Id != state.Pending?.Id)
+                throw new RefusedException("A replacement choice during cost payment is not supported.", "601.2h");
             events.AddRange(step.Events);
             state = step.State;
         }

@@ -193,7 +193,7 @@ internal sealed class Wave30RecordingZones : IZoneSystem
     public Outcome Move(GameState state, ObjectId what, ZoneKey to, Placement where, bool tapped, PlayerId? controller, int? faceIndex) =>
         Move(state, what, to, where, tapped, controller, faceIndex, faceDown: false);
 
-    public Outcome Move(GameState state, ObjectId what, ZoneKey to, Placement where, bool tapped, PlayerId? controller, int? faceIndex, bool faceDown)
+    public Outcome Move(GameState state, ObjectId what, ZoneKey to, Placement where, bool tapped, PlayerId? controller, int? faceIndex, bool faceDown, IEnumerable<string>? usedReplacements = null)
     {
         ArgumentNullException.ThrowIfNull(state);
         FaceDown = faceDown;
@@ -217,9 +217,9 @@ internal sealed class Wave30RecordingZones : IZoneSystem
 
     public Outcome Create(GameSetup setup, IDefinitionStore store) => throw new NotSupportedException();
 
-    public Outcome Draw(GameState state, PlayerId player, int count) => throw new NotSupportedException();
+    public Outcome Draw(GameState state, PlayerId player, int count, IEnumerable<string>? usedReplacements = null) => throw new NotSupportedException();
 
-    public Outcome Shuffle(GameState state, PlayerId player) => throw new NotSupportedException();
+    public Outcome Shuffle(GameState state, PlayerId player, IEnumerable<string>? usedReplacements = null) => throw new NotSupportedException();
 
     public Outcome CreateToken(GameState state, TokenSpec token, PlayerId controller, bool tapped, bool attacking) => throw new NotSupportedException();
 }

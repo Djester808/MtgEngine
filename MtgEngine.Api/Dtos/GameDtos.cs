@@ -33,6 +33,13 @@ namespace MtgEngine.Api.Dtos;
 [JsonDerivedType(typeof(ManualTapDto), "manualTap")]
 [JsonDerivedType(typeof(ManualCountersDto), "manualCounters")]
 [JsonDerivedType(typeof(ManualLifeDto), "manualLife")]
+[JsonDerivedType(typeof(ManualLibraryDrawDto), "manualLibraryDraw")]
+[JsonDerivedType(typeof(ManualLibraryShuffleDto), "manualLibraryShuffle")]
+[JsonDerivedType(typeof(ManualLibraryLookDto), "manualLibraryLook")]
+[JsonDerivedType(typeof(ManualLibraryStopLookingDto), "manualLibraryStopLooking")]
+[JsonDerivedType(typeof(ManualLibraryRepositionDto), "manualLibraryReposition")]
+[JsonDerivedType(typeof(ManualLibrarySearchDto), "manualLibrarySearch")]
+[JsonDerivedType(typeof(ManualLibraryArrangeDto), "manualLibraryArrange")]
 public abstract record GameCommandDto
 {
     /// <summary>Builds the engine command for the seat the caller actually holds.</summary>
@@ -84,6 +91,7 @@ public sealed record CastSpellDto(
         CostChoices is null ? null : [.. CostChoices]);
 }
 
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record ActivateAbilityDto(
     [Range(1, int.MaxValue)] int Source,
     [Range(0, 64)] int AbilityIndex,
@@ -93,6 +101,8 @@ public sealed record ActivateAbilityDto(
     [Range(0, 999)] int? X,
     [MaxLength(16)] IReadOnlyList<string>? CostChoices) : GameCommandDto
 {
+    [MaxLength(128)] public IReadOnlyList<int>? CostObjects { get; init; }
+
     public override ObjectId? Subject => new(Source);
 
     public override Command ToCommand(PlayerId player) => new ActivateAbility(
@@ -103,7 +113,8 @@ public sealed record ActivateAbilityDto(
         TargetPlayers is null ? null : [.. TargetPlayers.Select(p => new PlayerId(p))],
         Modes is null ? null : [.. Modes],
         X,
-        CostChoices is null ? null : [.. CostChoices]);
+        CostChoices is null ? null : [.. CostChoices],
+        CostObjects is null ? null : [.. CostObjects.Select(id => new ObjectId(id))]);
 }
 
 /// <summary>One attacker and what it is attacking: a player, or a permanent they control, CR 508.1.</summary>
@@ -174,7 +185,7 @@ public sealed record ManualTapDto([Range(1, int.MaxValue)] int Object, bool Tapp
 
 public sealed record ManualCountersDto(
     [Range(1, int.MaxValue)] int Object,
-    [Required][StringLength(40)] string Kind,
+    [property: JsonPropertyName("counterKind")][Required][StringLength(40)] string Kind,
     [Range(-999, 999)] int Delta) : GameCommandDto
 {
     public override ObjectId? Subject => new(Object);
@@ -189,6 +200,53 @@ public sealed record ManualLifeDto([Range(0, 15)] int Target, [Range(-999, 999)]
     public override bool IsManual => true;
 
     public override Command ToCommand(PlayerId player) => new ManualLife(player, new PlayerId(Target), Delta);
+}
+
+public sealed record ManualLibraryDrawDto(Guid RequestId) : GameCommandDto
+{
+    public override bool IsManual => true;
+    public override Command ToCommand(PlayerId player) => new ManualLibraryDraw(player, RequestId);
+}
+
+public sealed record ManualLibraryShuffleDto(Guid RequestId) : GameCommandDto
+{
+    public override bool IsManual => true;
+    public override Command ToCommand(PlayerId player) => new ManualLibraryShuffle(player, RequestId);
+}
+
+public sealed record ManualLibraryLookDto(Guid RequestId) : GameCommandDto
+{
+    public override bool IsManual => true;
+    public override Command ToCommand(PlayerId player) => new ManualLibraryLook(player, RequestId);
+}
+
+public sealed record ManualLibraryStopLookingDto(Guid RequestId) : GameCommandDto
+{
+    public override bool IsManual => true;
+    public override Command ToCommand(PlayerId player) => new ManualLibraryStopLooking(player, RequestId);
+}
+
+public sealed record ManualLibraryArrangeDto(Guid RequestId, [Required] IReadOnlyList<int>? Order) : GameCommandDto
+{
+    public override bool IsManual => true;
+    public override Command ToCommand(PlayerId player) =>
+        new ManualLibraryArrange(player, RequestId, Order is null ? null : [.. Order.Select(id => new ObjectId(id))]);
+}
+
+public sealed record ManualLibrarySearchDto(Guid RequestId, [Range(0, int.MaxValue)] int Count,
+    MtgEngine.Cards.Zone Destination, MtgEngine.Cards.ObjectFilter? Filter = null,
+    bool Reveal = false, bool ShuffleAfter = true, bool Tapped = false,
+    MtgEngine.Cards.Placement Where = MtgEngine.Cards.Placement.Default) : GameCommandDto
+{
+    public override bool IsManual => true;
+    public override Command ToCommand(PlayerId player) =>
+        new ManualLibrarySearch(player, RequestId, Count, Destination, Filter, Reveal, ShuffleAfter, Tapped, Where);
+}
+
+public sealed record ManualLibraryRepositionDto(Guid RequestId, int Card, int Position) : GameCommandDto
+{
+    public override bool IsManual => true;
+    public override Command ToCommand(PlayerId player) => new ManualLibraryReposition(player, RequestId, new ObjectId(Card), Position);
 }
 
 /// <summary>A player saying a card did not play as printed, from a position in the log.</summary>

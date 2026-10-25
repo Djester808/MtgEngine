@@ -80,6 +80,9 @@ public sealed partial class EffectInterpreter
         // effect is created against the player whose library it is; every player sees the card
         // (CR 401.5 with 401.6), which is the view's half and not this one's.
         PlayWithTopCardRevealed revealed => Players(run, revealed.Who),
+        MayLookAtTopCard look => Players(run, look.Who),
+        CantSearchLibraries cant => Players(run, cant.Who),
+        CantDrawMoreThan cant => Players(run, cant.Who),
 
         // CR 615.12: damage that can't be prevented names no object and no player — it is about
         // damage however and to whomever it is dealt — so it is created against every player in

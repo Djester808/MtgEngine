@@ -5,6 +5,8 @@ AbilityActivated
 ActiveEffectChanged
 AttackersDeclared
 BlockersDeclared
+CardsLookedAt
+CardsRevealed
 ChoiceAnswered
 ChoiceRequested
 CombatEnded
@@ -19,8 +21,12 @@ ExtraTurnGranted
 ExtraTurnTaken
 GameEnded
 GameStarted
+InitiativeChanged
 LandPlayed
 LibrarySearched
+LibraryInspectionChanged
+LibraryCardReidentified
+LibraryRevealTrackingChanged
 LifeChanged
 ManaChanged
 ManaPoolEmptied
@@ -34,6 +40,8 @@ ObjectDrawn
 ObjectLeftBy
 ObjectMoved
 ObjectTurnedOver
+OpeningHandsChanged
+PaymentRecoveryApplied
 PlayerCountersChanged
 PlayerFlagCleared
 PlayerLost
@@ -49,3 +57,4 @@ TriggerFired
 TurnBegan
 ZoneReordered
 ValueChosen
+CardMilled

@@ -1,0 +1,35 @@
+{
+  "evidence_kind": "local-pe-metadata-fallback",
+  "artifact": {
+    "name": "Card.dll",
+    "bytes": 226174976,
+    "sha256": "de596973043a245f3213383b60c5eca88c818812fcf4ab017587c9308c35c596",
+    "assembly_name": "Card",
+    "assembly_version": "3.4.159.4708",
+    "mvid": "9ae9bfd2-237a-4e02-8e1a-631184f7185a"
+  },
+  "type_count": 229,
+  "method_count": 2570,
+  "managed_resource_bytes": 225709232,
+  "managed_resource_percent": 99.7941,
+  "resources": [
+    {
+      "name": "Card.g.resources",
+      "offset": 0,
+      "attributes": "Public",
+      "embedded": true
+    },
+    {
+      "name": "Shiny.Card.Resources.resources",
+      "offset": 225707880,
+      "attributes": "Public",
+      "embedded": true
+    }
+  ],
+  "limitations": [
+    "Read-only PEReader metadata; no target assembly load, target execution, or resource deserialization.",
+    "Resource directory size is aggregate PE metadata, not a per-entry byte measurement.",
+    "Method names and RVAs are inventory facts, not behavior proof.",
+    "ILSpy reconstruction was inspected separately; this record is not REA Evidence."
+  ]
+}

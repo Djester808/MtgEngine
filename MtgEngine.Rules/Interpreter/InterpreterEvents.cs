@@ -45,9 +45,16 @@ public sealed record DelayedTriggerCreated(DelayedTriggerState Trigger) : GameEv
 [RuleRef("500.7")]
 public sealed record ExtraTurnGranted(PlayerId Player) : GameEvent
 {
+    /// <summary>
+    /// At the FRONT. CR 500.7: "If a player would begin an extra turn... the most recently
+    /// created turn will be taken first." TurnState.ExtraTurns is documented as "most recent
+    /// first" and TurnSystem.BeginNextTurn takes ExtraTurns[0], so appending made the queue
+    /// FIFO where both the contract and the rule are LIFO: two extra turns created in one
+    /// window were then taken in the order they were created rather than the reverse.
+    /// </summary>
     public override GameState Apply(GameState state)
     {
         ArgumentNullException.ThrowIfNull(state);
-        return state with { Turn = state.Turn with { ExtraTurns = state.Turn.ExtraTurns.Add(Player) } };
+        return state with { Turn = state.Turn with { ExtraTurns = state.Turn.ExtraTurns.Insert(0, Player) } };
     }
 }
